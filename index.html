@@ -317,126 +317,8 @@ a);requestAnimationFrame(function(){g(document.body)})})}var l=["material-icons"
             </div></div>
 </div>
 </section>
-<!-- 3. Picking Simulator -->
-<section class="py-24 bg-swiss-offwhite border-b-2 border-swiss-black" id="simulation">
-<div class="container mx-auto px-6">
-<div class="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
-<div>
-<h2 class="text-5xl font-display font-bold mb-4">Picking Simulator</h2>
-<p class="text-gray-600 max-w-md">
-                        Warehouse logic simulation. Visualize the travel distance reduction between random SKU placement and frequency-optimized heat mapping.
-                    </p>
-</div>
-<div class="flex gap-4">
-<button class="px-6 py-3 font-display font-bold uppercase tracking-wider text-sm transition-all border-2 bg-swiss-black text-white border-swiss-black hover:bg-swiss-orange hover:border-swiss-orange" id="btn-random" onclick="setSimMode('random')">
-                        Random
-                    </button>
-<button class="px-6 py-3 font-display font-bold uppercase tracking-wider text-sm transition-all border-2 bg-swiss-orange text-white border-swiss-orange" id="btn-optimized" onclick="setSimMode('optimized')">
-                        Optimized
-                    </button>
-</div>
-</div>
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-<div class="lg:col-span-2">
-<div class="w-full h-[500px] bg-white border-2 border-swiss-black relative overflow-hidden brutalist-shadow">
-<!-- Stats Overlay -->
-<div class="absolute top-4 left-4 z-10 bg-white border-2 border-swiss-black p-4 text-xs font-mono space-y-2 shadow-[4px_4px_0px_#1a1a1a]">
-<div class="flex justify-between w-56">
-<span>STRATEGY:</span>
-<span class="font-bold text-swiss-orange uppercase" id="simStrategyDisplay">optimized</span>
-</div>
-<div class="flex justify-between w-56">
-<span>TRAVEL_DIST:</span>
-<span class="font-bold" id="stat-distance">295 px</span>
-</div>
-</div>
-<!-- Legend -->
-<div class="absolute bottom-4 right-4 z-10 bg-white border-2 border-swiss-black p-3 text-xs font-mono flex flex-col gap-2">
-<div class="flex items-center gap-2"><span class="w-3 h-3 bg-swiss-orange"></span> High Freq</div>
-<div class="flex items-center gap-2"><span class="w-3 h-3 bg-swiss-slate"></span> Med Freq</div>
-<div class="flex items-center gap-2"><span class="w-3 h-3 bg-gray-300"></span> Low Freq</div>
 
-<div class="flex items-center gap-2"><span class="w-3 h-3 bg-swiss-orange rounded-full"></span> Picker</div>
-</div>
-<canvas class="w-full h-full" id="warehouseCanvas" width="811" height="500"></canvas>
-</div>
-</div>
-<!-- Control/Info Panel -->
-<div class="flex flex-col gap-6">
-<div class="bg-white border-2 border-swiss-black p-8 h-full">
-<div class="mb-6">
-<span class="material-symbols-outlined text-4xl mb-4 text-swiss-orange">science</span>
-<h3 class="font-display font-bold text-2xl mb-2">Logic Engine</h3>
-<p class="text-gray-600 font-mono text-sm leading-relaxed">
-                                The simulator calculates pixel-perfect travel paths. Optimized mode applies a "Heat Map" algorithm, placing high-velocity items nearest to the shipping dock (bottom center).
-                            </p>
-</div>
-<div class="border-t-2 border-swiss-black pt-6">
-<div class="text-sm font-bold uppercase text-gray-400 mb-1">Efficiency Gain</div>
-<div class="text-5xl font-display font-bold text-gray-400" id="stat-efficiency">--%</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</section>
-<!-- 4. Intelligent Reporting Ecosystems -->
-<section class="py-24 bg-swiss-black text-white relative overflow-hidden">
-<!-- Decorative Grid -->
-<div class="absolute inset-0 z-0 opacity-10" style="background-image: linear-gradient(#333 1px, transparent 1px), linear-gradient(90deg, #333 1px, transparent 1px); background-size: 20px 20px;"></div>
-<div class="container mx-auto px-6 relative z-10">
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-<div>
-<h2 class="text-5xl font-display font-bold mb-6 leading-tight">
-                        Intelligent<br>
-<span class="text-swiss-orange">Reporting Ecosystems.</span>
-</h2>
-<p class="text-gray-400 text-lg mb-8 max-w-md font-sans">
-                        Stop manually updating spreadsheets. We build self-driving reporting suites that bridge the gap between static data and dynamic decisions.
-                    </p>
-                    <ul class="space-y-6">
-                        <li class="flex items-start gap-4">
-                            <div class="w-16 h-16 flex-shrink-0 border-2 border-white flex items-center justify-center text-swiss-orange">
-                                <span class="material-symbols-outlined !text-[32px]">schedule_send</span>
-                            </div>
-                            <div>
-                                <h4 class="text-xl font-bold font-display">Scheduled Distribution</h4>
-                                <p class="text-sm text-gray-400 font-mono mt-1">Reports generated and emailed automatically at 8:00 AM, everytime without failure.</p>
-                            </div>
-                        </li>
-                        <li class="flex items-start gap-4">
-                            <div class="w-16 h-16 flex-shrink-0 border-2 border-white flex items-center justify-center text-swiss-orange">
-                                <span class="material-symbols-outlined !text-[32px]">hub</span>
-                            </div>
-                            <div>
-                                <h4 class="text-xl font-bold font-display">Power Automate</h4>
-                                <p class="text-sm text-gray-400 font-mono mt-1">Trigger-based workflows. Inventory low? Procurement notified instantly.</p>
-                            </div>
-                        </li>
-                        <li class="flex items-start gap-4">
-                            <div class="w-16 h-16 flex-shrink-0 border-2 border-white flex items-center justify-center text-swiss-orange">
-                                <span class="material-symbols-outlined !text-[32px]">analytics</span>
-                            </div>
-                            <div>
-                                <h4 class="text-xl font-bold font-display">Power BI Integration</h4>
-                                <p class="text-sm text-gray-400 font-mono mt-1">Seamless migration from Excel models to interactive dashboards.</p>
-                            </div>
-                        </li>
-                    </ul>
-</div>
-<!-- Graphic Element -->
-<div class="relative">
-<div class="border-2 border-white p-2 relative z-10 bg-swiss-black">
-<img alt="Dashboard Abstract" class="w-full grayscale hover:grayscale-0 transition-all duration-500" src="data:image/svg+xml;base64,IDxzdmcgd2lkdGg9IjgwMCIgaGVpZ2h0PSI2MDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzFhMWExYSIvPjxsaW5lIHgxPSI1MCIgeTE9IjUwMCIgeDI9Ijc1MCIgeTI9IjUwMCIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiLz48bGluZSB4MT0iNTAiIHkxPSI1MDAiIHgyPSI1MCIgeTI9IjUwIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMiIvPjxwb2x5bGluZSBwb2ludHM9IjUwLDQ1MCAyMDAsMzAwIDM1MCw0MDAgNTAwLDIwMCA2NTAsMjUwIDc1MCwxMDAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0ZGNEYwMCIgc3Ryb2tlLXdpZHRoPSI0Ii8+PC9zdmc+">
-</div>
-<div class="absolute -bottom-4 -right-4 w-full h-full border-2 border-swiss-orange -z-0"></div>
-</div>
-</div>
-</div>
-</section>
-
-
-    <!-- 5. NEW BLOCK: Knowledge Transfer / Course Catalog -->
+    <!-- 2. NEW BLOCK: Knowledge Transfer / Course Catalog -->
     <section id="training" class="py-24 bg-white border-b-2 border-swiss-black">
         <div class="container mx-auto px-6">
             <div class="flex flex-col md:flex-row justify-between items-end mb-16 gap-8">
@@ -581,6 +463,126 @@ a);requestAnimationFrame(function(){g(document.body)})})}var l=["material-icons"
             </div>
         </div>
     </section>
+        
+<!-- 3. Picking Simulator -->
+<section class="py-24 bg-swiss-offwhite border-b-2 border-swiss-black" id="simulation">
+<div class="container mx-auto px-6">
+<div class="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
+<div>
+<h2 class="text-5xl font-display font-bold mb-4">Picking Simulator</h2>
+<p class="text-gray-600 max-w-md">
+                        Warehouse logic simulation. Visualize the travel distance reduction between random SKU placement and frequency-optimized heat mapping.
+                    </p>
+</div>
+<div class="flex gap-4">
+<button class="px-6 py-3 font-display font-bold uppercase tracking-wider text-sm transition-all border-2 bg-swiss-black text-white border-swiss-black hover:bg-swiss-orange hover:border-swiss-orange" id="btn-random" onclick="setSimMode('random')">
+                        Random
+                    </button>
+<button class="px-6 py-3 font-display font-bold uppercase tracking-wider text-sm transition-all border-2 bg-swiss-orange text-white border-swiss-orange" id="btn-optimized" onclick="setSimMode('optimized')">
+                        Optimized
+                    </button>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<div class="lg:col-span-2">
+<div class="w-full h-[500px] bg-white border-2 border-swiss-black relative overflow-hidden brutalist-shadow">
+<!-- Stats Overlay -->
+<div class="absolute top-4 left-4 z-10 bg-white border-2 border-swiss-black p-4 text-xs font-mono space-y-2 shadow-[4px_4px_0px_#1a1a1a]">
+<div class="flex justify-between w-56">
+<span>STRATEGY:</span>
+<span class="font-bold text-swiss-orange uppercase" id="simStrategyDisplay">optimized</span>
+</div>
+<div class="flex justify-between w-56">
+<span>TRAVEL_DIST:</span>
+<span class="font-bold" id="stat-distance">295 px</span>
+</div>
+</div>
+<!-- Legend -->
+<div class="absolute bottom-4 right-4 z-10 bg-white border-2 border-swiss-black p-3 text-xs font-mono flex flex-col gap-2">
+<div class="flex items-center gap-2"><span class="w-3 h-3 bg-swiss-orange"></span> High Freq</div>
+<div class="flex items-center gap-2"><span class="w-3 h-3 bg-swiss-slate"></span> Med Freq</div>
+<div class="flex items-center gap-2"><span class="w-3 h-3 bg-gray-300"></span> Low Freq</div>
+
+<div class="flex items-center gap-2"><span class="w-3 h-3 bg-swiss-orange rounded-full"></span> Picker</div>
+</div>
+<canvas class="w-full h-full" id="warehouseCanvas" width="811" height="500"></canvas>
+</div>
+</div>
+<!-- Control/Info Panel -->
+<div class="flex flex-col gap-6">
+<div class="bg-white border-2 border-swiss-black p-8 h-full">
+<div class="mb-6">
+<span class="material-symbols-outlined text-4xl mb-4 text-swiss-orange">science</span>
+<h3 class="font-display font-bold text-2xl mb-2">Logic Engine</h3>
+<p class="text-gray-600 font-mono text-sm leading-relaxed">
+                                The simulator calculates pixel-perfect travel paths. Optimized mode applies a "Heat Map" algorithm, placing high-velocity items nearest to the shipping dock (bottom center).
+                            </p>
+</div>
+<div class="border-t-2 border-swiss-black pt-6">
+<div class="text-sm font-bold uppercase text-gray-400 mb-1">Efficiency Gain</div>
+<div class="text-5xl font-display font-bold text-gray-400" id="stat-efficiency">--%</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- 4. Intelligent Reporting Ecosystems
+<section class="py-24 bg-swiss-black text-white relative overflow-hidden">
+<!-- Decorative Grid -->
+<div class="absolute inset-0 z-0 opacity-10" style="background-image: linear-gradient(#333 1px, transparent 1px), linear-gradient(90deg, #333 1px, transparent 1px); background-size: 20px 20px;"></div>
+<div class="container mx-auto px-6 relative z-10">
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+<div>
+<h2 class="text-5xl font-display font-bold mb-6 leading-tight">
+                        Intelligent<br>
+<span class="text-swiss-orange">Reporting Ecosystems.</span>
+</h2>
+<p class="text-gray-400 text-lg mb-8 max-w-md font-sans">
+                        Stop manually updating spreadsheets. We build self-driving reporting suites that bridge the gap between static data and dynamic decisions.
+                    </p>
+                    <ul class="space-y-6">
+                        <li class="flex items-start gap-4">
+                            <div class="w-16 h-16 flex-shrink-0 border-2 border-white flex items-center justify-center text-swiss-orange">
+                                <span class="material-symbols-outlined !text-[32px]">schedule_send</span>
+                            </div>
+                            <div>
+                                <h4 class="text-xl font-bold font-display">Scheduled Distribution</h4>
+                                <p class="text-sm text-gray-400 font-mono mt-1">Reports generated and emailed automatically at 8:00 AM, everytime without failure.</p>
+                            </div><!--  -->
+                        </li>
+                        <li class="flex items-start gap-4">
+                            <div class="w-16 h-16 flex-shrink-0 border-2 border-white flex items-center justify-center text-swiss-orange">
+                                <span class="material-symbols-outlined !text-[32px]">hub</span>
+                            </div>
+                            <div>
+                                <h4 class="text-xl font-bold font-display">Power Automate</h4>
+                                <p class="text-sm text-gray-400 font-mono mt-1">Trigger-based workflows. Inventory low? Procurement notified instantly.</p>
+                            </div>
+                        </li>
+                        <li class="flex items-start gap-4">
+                            <div class="w-16 h-16 flex-shrink-0 border-2 border-white flex items-center justify-center text-swiss-orange">
+                                <span class="material-symbols-outlined !text-[32px]">analytics</span>
+                            </div>
+                            <div>
+                                <h4 class="text-xl font-bold font-display">Power BI Integration</h4>
+                                <p class="text-sm text-gray-400 font-mono mt-1">Seamless migration from Excel models to interactive dashboards.</p>
+                            </div>
+                        </li>
+                    </ul>
+</div> -->
+<!-- Graphic Element -->
+<div class="relative">
+<div class="border-2 border-white p-2 relative z-10 bg-swiss-black">
+<img alt="Dashboard Abstract" class="w-full grayscale hover:grayscale-0 transition-all duration-500" src="data:image/svg+xml;base64,IDxzdmcgd2lkdGg9IjgwMCIgaGVpZ2h0PSI2MDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzFhMWExYSIvPjxsaW5lIHgxPSI1MCIgeTE9IjUwMCIgeDI9Ijc1MCIgeTI9IjUwMCIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiLz48bGluZSB4MT0iNTAiIHkxPSI1MDAiIHgyPSI1MCIgeTI9IjUwIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMiIvPjxwb2x5bGluZSBwb2ludHM9IjUwLDQ1MCAyMDAsMzAwIDM1MCw0MDAgNTAwLDIwMCA2NTAsMjUwIDc1MCwxMDAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0ZGNEYwMCIgc3Ryb2tlLXdpZHRoPSI0Ii8+PC9zdmc+">
+</div>
+<div class="absolute -bottom-4 -right-4 w-full h-full border-2 border-swiss-orange -z-0"></div>
+</div>
+</div>
+</div>
+</section>
+
+
         
 <!-- 5. Automation ROI Calculator -->
 <section class="py-12 bg-white border-b-2 border-swiss-black relative" id="roi">
@@ -756,6 +758,8 @@ a);requestAnimationFrame(function(){g(document.body)})})}var l=["material-icons"
     </div>
 </div>
 <script>
+
+        
 // --- 1. Core Competencies Data ---
 const services = [
         { id: 's1', icon: 'mark_email_read', title: "Scheduled Email Reports", desc: "Automated PDF/Excel generation & SMTP distribution.", selected: true },
@@ -797,6 +801,7 @@ const services = [
     }
     renderServices();
 
+        
     // --- 2. ROI Calculator ---
     function calculateROI() {
         const hours = parseInt(document.getElementById('hoursInput').value);
