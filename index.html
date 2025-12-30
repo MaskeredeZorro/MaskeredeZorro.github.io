@@ -130,6 +130,22 @@ a);requestAnimationFrame(function(){g(document.body)})})}var l=["material-icons"
             transform: translate(-2px, -2px);
             box-shadow: 4px 4px 0px rgba(0,0,0,0.2);
         }
+        /* Floating Frame Effect */
+        .floating-frame {
+            position: relative;
+        }
+        .floating-frame::before {
+            content: '';
+            position: absolute;
+            top: -16px;
+            left: -16px;
+            right: -16px;
+            bottom: -16px;
+            border: 2px solid #FF4F00;
+            z-index: 0;
+            pointer-events: none;
+        }
+        
         /* Custom Range Slider - Swiss Style */
         input[type=range] {
             -webkit-appearance: none;
@@ -482,7 +498,7 @@ a);requestAnimationFrame(function(){g(document.body)})})}var l=["material-icons"
 </div>
 
 </div>
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8 floating-frame">
 <div class="lg:col-span-2">
 <div class="w-full h-[500px] bg-white border-2 border-white relative overflow-hidden brutalist-shadow">
 <!-- Stats Overlay -->
@@ -502,16 +518,16 @@ a);requestAnimationFrame(function(){g(document.body)})})}var l=["material-icons"
 <div class="flex items-center gap-2"><span class="w-3 h-3 bg-swiss-slate"></span> Med Freq</div>
 <div class="flex items-center gap-2"><span class="w-3 h-3 bg-gray-300"></span> Low Freq</div>
 
-<div class="flex items-center gap-2"><span class="w-3 h-3 bg-swiss-orange rounded-full"></span> Picker</div>
+<div class="flex items-center gap-2"><span class="w-3 h-3 bg-swiss-black rounded-full"></span> Picker</div>
 </div>
 <canvas class="w-full h-full" id="warehouseCanvas" width="811" height="500"></canvas>
 </div>
 </div>
 <!-- Control/Info Panel -->
 <div class="flex flex-col gap-6">
-    <div class="bg-white border-b-2 border-r-2 border-swiss-orange p-8 h-full"> 
-        <div class="mb-6">
-            <span class="material-symbols-outlined text-4xl mb-4 text-swiss-orange">science</span>
+<div class="bg-white border-2 border-white p-8 h-full">
+<div class="mb-6">
+<span class="material-symbols-outlined text-4xl mb-4 text-swiss-orange">science</span>
 <h3 class="font-display font-bold text-2xl mb-2">Logic Engine</h3>
 <p class="text-gray-600 font-mono text-sm leading-relaxed">
                                 The simulator calculates pixel-perfect travel paths. Optimized mode applies a "Heat Map" algorithm, placing high-velocity items nearest to the shipping dock (bottom center).
@@ -939,16 +955,16 @@ const canvas = document.getElementById('warehouseCanvas');
         ctx.beginPath();
         ctx.moveTo(picker.x, picker.y);
         ctx.lineTo(targetPos.x, targetPos.y);
-        ctx.strokeStyle = 'rgba(255, 79, 0, 0.15)';
+        ctx.strokeStyle = 'rgba(26, 26, 26, 0.15)'; // Updated to Swiss Black trail
         ctx.setLineDash([4, 4]);
         ctx.stroke();
         ctx.setLineDash([]);
 
         ctx.shadowBlur = 12;
-        ctx.shadowColor = '#FF4F00';
+        ctx.shadowColor = '#1a1a1a'; // Updated to Swiss Black shadow
         ctx.beginPath();
         ctx.arc(picker.x, picker.y, 7, 0, Math.PI*2);
-        ctx.fillStyle = '#FF4F00';
+        ctx.fillStyle = '#1a1a1a'; // Updated to Swiss Black
         ctx.fill();
         ctx.shadowBlur = 0;
     }
@@ -988,16 +1004,22 @@ const canvas = document.getElementById('warehouseCanvas');
                 // Update Display
                 document.getElementById('stat-distance').innerText = efficiencyState.currentAvg.toFixed(0) + " px";
 
-                // Update Efficiency Percentage (vs Baseline)
-                if (efficiencyState.baseline && efficiencyState.baseline > 0) {
-                      const eff = ((1 - (efficiencyState.currentAvg / efficiencyState.baseline)) * 100).toFixed(1);
-                      const sign = eff > 0 ? "+" : "";
-                      const effEl = document.getElementById('stat-efficiency');
-                      effEl.innerText = `${sign}${eff}%`;
-                      // Color coding
-                      if (eff > 0) effEl.className = "text-5xl font-display font-bold text-swiss-orange mb-6"; 
-                      else effEl.className = "text-5xl font-display font-bold text-gray-400 mb-6";
-                }
+                // Update Efficiency Percentage (Fixed Baseline Logic)
+                const BASELINE_RANDOM = 361;
+                const BASELINE_OPTIMIZED = 271.5;
+                
+                let targetBaseline = (simMode === 'optimized') ? BASELINE_RANDOM : BASELINE_OPTIMIZED;
+                
+                // Formula: (1 - (Current / Baseline)) * 100
+                const eff = ((1 - (efficiencyState.currentAvg / targetBaseline)) * 100).toFixed(1);
+                const sign = eff > 0 ? "+" : "";
+                
+                const effEl = document.getElementById('stat-efficiency');
+                effEl.innerText = `${sign}${eff}%`;
+                
+                // Color coding
+                if (eff > 0) effEl.className = "text-5xl font-display font-bold text-swiss-orange mb-6"; 
+                else effEl.className = "text-5xl font-display font-bold text-gray-400 mb-6";
 
                 picker.state = 'idle';
             }
@@ -1013,15 +1035,12 @@ const canvas = document.getElementById('warehouseCanvas');
     window.setSimMode = function(mode) {
         if (mode === simMode) return;
         
-        // Capture the current average as the baseline for the next phase
-        if (efficiencyState.trips > 0) {
-            efficiencyState.baseline = efficiencyState.currentAvg;
-            
-            // Seed the new phase with "Inertia" so the average drifts rather than jumps
-            const inertia = 5; 
-            efficiencyState.trips = inertia;
-            efficiencyState.totalDist = efficiencyState.baseline * inertia;
-        }
+        // RESET STATS on switch
+        efficiencyState.trips = 0;
+        efficiencyState.totalDist = 0;
+        efficiencyState.currentAvg = 0;
+        document.getElementById('stat-distance').innerText = "-- px";
+        document.getElementById('stat-efficiency').innerText = "--%";
 
         simMode = mode;
         document.getElementById('simStrategyDisplay').innerText = mode;
