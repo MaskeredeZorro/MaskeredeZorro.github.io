@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html class="scroll-smooth" lang="en"><head>
-
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22%23FF4F00%22 stroke=%22%231a1a1a%22 stroke-width=%2210%22/></svg>">
 <script class="injected-ffc2e83d85">
 (function(){'use strict';function q(b){var c=0;return function(){return c<b.length?{done:!1,value:b[c++]}:{done:!0}}}function t(b){var c=typeof Symbol!="undefined"&&Symbol.iterator&&b[Symbol.iterator];if(c)return c.call(b);if(typeof b.length=="number")return{next:q(b)};throw Error(String(b)+" is not an iterable or ArrayLike");}var u=typeof Object.defineProperties=="function"?Object.defineProperty:function(b,c,g){if(b==Array.prototype||b==Object.prototype)return b;b[c]=g.value;return b};
 function v(b){b=["object"==typeof globalThis&&globalThis,b,"object"==typeof window&&window,"object"==typeof self&&self,"object"==typeof global&&global];for(var c=0;c<b.length;++c){var g=b[c];if(g&&g.Math==Math)return g}throw Error("Cannot find global object");}var w=v(this);function x(b,c){if(c)a:{var g=w;b=b.split(".");for(var h=0;h<b.length-1;h++){var l=b[h];if(!(l in g))break a;g=g[l]}b=b[b.length-1];h=g[b];c=c(h);c!=h&&c!=null&&u(g,b,{configurable:!0,writable:!0,value:c})}}
@@ -359,8 +359,12 @@ a);requestAnimationFrame(function(){g(document.body)})})}var l=["material-icons"
                         Don't just rent the competences. Own it. Select the courses below to add them to your proposal. Click the name to preview the curriculum.
                     </p>
                 </div>
-                <div>
-                      <span class="material-symbols-outlined text-6xl text-swiss-black">school</span>
+                <div class="flex items-center gap-4 text-right">
+                    <div>
+                        <div class="text-4xl font-display font-bold text-swiss-orange leading-none" id="headerParticipants">2</div>
+                        <div class="text-xs font-mono text-gray-400 uppercase tracking-widest">Employees Standardized</div>
+                    </div>
+                    <div class="w-px h-12 bg-swiss-black opacity-20"></div> <span class="material-symbols-outlined text-6xl text-swiss-black">school</span>
                 </div>
             </div>
 
