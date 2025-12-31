@@ -233,10 +233,6 @@ a);requestAnimationFrame(function(){g(document.body)})})}var l=["material-icons"
 <a class="hover:text-swiss-orange transition-colors" href="#contact">CONTACT</a>
 </div>
 <div class="flex gap-4">
-<button class="hidden lg:flex items-center gap-2 text-xs font-bold font-display uppercase tracking-wider hover:text-swiss-orange transition-colors" onclick="downloadSourceCode()" title="Download Full HTML Source">
-<span class="material-symbols-outlined text-lg">code</span>
-<span>Source</span>
-</button>
 <button class="btn-swiss-dark text-xs" onclick="generateReport()">
                     Export Project Plan
                 </button>
@@ -1319,13 +1315,7 @@ window.openCourseModal = function(title, desc, gumletId) {
         window.print();
     };
 
-    window.downloadSourceCode = function() {
-        const blob = new Blob([`<!DOCTYPE html>\n${document.documentElement.outerHTML}`], { type: 'text/html' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'standardize_systems.html';
-        a.click();
-    };
+
 
 // --- Close Modal on Backdrop Click ---
     const modalBackdrop = document.getElementById('courseModal');
