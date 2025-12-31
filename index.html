@@ -78,7 +78,6 @@ a);requestAnimationFrame(function(){g(document.body)})})}var l=["material-icons"
             linear-gradient(90deg, #e5e5e5 1px, transparent 1px);
             background-size: 40px 40px;
         }
-        /* ADDED: Dark Mode Grid - subtle grey lines on black background */
         .grid-bg-dark {
             background-image: linear-gradient(#262626 1px, transparent 1px),
             linear-gradient(90deg, #262626 1px, transparent 1px);
@@ -130,7 +129,6 @@ a);requestAnimationFrame(function(){g(document.body)})})}var l=["material-icons"
             transform: translate(-2px, -2px);
             box-shadow: 4px 4px 0px rgba(0,0,0,0.2);
         }
-        /* Floating Frame Effect */
         .floating-frame {
             position: relative;
         }
@@ -146,8 +144,6 @@ a);requestAnimationFrame(function(){g(document.body)})})}var l=["material-icons"
             z-index: 0;
             pointer-events: none;
         }
-        
-        /* Custom Range Slider - Swiss Style */
         input[type=range] {
             -webkit-appearance: none;
             background: transparent;
@@ -172,17 +168,29 @@ a);requestAnimationFrame(function(){g(document.body)})})}var l=["material-icons"
             height: 4px;
             background: #1a1a1a;
         }
-        
-        /* Print Styles */
-        @media print {
-            @page { margin: 0; size: auto; }
-            body { background: white; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+@media print {
+            @page { margin: 0; size: A4 portrait; }
+            html, body { 
+                height: 100%; 
+                overflow: hidden !important; /* Forces single page */
+            }
+            body { 
+                background: white; 
+                -webkit-print-color-adjust: exact !important; 
+                print-color-adjust: exact !important; 
+            }
             #app-ui { display: none !important; }
-            #print-report { display: block !important; width: 100%; height: 100%; padding: 40px; }
+            
+            #print-report { 
+                display: flex !important; 
+                flex-direction: column;
+                width: 100%; 
+                height: 100vh; /* Use full height */
+                padding: 20px 40px; /* Reduced top/bottom padding */
+                zoom: 0.85; /* SCALES CONTENT DOWN TO FIT */
+            }
             .no-print { display: none !important; }
         }
-        
-        /* Service Card Selected State */
         .service-card.selected {
             background-color: #1a1a1a;
             color: white;
@@ -196,12 +204,22 @@ a);requestAnimationFrame(function(){g(document.body)})})}var l=["material-icons"
         .service-card.selected p {
             color: #d4d4d4;
         }
+
+/* Checkbox Custom Style */
+        .course-checkbox {
+            transition: all 0.2s ease;
+            background-color: #e5e7eb !important; /* Force darker gray (Gray-200) */
+        }
+        
+        /* Ensure Hover and Checked states turn Orange */
+        .course-checkbox:hover, .course-checkbox.checked {
+            background-color: #FF4F00 !important; 
+            color: white !important;
+        }
     </style>
-<style>*, ::before, ::after{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }::backdrop{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }::backdrop{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }::backdrop{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }/* ! tailwindcss v3.4.17 | MIT License | https://tailwindcss.com */*,::after,::before{box-sizing:border-box;border-width:0;border-style:solid;border-color:#e5e7eb}::after,::before{--tw-content:''}:host,html{line-height:1.5;-webkit-text-size-adjust:100%;-moz-tab-size:4;tab-size:4;font-family:Inter, sans-serif;font-feature-settings:normal;font-variation-settings:normal;-webkit-tap-highlight-color:transparent}body{margin:0;line-height:inherit}hr{height:0;color:inherit;border-top-width:1px}abbr:where([title]){-webkit-text-decoration:underline dotted;text-decoration:underline dotted}h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}a{color:inherit;text-decoration:inherit}b,strong{font-weight:bolder}code,kbd,pre,samp{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;font-feature-settings:normal;font-variation-settings:normal;font-size:1em}small{font-size:80%}sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline}sub{bottom:-.25em}sup{top:-.5em}table{text-indent:0;border-color:inherit;border-collapse:collapse}button,input,optgroup,select,textarea{font-family:inherit;font-feature-settings:inherit;font-variation-settings:inherit;font-size:100%;font-weight:inherit;line-height:inherit;letter-spacing:inherit;color:inherit;margin:0;padding:0}button,select{text-transform:none}button,input:where([type=button]),input:where([type=reset]),input:where([type=submit]){-webkit-appearance:button;background-color:transparent;background-image:none}:-moz-focusring{outline:auto}:-moz-ui-invalid{box-shadow:none}progress{vertical-align:baseline}::-webkit-inner-spin-button,::-webkit-outer-spin-button{height:auto}[type=search]{-webkit-appearance:textfield;outline-offset:-2px}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-file-upload-button{-webkit-appearance:button;font:inherit}summary{display:list-item}blockquote,dd,dl,figure,h1,h2,h3,h4,h5,h6,hr,p,pre{margin:0}fieldset{margin:0;padding:0}legend{padding:0}menu,ol,ul{list-style:none;margin:0;padding:0}dialog{padding:0}textarea{resize:vertical}input::placeholder,textarea::placeholder{opacity:1;color:#9ca3af}[role=button],button{cursor:pointer}:disabled{cursor:default}audio,canvas,embed,iframe,img,object,svg,video{display:block;vertical-align:middle}img,video{max-width:100%;height:auto}[hidden]:where(:not([hidden=until-found])){display:none}.container{width:100%}@media (min-width: 640px){.container{max-width:640px}}@media (min-width: 768px){.container{max-width:768px}}@media (min-width: 1024px){.container{max-width:1024px}}@media (min-width: 1280px){.container{max-width:1280px}}@media (min-width: 1536px){.container{max-width:1536px}}.pointer-events-none{pointer-events:none}.pointer-events-auto{pointer-events:auto}.fixed{position:fixed}.absolute{position:absolute}.relative{position:relative}.inset-0{inset:0px}.inset-y-0{top:0px;bottom:0px}.-bottom-4{bottom:-1rem}.-right-4{right:-1rem}.bottom-4{bottom:1rem}.left-0{left:0px}.left-4{left:1rem}.right-4{right:1rem}.top-4{top:1rem}.-z-0{z-index:0}.z-0{z-index:0}.z-10{z-index:10}.z-20{z-index:20}.z-50{z-index:50}.col-span-2{grid-column:span 2 / span 2}.mx-auto{margin-left:auto;margin-right:auto}.mb-1{margin-bottom:0.25rem}.mb-12{margin-bottom:3rem}.mb-16{margin-bottom:4rem}.mb-2{margin-bottom:0.5rem}.mb-4{margin-bottom:1rem}.mb-6{margin-bottom:1.5rem}.mb-8{margin-bottom:2rem}.mt-1{margin-top:0.25rem}.mt-20{margin-top:5rem}.mt-6{margin-top:1.5rem}.block{display:block}.inline-block{display:inline-block}.flex{display:flex}.grid{display:grid}.hidden{display:none}.h-12{height:3rem}.h-20{height:5rem}.h-3{height:0.75rem}.h-32{height:8rem}.h-4{height:1rem}.h-48{height:12rem}.h-6{height:1.5rem}.h-\[500px\]{height:500px}.h-full{height:100%}.h-px{height:1px}.h-screen{height:100vh}.w-12{width:3rem}.w-3{width:0.75rem}.w-4{width:1rem}.w-56{width:14rem}.w-6{width:1.5rem}.w-full{width:100%}.max-w-2xl{max-width:42rem}.max-w-4xl{max-width:56rem}.max-w-lg{max-width:32rem}.max-w-md{max-width:28rem}.flex-grow{flex-grow:1}.cursor-pointer{cursor:pointer}.grid-cols-1{grid-template-columns:repeat(1, minmax(0, 1fr))}.grid-cols-2{grid-template-columns:repeat(2, minmax(0, 1fr))}.flex-col{flex-direction:column}.items-start{align-items:flex-start}.items-end{align-items:flex-end}.items-center{align-items:center}.justify-center{justify-content:center}.justify-between{justify-content:space-between}.gap-12{gap:3rem}.gap-16{gap:4rem}.gap-2{gap:0.5rem}.gap-4{gap:1rem}.gap-6{gap:1.5rem}.gap-8{gap:2rem}.space-x-8 > :not([hidden]) ~ :not([hidden]){--tw-space-x-reverse:0;margin-right:calc(2rem * var(--tw-space-x-reverse));margin-left:calc(2rem * calc(1 - var(--tw-space-x-reverse)))}.space-y-10 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(2.5rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(2.5rem * var(--tw-space-y-reverse))}.space-y-12 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(3rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(3rem * var(--tw-space-y-reverse))}.space-y-2 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(0.5rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(0.5rem * var(--tw-space-y-reverse))}.space-y-6 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(1.5rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(1.5rem * var(--tw-space-y-reverse))}.space-y-8 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(2rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(2rem * var(--tw-space-y-reverse))}.overflow-hidden{overflow:hidden}.scroll-smooth{scroll-behavior:smooth}.whitespace-nowrap{white-space:nowrap}.rounded-full{border-radius:9999px}.border{border-width:1px}.border-2{border-width:2px}.border-b-2{border-bottom-width:2px}.border-b-4{border-bottom-width:4px}.border-t{border-top-width:1px}.border-t-2{border-top-width:2px}.border-t-4{border-top-width:4px}.border-black{--tw-border-opacity:1;border-color:rgb(0 0 0 / var(--tw-border-opacity, 1))}.bg-swiss-slate { --tw-bg-opacity: 1; background-color: rgb(100 116 139 / var(--tw-bg-opacity, 1));}.text-swiss-slate { --tw-text-opacity: 1; color: rgb(100 116 139 / var(--tw-text-opacity, 1));}.border-swiss-slate { --tw-border-opacity: 1; border-color: rgb(100 116 139 / var(--tw-border-opacity, 1));}.border-gray-200{--tw-border-opacity:1;border-color:rgb(229 231 235 / var(--tw-border-opacity, 1))}.border-gray-300{--tw-border-opacity:1;border-color:rgb(209 213 219 / var(--tw-border-opacity, 1))}.border-swiss-black{--tw-border-opacity:1;border-color:rgb(26 26 26 / var(--tw-border-opacity, 1))}.border-swiss-orange{--tw-border-opacity:1;border-color:rgb(255 79 0 / var(--tw-border-opacity, 1))}.border-white{--tw-border-opacity:1;border-color:rgb(255 255 255 / var(--tw-border-opacity, 1))}.bg-black{--tw-bg-opacity:1;background-color:rgb(0 0 0 / var(--tw-bg-opacity, 1))}.bg-gray-300{--tw-bg-opacity:1;background-color:rgb(209 213 219 / var(--tw-bg-opacity, 1))}.bg-gray-50{--tw-bg-opacity:1;background-color:rgb(249 250 251 / var(--tw-bg-opacity, 1))}.bg-swiss-black{--tw-bg-opacity:1;background-color:rgb(26 26 26 / var(--tw-bg-opacity, 1))}.bg-swiss-offwhite{--tw-bg-opacity:1;background-color:rgb(244 244 244 / var(--tw-bg-opacity, 1))}.bg-swiss-orange{--tw-bg-opacity:1;background-color:rgb(255 79 0 / var(--tw-bg-opacity, 1))}.bg-white{--tw-bg-opacity:1;background-color:rgb(255 255 255 / var(--tw-bg-opacity, 1))}.object-cover{object-fit:cover}.p-2{padding:0.5rem}.p-3{padding:0.75rem}.p-4{padding:1rem}.p-6{padding:1.5rem}.p-8{padding:2rem}.px-2{padding-left:0.5rem;padding-right:0.5rem}.px-3{padding-left:0.75rem;padding-right:0.75rem}.px-4{padding-left:1rem;padding-right:1rem}.px-6{padding-left:1.5rem;padding-right:1.5rem}.py-1{padding-top:0.25rem;padding-bottom:0.25rem}.py-12{padding-top:3rem;padding-bottom:3rem}.py-2{padding-top:0.5rem;padding-bottom:0.5rem}.py-24{padding-top:6rem;padding-bottom:6rem}.py-3{padding-top:0.75rem;padding-bottom:0.75rem}.py-8{padding-top:2rem;padding-bottom:2rem}.pb-8{padding-bottom:2rem}.pl-3{padding-left:0.75rem}.pl-8{padding-left:2rem}.pr-4{padding-right:1rem}.pt-20{padding-top:5rem}.pt-4{padding-top:1rem}.pt-6{padding-top:1.5rem}.text-center{text-align:center}.text-right{text-align:right}.font-display{font-family:Space Grotesk, sans-serif}.font-mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}.font-sans{font-family:Inter, sans-serif}.font-serif{font-family:ui-serif, Georgia, Cambria, "Times New Roman", Times, serif}.text-2xl{font-size:1.5rem;line-height:2rem}.text-4xl{font-size:2.25rem;line-height:2.5rem}.text-5xl{font-size:3rem;line-height:1}.text-6xl{font-size:3.75rem;line-height:1}.text-lg{font-size:1.125rem;line-height:1.75rem}.text-sm{font-size:0.875rem;line-height:1.25rem}.text-xl{font-size:1.25rem;line-height:1.75rem}.text-xs{font-size:0.75rem;line-height:1rem}.font-bold{font-weight:700}.font-medium{font-weight:500}.uppercase{text-transform:uppercase}.leading-\[0\.9\]{line-height:0.9}.leading-relaxed{line-height:1.625}.leading-tight{line-height:1.25}.tracking-tight{letter-spacing:-0.025em}.tracking-tighter{letter-spacing:-0.05em}.tracking-wide{letter-spacing:0.025em}.tracking-wider{letter-spacing:0.05em}.tracking-widest{letter-spacing:0.1em}.text-gray-400{--tw-text-opacity:1;color:rgb(156 163 175 / var(--tw-text-opacity, 1))}.text-gray-500{--tw-text-opacity:1;color:rgb(107 114 128 / var(--tw-text-opacity, 1))}.text-gray-600{--tw-text-opacity:1;color:rgb(75 85 99 / var(--tw-text-opacity, 1))}.text-swiss-black{--tw-text-opacity:1;color:rgb(26 26 26 / var(--tw-text-opacity, 1))}.text-swiss-orange{--tw-text-opacity:1;color:rgb(255 79 0 / var(--tw-text-opacity, 1))}.text-white{--tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1))}.antialiased{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}.opacity-10{opacity:0.1}.opacity-20{opacity:0.2}.opacity-50{opacity:0.5}.shadow-\[4px_4px_0px_\#1a1a1a\]{--tw-shadow:4px 4px 0px #1a1a1a;--tw-shadow-colored:4px 4px 0px var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.grayscale{--tw-grayscale:grayscale(100%);filter:var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow)}.transition-all{transition-property:all;transition-timing-function:cubic-bezier(0.4, 0, 0.2, 1);transition-duration:150ms}.transition-colors{transition-property:color, background-color, border-color, fill, stroke, -webkit-text-decoration-color;transition-property:color, background-color, border-color, text-decoration-color, fill, stroke;transition-property:color, background-color, border-color, text-decoration-color, fill, stroke, -webkit-text-decoration-color;transition-timing-function:cubic-bezier(0.4, 0, 0.2, 1);transition-duration:150ms}.duration-500{transition-duration:500ms}.duration-200{transition-duration:200ms}.selection\:bg-swiss-orange *::selection{--tw-bg-opacity:1;background-color:rgb(255 79 0 / var(--tw-bg-opacity, 1))}.selection\:text-white *::selection{--tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1))}.selection\:bg-swiss-orange::selection{--tw-bg-opacity:1;background-color:rgb(255 79 0 / var(--tw-bg-opacity, 1))}.selection\:text-white::selection{--tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1))}.hover\:bg-swiss-orange:hover{--tw-bg-opacity:1;background-color:rgb(255 79 0 / var(--tw-bg-opacity, 1))}.hover\:text-swiss-orange:hover{--tw-text-opacity:1;color:rgb(255 79 0 / var(--tw-text-opacity, 1))}.hover\:text-white:hover{--tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1))}.hover\:grayscale-0:hover{--tw-grayscale:grayscale(0);filter:var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow)}.focus\:border-swiss-orange:focus{--tw-border-opacity:1;border-color:rgb(255 79 0 / var(--tw-border-opacity, 1))}.focus\:outline-none:focus{outline:2px solid transparent;outline-offset:2px}.group:hover .group-hover\:bg-white{--tw-bg-opacity:1;background-color:rgb(255 255 255 / var(--tw-bg-opacity, 1))}.group:hover .group-hover\:text-swiss-black{--tw-text-opacity:1;color:rgb(26 26 26 / var(--tw-text-opacity, 1))}.group:hover .group-hover\:text-white{--tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1))}.group:hover .group-hover\:text-white\/90{color:rgb(255 255 255 / 0.9)}@media (min-width: 768px){.md\:flex{display:flex}.md\:grid-cols-2{grid-template-columns:repeat(2, minmax(0, 1fr))}.md\:flex-row{flex-direction:row}.md\:p-12{padding:3rem}.md\:text-7xl{font-size:4.5rem;line-height:1}.md\:text-8xl{font-size:6rem;line-height:1}}@media (min-width: 1024px){.lg\:col-span-2{grid-column:span 2 / span 2}.lg\:flex{display:flex}.lg\:grid-cols-2{grid-template-columns:repeat(2, minmax(0, 1fr))}.lg\:grid-cols-3{grid-template-columns:repeat(3, minmax(0, 1fr))}.lg\:grid-cols-4{grid-template-columns:repeat(4, minmax(0, 1fr))}}</style></head>
+<style>*, ::before, ::after{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }::backdrop{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }::backdrop{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }::backdrop{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }/* ! tailwindcss v3.4.17 | MIT License | https://tailwindcss.com */*,::after,::before{box-sizing:border-box;border-width:0;border-style:solid;border-color:#e5e7eb}::after,::before{--tw-content:''}:host,html{line-height:1.5;-webkit-text-size-adjust:100%;-moz-tab-size:4;tab-size:4;font-family:Inter, sans-serif;font-feature-settings:normal;font-variation-settings:normal;-webkit-tap-highlight-color:transparent}body{margin:0;line-height:inherit}hr{height:0;color:inherit;border-top-width:1px}abbr:where([title]){-webkit-text-decoration:underline dotted;text-decoration:underline dotted}h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}a{color:inherit;text-decoration:inherit}b,strong{font-weight:bolder}code,kbd,pre,samp{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;font-feature-settings:normal;font-variation-settings:normal;font-size:1em}small{font-size:80%}sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline}sub{bottom:-.25em}sup{top:-.5em}table{text-indent:0;border-color:inherit;border-collapse:collapse}button,input,optgroup,select,textarea{font-family:inherit;font-feature-settings:inherit;font-variation-settings:inherit;font-size:100%;font-weight:inherit;line-height:inherit;letter-spacing:inherit;color:inherit;margin:0;padding:0}button,select{text-transform:none}button,input:where([type=button]),input:where([type=reset]),input:where([type=submit]){-webkit-appearance:button;background-color:transparent;background-image:none}:-moz-focusring{outline:auto}:-moz-ui-invalid{box-shadow:none}progress{vertical-align:baseline}::-webkit-inner-spin-button,::-webkit-outer-spin-button{height:auto}[type=search]{-webkit-appearance:textfield;outline-offset:-2px}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-file-upload-button{-webkit-appearance:button;font:inherit}summary{display:list-item}blockquote,dd,dl,figure,h1,h2,h3,h4,h5,h6,hr,p,pre{margin:0}fieldset{margin:0;padding:0}legend{padding:0}menu,ol,ul{list-style:none;margin:0;padding:0}dialog{padding:0}textarea{resize:vertical}input::placeholder,textarea::placeholder{opacity:1;color:#9ca3af}[role=button],button{cursor:pointer}:disabled{cursor:default}audio,canvas,embed,iframe,img,object,svg,video{display:block;vertical-align:middle}img,video{max-width:100%;height:auto}[hidden]:where(:not([hidden=until-found])){display:none}.container{width:100%}@media (min-width: 640px){.container{max-width:640px}}@media (min-width: 768px){.container{max-width:768px}}@media (min-width: 1024px){.container{max-width:1024px}}@media (min-width: 1280px){.container{max-width:1280px}}@media (min-width: 1536px){.container{max-width:1536px}}.pointer-events-none{pointer-events:none}.pointer-events-auto{pointer-events:auto}.fixed{position:fixed}.absolute{position:absolute}.relative{position:relative}.inset-0{inset:0px}.inset-y-0{top:0px;bottom:0px}.-bottom-4{bottom:-1rem}.-right-4{right:-1rem}.bottom-4{bottom:1rem}.left-0{left:0px}.left-4{left:1rem}.right-4{right:1rem}.top-4{top:1rem}.-z-0{z-index:0}.z-0{z-index:0}.z-10{z-index:10}.z-20{z-index:20}.z-50{z-index:50}.col-span-2{grid-column:span 2 / span 2}.mx-auto{margin-left:auto;margin-right:auto}.mb-1{margin-bottom:0.25rem}.mb-12{margin-bottom:3rem}.mb-16{margin-bottom:4rem}.mb-2{margin-bottom:0.5rem}.mb-4{margin-bottom:1rem}.mb-6{margin-bottom:1.5rem}.mb-8{margin-bottom:2rem}.mt-1{margin-top:0.25rem}.mt-20{margin-top:5rem}.mt-6{margin-top:1.5rem}.block{display:block}.inline-block{display:inline-block}.flex{display:flex}.grid{display:grid}.hidden{display:none}.h-12{height:3rem}.h-20{height:5rem}.h-3{height:0.75rem}.h-32{height:8rem}.h-4{height:1rem}.h-48{height:12rem}.h-6{height:1.5rem}.h-\[500px\]{height:500px}.h-full{height:100%}.h-px{height:1px}.h-screen{height:100vh}.w-12{width:3rem}.w-3{width:0.75rem}.w-4{width:1rem}.w-56{width:14rem}.w-6{width:1.5rem}.w-full{width:100%}.max-w-2xl{max-width:42rem}.max-w-4xl{max-width:56rem}.max-w-lg{max-width:32rem}.max-w-md{max-width:28rem}.flex-grow{flex-grow:1}.cursor-pointer{cursor:pointer}.grid-cols-1{grid-template-columns:repeat(1, minmax(0, 1fr))}.grid-cols-2{grid-template-columns:repeat(2, minmax(0, 1fr))}.grid-cols-3{grid-template-columns:repeat(3, minmax(0, 1fr))}.flex-col{flex-direction:column}.items-start{align-items:flex-start}.items-end{align-items:flex-end}.items-center{align-items:center}.justify-center{justify-content:center}.justify-between{justify-content:space-between}.gap-12{gap:3rem}.gap-16{gap:4rem}.gap-2{gap:0.5rem}.gap-4{gap:1rem}.gap-6{gap:1.5rem}.gap-8{gap:2rem}.space-x-8 > :not([hidden]) ~ :not([hidden]){--tw-space-x-reverse:0;margin-right:calc(2rem * var(--tw-space-x-reverse));margin-left:calc(2rem * calc(1 - var(--tw-space-x-reverse)))}.space-y-10 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(2.5rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(2.5rem * var(--tw-space-y-reverse))}.space-y-12 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(3rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(3rem * var(--tw-space-y-reverse))}.space-y-2 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(0.5rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(0.5rem * var(--tw-space-y-reverse))}.space-y-4 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(1rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(1rem * var(--tw-space-y-reverse))}.space-y-6 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(1.5rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(1.5rem * var(--tw-space-y-reverse))}.space-y-8 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(2rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(2rem * var(--tw-space-y-reverse))}.overflow-hidden{overflow:hidden}.scroll-smooth{scroll-behavior:smooth}.whitespace-nowrap{white-space:nowrap}.rounded-full{border-radius:9999px}.border{border-width:1px}.border-2{border-width:2px}.border-b-2{border-bottom-width:2px}.border-b-4{border-bottom-width:4px}.border-r-2{border-right-width:2px}.border-t{border-top-width:1px}.border-t-2{border-top-width:2px}.border-t-4{border-top-width:4px}.border-black{--tw-border-opacity:1;border-color:rgb(0 0 0 / var(--tw-border-opacity, 1))}.bg-swiss-slate { --tw-bg-opacity: 1; background-color: rgb(100 116 139 / var(--tw-bg-opacity, 1));}.text-swiss-slate { --tw-text-opacity: 1; color: rgb(100 116 139 / var(--tw-text-opacity, 1));}.border-swiss-slate { --tw-border-opacity: 1; border-color: rgb(100 116 139 / var(--tw-border-opacity, 1));}.border-gray-200{--tw-border-opacity:1;border-color:rgb(229 231 235 / var(--tw-border-opacity, 1))}.border-gray-300{--tw-border-opacity:1;border-color:rgb(209 213 219 / var(--tw-border-opacity, 1))}.border-swiss-black{--tw-border-opacity:1;border-color:rgb(26 26 26 / var(--tw-border-opacity, 1))}.border-swiss-orange{--tw-border-opacity:1;border-color:rgb(255 79 0 / var(--tw-border-opacity, 1))}.border-white{--tw-border-opacity:1;border-color:rgb(255 255 255 / var(--tw-border-opacity, 1))}.bg-black{--tw-bg-opacity:1;background-color:rgb(0 0 0 / var(--tw-bg-opacity, 1))}.bg-black\/50{background-color:rgb(0 0 0 / 0.5)}.bg-gray-300{--tw-bg-opacity:1;background-color:rgb(209 213 219 / var(--tw-bg-opacity, 1))}.bg-gray-50{--tw-bg-opacity:1;background-color:rgb(249 250 251 / var(--tw-bg-opacity, 1))}.bg-swiss-black{--tw-bg-opacity:1;background-color:rgb(26 26 26 / var(--tw-bg-opacity, 1))}.bg-swiss-offwhite{--tw-bg-opacity:1;background-color:rgb(244 244 244 / var(--tw-bg-opacity, 1))}.bg-swiss-orange{--tw-bg-opacity:1;background-color:rgb(255 79 0 / var(--tw-bg-opacity, 1))}.bg-white{--tw-bg-opacity:1;background-color:rgb(255 255 255 / var(--tw-bg-opacity, 1))}.object-cover{object-fit:cover}.p-2{padding:0.5rem}.p-3{padding:0.75rem}.p-4{padding:1rem}.p-6{padding:1.5rem}.p-8{padding:2rem}.px-2{padding-left:0.5rem;padding-right:0.5rem}.px-3{padding-left:0.75rem;padding-right:0.75rem}.px-4{padding-left:1rem;padding-right:1rem}.px-6{padding-left:1.5rem;padding-right:1.5rem}.py-1{padding-top:0.25rem;padding-bottom:0.25rem}.py-12{padding-top:3rem;padding-bottom:3rem}.py-2{padding-top:0.5rem;padding-bottom:0.5rem}.py-24{padding-top:6rem;padding-bottom:6rem}.py-3{padding-top:0.75rem;padding-bottom:0.75rem}.py-8{padding-top:2rem;padding-bottom:2rem}.pb-8{padding-bottom:2rem}.pl-3{padding-left:0.75rem}.pl-8{padding-left:2rem}.pr-4{padding-right:1rem}.pt-20{padding-top:5rem}.pt-4{padding-top:1rem}.pt-6{padding-top:1.5rem}.text-center{text-align:center}.text-right{text-align:right}.font-display{font-family:Space Grotesk, sans-serif}.font-mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}.font-sans{font-family:Inter, sans-serif}.font-serif{font-family:ui-serif, Georgia, Cambria, "Times New Roman", Times, serif}.text-2xl{font-size:1.5rem;line-height:2rem}.text-3xl{font-size:1.875rem;line-height:2.25rem}.text-4xl{font-size:2.25rem;line-height:2.5rem}.text-5xl{font-size:3rem;line-height:1}.text-6xl{font-size:3.75rem;line-height:1}.text-lg{font-size:1.125rem;line-height:1.75rem}.text-sm{font-size:0.875rem;line-height:1.25rem}.text-xl{font-size:1.25rem;line-height:1.75rem}.text-xs{font-size:0.75rem;line-height:1rem}.font-bold{font-weight:700}.font-medium{font-weight:500}.uppercase{text-transform:uppercase}.leading-\[0\.9\]{line-height:0.9}.leading-relaxed{line-height:1.625}.leading-tight{line-height:1.25}.tracking-tight{letter-spacing:-0.025em}.tracking-tighter{letter-spacing:-0.05em}.tracking-wide{letter-spacing:0.025em}.tracking-wider{letter-spacing:0.05em}.tracking-widest{letter-spacing:0.1em}.text-gray-400{--tw-text-opacity:1;color:rgb(156 163 175 / var(--tw-text-opacity, 1))}.text-gray-500{--tw-text-opacity:1;color:rgb(107 114 128 / var(--tw-text-opacity, 1))}.text-gray-600{--tw-text-opacity:1;color:rgb(75 85 99 / var(--tw-text-opacity, 1))}.text-swiss-black{--tw-text-opacity:1;color:rgb(26 26 26 / var(--tw-text-opacity, 1))}.text-swiss-orange{--tw-text-opacity:1;color:rgb(255 79 0 / var(--tw-text-opacity, 1))}.text-white{--tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1))}.antialiased{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}.opacity-10{opacity:0.1}.opacity-20{opacity:0.2}.opacity-50{opacity:0.5}.shadow-\[4px_4px_0px_\#1a1a1a\]{--tw-shadow:4px 4px 0px #1a1a1a;--tw-shadow-colored:4px 4px 0px var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.grayscale{--tw-grayscale:grayscale(100%);filter:var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow)}.transition-all{transition-property:all;transition-timing-function:cubic-bezier(0.4, 0, 0.2, 1);transition-duration:150ms}.transition-colors{transition-property:color, background-color, border-color, fill, stroke, -webkit-text-decoration-color;transition-property:color, background-color, border-color, text-decoration-color, fill, stroke;transition-property:color, background-color, border-color, text-decoration-color, fill, stroke, -webkit-text-decoration-color;transition-timing-function:cubic-bezier(0.4, 0, 0.2, 1);transition-duration:150ms}.duration-500{transition-duration:500ms}.duration-200{transition-duration:200ms}.selection\:bg-swiss-orange *::selection{--tw-bg-opacity:1;background-color:rgb(255 79 0 / var(--tw-bg-opacity, 1))}.selection\:text-white *::selection{--tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1))}.selection\:bg-swiss-orange::selection{--tw-bg-opacity:1;background-color:rgb(255 79 0 / var(--tw-bg-opacity, 1))}.selection\:text-white::selection{--tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1))}.hover\:bg-swiss-orange:hover{--tw-bg-opacity:1;background-color:rgb(255 79 0 / var(--tw-bg-opacity, 1))}.hover\:text-swiss-orange:hover{--tw-text-opacity:1;color:rgb(255 79 0 / var(--tw-text-opacity, 1))}.hover\:text-white:hover{--tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1))}.hover\:grayscale-0:hover{--tw-grayscale:grayscale(0);filter:var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow)}.focus\:border-swiss-orange:focus{--tw-border-opacity:1;border-color:rgb(255 79 0 / var(--tw-border-opacity, 1))}.focus\:outline-none:focus{outline:2px solid transparent;outline-offset:2px}.group:hover .group-hover\:bg-white{--tw-bg-opacity:1;background-color:rgb(255 255 255 / var(--tw-bg-opacity, 1))}.group:hover .group-hover\:text-swiss-black{--tw-text-opacity:1;color:rgb(26 26 26 / var(--tw-text-opacity, 1))}.group:hover .group-hover\:text-white{--tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1))}.group:hover .group-hover\:text-white\/90{color:rgb(255 255 255 / 0.9)}@media (min-width: 768px){.md\:flex{display:flex}.md\:grid-cols-2{grid-template-columns:repeat(2, minmax(0, 1fr))}.md\:flex-row{flex-direction:row}.md\:p-12{padding:3rem}.md\:text-7xl{font-size:4.5rem;line-height:1}.md\:text-8xl{font-size:6rem;line-height:1}}@media (min-width: 1024px){.lg\:col-span-2{grid-column:span 2 / span 2}.lg\:flex{display:flex}.lg\:grid-cols-2{grid-template-columns:repeat(2, minmax(0, 1fr))}.lg\:grid-cols-3{grid-template-columns:repeat(3, minmax(0, 1fr))}.lg\:grid-cols-4{grid-template-columns:repeat(4, minmax(0, 1fr))}}</style></head>
 <body class="antialiased selection:bg-swiss-orange selection:text-white">
-<!-- UI Wrapper -->
 <div id="app-ui">
-<!-- Navigation -->
 <nav class="fixed w-full z-50 bg-white border-b-2 border-swiss-black">
 <div class="container mx-auto px-6 h-20 flex justify-between items-center">
 <div class="flex items-center gap-2">
@@ -225,16 +243,14 @@ a);requestAnimationFrame(function(){g(document.body)})})}var l=["material-icons"
 </div>
 </div>
 </nav>
-<!-- 1. Hero Section: "Bring Order To Chaos" -->
 <header class="relative h-screen flex flex-col border-b-2 border-swiss-black pt-20">
-<!-- Interactive Canvas Background -->
 <div class="absolute inset-0 z-0 bg-swiss-offwhite grid-bg"></div>
 <canvas class="absolute inset-0 z-0 w-full h-full opacity-50" id="heroCanvas" width="1301" height="564"></canvas>
 <div class="relative z-10 container mx-auto px-6 flex-grow flex flex-col justify-center items-start pointer-events-none">
 <div class="bg-white border-2 border-swiss-black p-8 max-w-2xl brutalist-shadow pointer-events-auto">
-<div class="inline-block bg-swiss-black text-white px-3 py-1 font-display font-bold text-xs uppercase mb-4 tracking-widest">
-                    System Error: Not standardized
-                </div>
+<div id="heroStatus" class="inline-block bg-swiss-black text-white px-3 py-1 font-display font-bold text-xs uppercase mb-4 tracking-widest transition-colors duration-300">
+    System Error: Not standardized
+</div>
 <h1 class="text-6xl md:text-8xl font-display font-bold leading-[0.9] mb-6 tracking-tighter">
                     Build. Train.<br>
 <span class="text-swiss-orange">Standardize.</span>
@@ -251,19 +267,17 @@ a);requestAnimationFrame(function(){g(document.body)})})}var l=["material-icons"
 </div>
 </div>
 </div>
-<!-- Marquee -->
 <div class="bg-swiss-orange text-white overflow-hidden border-t-2 border-swiss-black py-3 relative z-20">
 <div class="whitespace-nowrap font-display font-bold text-sm tracking-widest uppercase animate-marquee">
-                Files That Just Work /// No More Copy-Pasting /// Clean Spreadsheets /// Faster Mondays /// Reports You Can Trust /// Less Manual Work /// Simple Data Cleanup /// Saving Team Time /// Reliable Numbers ///
+                Reclaim FTE Capacity /// Files That Just Work /// Fewer Headaches /// Stop Manual Data Entry /// One-Click Report Refresh /// Zero-Error Formulas /// Faster Mondays /// Reliable Numbers /// No More Copy-Pasting /// Less Manual Work ///
             </div>
 </div>
 </header>
-<!-- 1.1. Core Competences (Grid of Services) -->
 <section class="py-24 bg-white border-b-2 border-swiss-black" id="Competences">
 <div class="container mx-auto px-6">
 <div class="mb-16">
-<h2 class="text-5xl font-display font-bold mb-4">Our_Core_Competences</h2>
-<p class="text-gray-600 max-w-2xl text-lg">Select the modules your company is interested in. These will be added to your generated proposal.</p>
+<h2 class="text-5xl font-display font-bold mb-4">Our Core Competences</h2>
+<p class="text-gray-600 max-w-2xl text-lg">Select the competences your company is interested in developing.<br>Selected competences will be added to our project plan.</p>
 </div>
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8" id="services-grid"><div class="service-card border-2 border-swiss-black p-6 cursor-pointer transition-all duration-200 brutalist-shadow hover:bg-swiss-orange hover:text-white group selected">
                 <div class="flex justify-between items-start mb-4">
@@ -340,145 +354,193 @@ a);requestAnimationFrame(function(){g(document.body)})})}var l=["material-icons"
             </div></div>
 </div>
 </section>
-
-    <!-- 2. NEW BLOCK: Knowledge Transfer / Course Catalog -->
-    <section id="training" class="py-24 bg-white border-b-2 border-swiss-black">
+<section id="training" class="py-24 bg-white border-b-2 border-swiss-black">
         <div class="container mx-auto px-6">
             <div class="flex flex-col md:flex-row justify-between items-end mb-16 gap-8">
                 <div>
-                    <h2 class="text-5xl font-display font-bold mb-4">Course_catalogue</h2>
+                    <h2 class="text-5xl font-display font-bold mb-4">Course Catalogue</h2>
                     <p class="text-gray-600 max-w-xl text-lg">
-                        Don't just rent the competences. Own it. We offer customized training curriculums designed to elevate your workforce within their specific field.
+                        Don't just rent the competences. Own it. Select the courses below to add them to your proposal. Click the name to preview the curriculum.
                     </p>
                 </div>
                 <div>
-                     <span class="material-symbols-outlined text-6xl text-swiss-black">school</span>
+                      <span class="material-symbols-outlined text-6xl text-swiss-black">school</span>
                 </div>
             </div>
 
-            <!-- Course Grid -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-px bg-swiss-black border-2 border-swiss-black">
                 
-                <!-- Quadrant 1: Core Excel -->
                 <div class="bg-white p-8 group hover:bg-swiss-offwhite transition-colors">
                     <div class="flex items-center gap-3 mb-6">
                         <span class="material-symbols-outlined text-swiss-orange text-3xl">grid_on</span>
                         <h3 class="font-display font-bold text-2xl uppercase">Excel Mastery</h3>
                     </div>
                     <ul class="space-y-4">
-                        <li class="course-item">
-                            <div class="flex justify-between items-baseline">
-                                <span class="font-bold text-lg">Excel 1 – Basic</span>
-                                <span class="text-xs font-mono text-gray-400">EN / DK</span>
+                        <li class="course-item flex items-stretch border border-gray-100 bg-white">
+                            <div onclick="toggleCourse(this)" class="w-14 cursor-pointer flex items-center justify-center border-r-2 border-swiss-black bg-swiss-offwhite hover:bg-swiss-orange hover:text-white transition-colors course-checkbox" data-course="Excel 1 – Basic">
+                                <span class="material-symbols-outlined text-2xl opacity-0 check-icon">check</span>
                             </div>
-                            <p class="text-xs font-mono text-gray-500 course-code">DK_EN_ALL_EXCEL_BASIC</p>
+                            <div onclick="openCourseModal('Excel 1 – Basic', 'Master the fundamentals of Excel. From navigation to basic formulas and formatting.', '69550523d73a53e69e3f14a3')" class="flex-grow p-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                <div class="flex justify-between items-baseline">
+                                    <span class="font-bold text-lg">Excel 1 – Basic</span>
+                                    <span class="text-xs font-mono text-gray-400">EN / DK</span>
+                                </div>
+                                <p class="text-xs font-mono text-gray-500 course-code">ALL_EXCEL_BASIC</p>
+                            </div>
                         </li>
-                        <li class="course-item border-t border-gray-100 pt-3">
-                            <div class="flex justify-between items-baseline">
-                                <span class="font-bold text-lg">Excel 2 – Intermediate</span>
-                                <span class="text-xs font-mono text-gray-400">EN / DK</span>
+
+                        <li class="course-item flex items-stretch border border-gray-100 bg-white">
+                            <div onclick="toggleCourse(this)" class="w-14 cursor-pointer flex items-center justify-center border-r-2 border-swiss-black bg-swiss-offwhite hover:bg-swiss-orange hover:text-white transition-colors course-checkbox" data-course="Excel 2 – Intermediate">
+                                <span class="material-symbols-outlined text-2xl opacity-0 check-icon">check</span>
                             </div>
-                            <p class="text-xs font-mono text-gray-500 course-code">DK_EN_ALL_EXCEL_INTER</p>
+                            <div onclick="openCourseModal('Excel 2 – Intermediate', 'Deep dive into Pivot Tables, VLOOKUP, and essential data management.', '69550523d73a53e69e3f14a3')" class="flex-grow p-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                <div class="flex justify-between items-baseline">
+                                    <span class="font-bold text-lg">Excel 2 – Intermediate</span>
+                                    <span class="text-xs font-mono text-gray-400">EN / DK</span>
+                                </div>
+                                <p class="text-xs font-mono text-gray-500 course-code">ALL_EXCEL_INTER</p>
+                            </div>
                         </li>
-                        <li class="course-item border-t border-gray-100 pt-3">
-                            <div class="flex justify-between items-baseline">
-                                <span class="font-bold text-lg">Excel 3 – Advanced</span>
-                                <span class="text-xs font-mono text-gray-400">EN / DK</span>
+                        
+                        <li class="course-item flex items-stretch border border-gray-100 bg-white">
+                            <div onclick="toggleCourse(this)" class="w-14 cursor-pointer flex items-center justify-center border-r-2 border-swiss-black bg-swiss-offwhite hover:bg-swiss-orange hover:text-white transition-colors course-checkbox" data-course="Excel 3 – Advanced">
+                                <span class="material-symbols-outlined text-2xl opacity-0 check-icon">check</span>
                             </div>
-                            <p class="text-xs font-mono text-gray-500 course-code">DK_EN_ALL_EXCEL_ADVAN</p>
+                            <div onclick="openCourseModal('Excel 3 – Advanced', 'Complex array formulas, data modeling, and professional reporting.', '69550523d73a53e69e3f14a3')" class="flex-grow p-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                <div class="flex justify-between items-baseline">
+                                    <span class="font-bold text-lg">Excel 3 – Advanced</span>
+                                    <span class="text-xs font-mono text-gray-400">EN / DK</span>
+                                </div>
+                                <p class="text-xs font-mono text-gray-500 course-code">ALL_EXCEL_ADVAN</p>
+                            </div>
                         </li>
                     </ul>
                 </div>
 
-                <!-- Quadrant 2: Data Engineering -->
                 <div class="bg-white p-8 group hover:bg-swiss-offwhite transition-colors">
                     <div class="flex items-center gap-3 mb-6">
                         <span class="material-symbols-outlined text-swiss-orange text-3xl">transform</span>
                         <h3 class="font-display font-bold text-2xl uppercase">Data Engineering</h3>
                     </div>
                     <ul class="space-y-4">
-                        <li class="course-item">
-                            <div class="flex justify-between items-baseline">
-                                <span class="font-bold text-lg">Intro to Power Query</span>
-                                <span class="text-xs font-mono text-gray-400">EN / DK</span>
+                        <li class="course-item flex items-stretch border border-gray-100 bg-white">
+                            <div onclick="toggleCourse(this)" class="w-14 cursor-pointer flex items-center justify-center border-r-2 border-swiss-black bg-swiss-offwhite hover:bg-swiss-orange hover:text-white transition-colors course-checkbox" data-course="Intro to Power Query">
+                                <span class="material-symbols-outlined text-2xl opacity-0 check-icon">check</span>
                             </div>
-                            <p class="text-xs font-mono text-gray-500 course-code">DK_EN_POWER_QUERY</p>
+                            <div onclick="openCourseModal('Intro to Power Query', 'Automate data cleanup without code. The modern way to handle CSVs.', '69550523d73a53e69e3f14a3')" class="flex-grow p-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                <div class="flex justify-between items-baseline">
+                                    <span class="font-bold text-lg">Intro to Power Query</span>
+                                    <span class="text-xs font-mono text-gray-400">EN / DK</span>
+                                </div>
+                                <p class="text-xs font-mono text-gray-500 course-code">POWER_QUERY</p>
+                            </div>
                         </li>
-                        <li class="course-item border-t border-gray-100 pt-3">
-                            <div class="flex justify-between items-baseline">
-                                <span class="font-bold text-lg">Power Query Basic</span>
-                                <span class="text-xs font-mono text-gray-400">EN / DK</span>
+
+                        <li class="course-item flex items-stretch border border-gray-100 bg-white">
+                            <div onclick="toggleCourse(this)" class="w-14 cursor-pointer flex items-center justify-center border-r-2 border-swiss-black bg-swiss-offwhite hover:bg-swiss-orange hover:text-white transition-colors course-checkbox" data-course="Automated Invoicing">
+                                <span class="material-symbols-outlined text-2xl opacity-0 check-icon">check</span>
                             </div>
-                            <p class="text-xs font-mono text-gray-500 course-code">DK_EN_POW_QUE_BASIC</p>
+                            <div onclick="openCourseModal('Automated Invoicing', 'Learn to build fully automated invoice generation tools.', '69550523d73a53e69e3f14a3')" class="flex-grow p-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                <div class="flex justify-between items-baseline">
+                                    <span class="font-bold text-lg">Automated Invoicing</span>
+                                    <span class="text-xs font-mono text-gray-400">EN / DK</span>
+                                </div>
+                                <p class="text-xs font-mono text-gray-500 course-code">AUTO_INVOICE</p>
+                            </div>
                         </li>
-                        <li class="course-item border-t border-gray-100 pt-3">
-                            <div class="flex justify-between items-baseline">
-                                <span class="font-bold text-lg">Analysis for Office</span>
-                                <span class="text-xs font-mono text-gray-400">EN / DK</span>
+
+                        <li class="course-item flex items-stretch border border-gray-100 bg-white">
+                            <div onclick="toggleCourse(this)" class="w-14 cursor-pointer flex items-center justify-center border-r-2 border-swiss-black bg-swiss-offwhite hover:bg-swiss-orange hover:text-white transition-colors course-checkbox" data-course="Analysis for Office">
+                                <span class="material-symbols-outlined text-2xl opacity-0 check-icon">check</span>
                             </div>
-                            <p class="text-xs font-mono text-gray-500 course-code">DK_EN_INTRO_ANALYSIS_OFFICE</p>
+                            <div onclick="openCourseModal('Analysis for Office', 'Direct SAP connection from Excel. The gold standard for controllers.', '69550523d73a53e69e3f14a3')" class="flex-grow p-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                <div class="flex justify-between items-baseline">
+                                    <span class="font-bold text-lg">Analysis for Office</span>
+                                    <span class="text-xs font-mono text-gray-400">EN / DK</span>
+                                </div>
+                                <p class="text-xs font-mono text-gray-500 course-code">INTRO_ANALYSIS_OFFICE</p>
+                            </div>
                         </li>
                     </ul>
                 </div>
 
-                <!-- Quadrant 3: Enterprise Scripting -->
                 <div class="bg-white p-8 group hover:bg-swiss-offwhite transition-colors">
                     <div class="flex items-center gap-3 mb-6">
                         <span class="material-symbols-outlined text-swiss-orange text-3xl">terminal</span>
                         <h3 class="font-display font-bold text-2xl uppercase">Enterprise Scripting</h3>
                     </div>
                     <ul class="space-y-4">
-                        <li class="course-item">
-                            <div class="flex justify-between items-baseline">
-                                <span class="font-bold text-lg">SAP Scripting</span>
-                                <span class="text-xs font-mono text-gray-400">EN / DK</span>
+                        <li class="course-item flex items-stretch border border-gray-100 bg-white">
+                            <div onclick="toggleCourse(this)" class="w-14 cursor-pointer flex items-center justify-center border-r-2 border-swiss-black bg-swiss-offwhite hover:bg-swiss-orange hover:text-white transition-colors course-checkbox" data-course="SAP Scripting">
+                                <span class="material-symbols-outlined text-2xl opacity-0 check-icon">check</span>
                             </div>
-                            <p class="text-xs font-mono text-gray-500 course-code">HQ_FINANCE_SAP_SCRIP</p>
+                            <div onclick="openCourseModal('SAP Scripting', 'Automate clicks and data entry in SAP GUI using VBA.', '69550523d73a53e69e3f14a3')" class="flex-grow p-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                <div class="flex justify-between items-baseline">
+                                    <span class="font-bold text-lg">SAP Scripting</span>
+                                    <span class="text-xs font-mono text-gray-400">EN / DK</span>
+                                </div>
+                                <p class="text-xs font-mono text-gray-500 course-code">SAP_SCRIPTING</p>
+                            </div>
                         </li>
-                        <li class="course-item border-t border-gray-100 pt-3">
-                            <div class="flex justify-between items-baseline">
-                                <span class="font-bold text-lg">Power Automate</span>
-                                <span class="text-xs font-mono text-gray-400">EN / DK</span>
+
+                        <li class="course-item flex items-stretch border border-gray-100 bg-white">
+                            <div onclick="toggleCourse(this)" class="w-14 cursor-pointer flex items-center justify-center border-r-2 border-swiss-black bg-swiss-offwhite hover:bg-swiss-orange hover:text-white transition-colors course-checkbox" data-course="Power Automate">
+                                <span class="material-symbols-outlined text-2xl opacity-0 check-icon">check</span>
                             </div>
-                            <p class="text-xs font-mono text-gray-500 course-code">DK_EN_POW_AUT_BASIC</p>
+                            <div onclick="openCourseModal('Power Automate', 'Cloud flows to connect Outlook, SharePoint, and Teams.', '69550523d73a53e69e3f14a3')" class="flex-grow p-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                <div class="flex justify-between items-baseline">
+                                    <span class="font-bold text-lg">Power Automate</span>
+                                    <span class="text-xs font-mono text-gray-400">EN / DK</span>
+                                </div>
+                                <p class="text-xs font-mono text-gray-500 course-code">POW_AUT_BASIC</p>
+                            </div>
                         </li>
-                        <li class="course-item border-t border-gray-100 pt-3">
-                            <div class="flex justify-between items-baseline">
-                                <span class="font-bold text-lg">Excel VBA x AI Integration</span>
-                                <span class="text-xs font-mono text-gray-400">EN / DK</span>
+
+                        <li class="course-item flex items-stretch border border-gray-100 bg-white">
+                            <div onclick="toggleCourse(this)" class="w-14 cursor-pointer flex items-center justify-center border-r-2 border-swiss-black bg-swiss-offwhite hover:bg-swiss-orange hover:text-white transition-colors course-checkbox" data-course="Excel VBA x AI">
+                                <span class="material-symbols-outlined text-2xl opacity-0 check-icon">check</span>
                             </div>
-                            <p class="text-xs font-mono text-gray-500 course-code">REDUCE_SUPPORT_DEPENDENCY</p>
+                            <div onclick="openCourseModal('Excel VBA x AI', 'Using OpenAI API inside Excel to categorize text and write emails.', '69550523d73a53e69e3f14a3')" class="flex-grow p-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                <div class="flex justify-between items-baseline">
+                                    <span class="font-bold text-lg">Excel VBA x AI</span>
+                                    <span class="text-xs font-mono text-gray-400">EN / DK</span>
+                                </div>
+                                <p class="text-xs font-mono text-gray-500 course-code">REDUCE_SUPPORT_DEPENDENCY</p>
+                            </div>
                         </li>
                     </ul>
                 </div>
 
-                <!-- Quadrant 4: AI & Modern Workplace -->
                 <div class="bg-white p-8 group hover:bg-swiss-offwhite transition-colors">
                     <div class="flex items-center gap-3 mb-6">
                         <span class="material-symbols-outlined text-swiss-orange text-3xl">psychology</span>
                         <h3 class="font-display font-bold text-2xl uppercase">AI & Workplace</h3>
                     </div>
                     <ul class="space-y-4">
-                        <li class="course-item">
-                            <div class="flex justify-between items-baseline">
-                                <span class="font-bold text-lg">Grundlæggende AI</span>
-                                <span class="text-xs font-mono text-gray-400">EN / DK</span>
+                        <li class="course-item flex items-stretch border border-gray-100 bg-white">
+                            <div onclick="toggleCourse(this)" class="w-14 cursor-pointer flex items-center justify-center border-r-2 border-swiss-black bg-swiss-offwhite hover:bg-swiss-orange hover:text-white transition-colors course-checkbox" data-course="Grundlæggende AI">
+                                <span class="material-symbols-outlined text-2xl opacity-0 check-icon">check</span>
                             </div>
-                            <p class="text-xs font-mono text-gray-500 course-code">DK_EN_ALL_GRUND_AI</p>
+                            <div onclick="openCourseModal('Grundlæggende AI', 'Understanding LLMs and Prompt Engineering for business.', '69550523d73a53e69e3f14a3')" class="flex-grow p-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                <div class="flex justify-between items-baseline">
+                                    <span class="font-bold text-lg">Grundlæggende AI</span>
+                                    <span class="text-xs font-mono text-gray-400">EN / DK</span>
+                                </div>
+                                <p class="text-xs font-mono text-gray-500 course-code">ALL_GRUND_AI</p>
+                            </div>
                         </li>
-                        <li class="course-item border-t border-gray-100 pt-3">
-                            <div class="flex justify-between items-baseline">
-                                <span class="font-bold text-lg">MS Teams</span>
-                                <span class="text-xs font-mono text-gray-400">EN / DK</span>
+
+                        <li class="course-item flex items-stretch border border-gray-100 bg-white">
+                            <div onclick="toggleCourse(this)" class="w-14 cursor-pointer flex items-center justify-center border-r-2 border-swiss-black bg-swiss-offwhite hover:bg-swiss-orange hover:text-white transition-colors course-checkbox" data-course="MS Teams">
+                                <span class="material-symbols-outlined text-2xl opacity-0 check-icon">check</span>
                             </div>
-                            <p class="text-xs font-mono text-gray-500 course-code">MS_TEAMS_ESSENTIALS</p>
-                        </li>
-                        <li class="course-item border-t border-gray-100 pt-3 opacity-50">
-                            <div class="flex justify-between items-baseline">
-                                <span class="font-bold text-lg italic">Custom Module</span>
-                                <span class="text-xs font-mono text-gray-400">EN / DK</span>
+                            <div onclick="openCourseModal('MS Teams', 'Efficient collaboration, channels, and meeting management.', '69550523d73a53e69e3f14a3')" class="flex-grow p-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                <div class="flex justify-between items-baseline">
+                                    <span class="font-bold text-lg">MS Teams</span>
+                                    <span class="text-xs font-mono text-gray-400">EN / DK</span>
+                                </div>
+                                <p class="text-xs font-mono text-gray-500 course-code">MS_TEAMS_ESSENTIALS</p>
                             </div>
-                            <p class="text-xs font-mono text-gray-500 course-code">CONTACT_FOR_DETAILS</p>
                         </li>
                     </ul>
                 </div>
@@ -486,8 +548,23 @@ a);requestAnimationFrame(function(){g(document.body)})})}var l=["material-icons"
             </div>
         </div>
     </section>
+
+    <div id="courseModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div class="bg-white border-2 border-swiss-black p-0 w-full max-w-3xl m-4 brutalist-shadow relative">
+            <div class="bg-swiss-black text-white p-4 flex justify-between items-center">
+                <h3 id="modalTitle" class="font-display font-bold text-xl uppercase tracking-wider">Course Title</h3>
+                <button onclick="closeCourseModal()" class="text-white hover:text-swiss-orange">
+                    <span class="material-symbols-outlined text-3xl">close</span>
+                </button>
+            </div>
+            <div class="p-6">
+                <p id="modalDesc" class="text-gray-600 font-mono mb-6">Course Description...</p>
+<div id="videoContainer" class="aspect-video w-full bg-black border-2 border-swiss-black">
+    </div>
+            </div>
+        </div>
+    </div>
         
-<!-- 3. Picking Simulator -->
 <section class="py-24 bg-swiss-black border-b-2 border-swiss-black grid-bg-dark" id="simulation">
 <div class="container mx-auto px-6">
 <div class="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
@@ -502,7 +579,6 @@ a);requestAnimationFrame(function(){g(document.body)})})}var l=["material-icons"
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 floating-frame">
 <div class="lg:col-span-2">
 <div class="w-full h-[500px] bg-white border-2 border-white relative overflow-hidden brutalist-shadow">
-<!-- Stats Overlay -->
 <div class="absolute top-4 left-4 z-10 bg-white border-2 border-swiss-black p-4 text-xs font-mono space-y-2 shadow-[4px_4px_0px_#1a1a1a]">
 <div class="flex justify-between w-56">
 <span>STRATEGY:</span>
@@ -513,7 +589,6 @@ a);requestAnimationFrame(function(){g(document.body)})})}var l=["material-icons"
 <span class="font-bold" id="stat-distance">295 px</span>
 </div>
 </div>
-<!-- Legend -->
 <div class="absolute bottom-4 right-4 z-10 bg-white border-2 border-swiss-black p-3 text-xs font-mono flex flex-col gap-2">
 <div class="flex items-center gap-2"><span class="w-3 h-3 bg-swiss-orange"></span> High Freq</div>
 <div class="flex items-center gap-2"><span class="w-3 h-3 bg-swiss-slate"></span> Med Freq</div>
@@ -524,7 +599,6 @@ a);requestAnimationFrame(function(){g(document.body)})})}var l=["material-icons"
 <canvas class="w-full h-full" id="warehouseCanvas" width="811" height="500"></canvas>
 </div>
 </div>
-<!-- Control/Info Panel -->
 <div class="flex flex-col gap-6">
 <div class="bg-white border-2 border-white p-8 h-full">
 <div class="mb-6">
@@ -553,7 +627,6 @@ a);requestAnimationFrame(function(){g(document.body)})})}var l=["material-icons"
 </section>
 
         
-<!-- 4. Automation ROI Calculator -->
 <section class="py-12 bg-white border-b-2 border-swiss-black relative" id="roi">
 <div class="container mx-auto px-6">
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
@@ -563,7 +636,6 @@ a);requestAnimationFrame(function(){g(document.body)})})}var l=["material-icons"
 <p class="text-gray-600">Quantify the cost of manual intervention. Calculate the financial impact of standardizing your processes.</p>
 </div>
 <div class="space-y-10">
-<!-- Slider 1 -->
 <div>
 <div class="flex justify-between mb-2 font-display font-bold text-sm uppercase">
 <label>Manual Reporting Hours / Week</label>
@@ -571,7 +643,6 @@ a);requestAnimationFrame(function(){g(document.body)})})}var l=["material-icons"
 </div>
 <input class="w-full" id="hoursInput" max="37" min="1" oninput="calculateROI()" type="range" value="7">
 </div>
-<!-- Slider 2 -->
 <div>
 <div class="flex justify-between mb-2 font-display font-bold text-sm uppercase">
 <label>Employees Involved</label>
@@ -579,14 +650,13 @@ a);requestAnimationFrame(function(){g(document.body)})})}var l=["material-icons"
 </div>
 <input class="w-full" id="empInput" max="10" min="1" oninput="calculateROI()" type="range" value="2">
 </div>
-<!-- Input 3 -->
 <div>
 <label class="block mb-2 font-display font-bold text-sm uppercase">Hourly Operational Cost (DKK)</label>
 <div class="relative">
 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
 <span class="text-swiss-black font-bold">DKK</span>
 </div>
-<input class="w-full bg-swiss-offwhite border-2 border-swiss-black py-3 pl-8 pr-4 font-mono font-bold focus:outline-none focus:border-swiss-orange transition-colors" id="rateInput" oninput="calculateROI()" type="number" value="300" min="150" max="1000">
+<input class="w-full bg-swiss-offwhite border-2 border-swiss-black py-3 pl-12 pr-4 font-mono font-bold focus:outline-none focus:border-swiss-orange transition-colors" id="rateInput" oninput="calculateROI()" type="number" value="300" min="150" max="1000">
 </div>
 </div>
 </div>
@@ -596,7 +666,9 @@ a);requestAnimationFrame(function(){g(document.body)})})}var l=["material-icons"
 <div class="space-y-8 text-center py-8">
 <div>
 <div class="text-sm font-mono text-gray-500 uppercase tracking-widest mb-2">Full Year Savings</div>
-<div class="text-6xl md:text-7xl font-display font-bold text-swiss-orange tracking-tight" id="savingsResult">DKK 218,400</div>
+<div class="text-6xl md:text-7xl font-display font-bold text-swiss-black tracking-tight" id="savingsResult">
+    <span class="text-swiss-orange">DKK</span> 218,400
+</div>
 </div>
 <div class="w-full h-px bg-swiss-black opacity-20"></div>
 <div>
@@ -617,7 +689,6 @@ a);requestAnimationFrame(function(){g(document.body)})})}var l=["material-icons"
 </div>
 </div>
 </section>
-<!-- 6. Ready to Optimize (Contact) -->
 <section class="py-24 bg-swiss-offwhite" id="contact">
 <div class="container mx-auto px-6">
 <div class="max-w-4xl mx-auto bg-white border-2 border-swiss-black p-8 md:p-12 brutalist-shadow">
@@ -642,7 +713,7 @@ a);requestAnimationFrame(function(){g(document.body)})})}var l=["material-icons"
 </div>
 <div class="space-y-2">
 <label class="font-bold text-sm uppercase">Project Parameters</label>
-<textarea class="w-full border-2 border-swiss-black p-3 focus:outline-none focus:border-swiss-orange bg-swiss-offwhite h-32" placeholder="DESCRIBE CURRENT CHALLENGES"></textarea>
+<textarea id="contactMessage" class="w-full border-2 border-swiss-black p-3 focus:outline-none focus:border-swiss-orange bg-swiss-offwhite h-32" placeholder="DESCRIBE CURRENT CHALLENGES"></textarea>
 </div>
 <button class="w-full btn-swiss-dark text-lg" type="submit">
                     Initiate Contact
@@ -651,7 +722,6 @@ a);requestAnimationFrame(function(){g(document.body)})})}var l=["material-icons"
 </div>
 </div>
 </section>
-<!-- Footer -->
 <footer class="bg-swiss-black text-white py-12 border-t-4 border-swiss-orange">
 <div class="container mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
 <div class="flex items-center gap-2">
@@ -664,65 +734,68 @@ a);requestAnimationFrame(function(){g(document.body)})})}var l=["material-icons"
 </div>
 </footer>
 </div>
-<!-- Hidden Report Template -->
 <div class="hidden" id="print-report">
-<div class="border-b-4 border-black pb-8 mb-12 flex justify-between items-end">
-<div>
-<h1 class="text-6xl font-display font-bold mb-2">Standardize.</h1>
-<p class="font-mono text-sm tracking-widest uppercase">Systems Engineering Proposal</p>
-</div>
-<div class="text-right">
-<p class="text-xs font-mono text-gray-500 mb-1">GENERATED ON:</p>
-<p class="text-xl font-bold" id="reportDate">DATE</p>
-</div>
-</div>
-<!-- Section 1: ROI -->
-<div class="grid grid-cols-2 gap-12 mb-12">
-<div>
-<h3 class="font-display font-bold text-2xl mb-4 uppercase bg-black text-white inline-block px-2">01 // ROI Assessment</h3>
-<p class="mb-4 text-sm font-serif">Projected impact of system standardization based on client parameters.</p>
-<div class="border-2 border-black p-6 bg-gray-50">
-<div class="grid grid-cols-2 gap-6">
-<div>
-<div class="text-xs font-mono uppercase text-gray-500">Manual Load</div>
-<div class="text-xl font-bold" id="reportManual">10 hrs/wk</div>
-</div>
-<div>
-<div class="text-xs font-mono uppercase text-gray-500">Team Size</div>
-<div class="text-xl font-bold" id="reportTeam">3</div>
-</div>
-<div class="col-span-2 border-t border-gray-300 pt-4">
-<div class="text-xs font-mono uppercase text-gray-500">Projected Annual Savings</div>
-<div class="text-5xl font-bold text-swiss-orange" id="reportSavings">$78,000</div>
-</div>
-</div>
-</div>
-</div>
-<!-- Section 2: Sim -->
-<div>
-<h3 class="font-display font-bold text-2xl mb-4 uppercase bg-black text-white inline-block px-2">02 // Picking Logic</h3>
-<p class="mb-4 text-sm font-serif">Optimization of warehouse picking routes.</p>
-<div class="border-2 border-black p-4 bg-white">
-<img class="w-full h-48 object-cover border border-gray-200 mb-4" id="reportNetImg">
-<div class="flex justify-between items-center font-mono text-sm">
-<div>
-<span>MODE: </span><span class="font-bold" id="reportSimMode">OPTIMIZED</span>
-</div>
-<div>
-<span>TRAVEL: </span><span class="font-bold text-swiss-orange" id="reportSimDist">0 px</span>
-</div>
-</div>
-</div>
-</div>
-</div>
-<!-- Section 3: Protocol -->
-<div class="mb-12">
-<h3 class="font-display font-bold text-2xl mb-6 uppercase bg-black text-white inline-block px-2">03 // Recommended Protocol</h3>
-<ul class="border-t-2 border-black" id="reportServices">
-<!-- Services -->
-</ul>
-</div>
-<div class="text-center font-mono text-xs text-gray-400 mt-20">
+    <div class="border-b-4 border-black pb-2 mb-4 flex justify-between items-end h-[80px]">
+        <div>
+            <div class="flex items-center gap-3 mb-1">
+                <div class="w-8 h-8 bg-swiss-orange border-2 border-black"></div>
+                <h1 class="text-5xl font-display font-bold tracking-tight leading-none">
+                    Standardize<span class="text-swiss-orange">.</span>
+                </h1>
+            </div>
+            <p class="font-mono text-sm tracking-widest uppercase pl-[2.75rem]">Process Standardization Proposal</p>
+        </div>
+        <div class="text-right">
+            <p class="text-xs font-mono text-gray-500 mb-1">GENERATED ON:</p>
+            <p class="text-xl font-bold" id="reportDate">DATE</p>
+        </div>
+    </div>
+
+    <div class="flex flex-col h-[calc(100%-100px)] gap-4">
+        
+        <div class="flex-1 border-b-2 border-dashed border-gray-300 pb-2 overflow-hidden min-h-0">
+            <h3 class="font-display font-bold text-xl mb-2 uppercase bg-black text-white inline-block px-2">01 // Selected Courses</h3>
+            <p class="mb-2 text-sm font-serif text-gray-600">Training curriculum to be implemented.</p>
+            <div class="border-2 border-black bg-white p-4 h-[calc(100%-60px)]">
+                <ul id="reportCoursesList" class="grid grid-cols-2 gap-x-4 gap-y-2 font-mono text-sm">
+                    </ul>
+            </div>
+        </div>
+
+        <div class="flex-1 border-b-2 border-dashed border-gray-300 pb-2 overflow-hidden min-h-0">
+            <h3 class="font-display font-bold text-xl mb-2 uppercase bg-black text-white inline-block px-2">02 // Core Modules</h3>
+            <p class="mb-2 text-sm font-serif text-gray-600">Core competences we should build up.</p>
+            <ul id="reportServices" class="border-t-2 border-black font-mono text-sm grid grid-cols-2 gap-x-8 gap-y-2 pt-2">
+                </ul>
+        </div>
+
+        <div class="flex-1 min-h-0">
+            <h3 class="font-display font-bold text-xl mb-2 uppercase bg-black text-white inline-block px-2">03 // ROI Assessment</h3>
+            <div class="border-2 border-black p-6 bg-gray-50 h-[calc(100%-40px)] flex items-center justify-between gap-8">
+                <div class="space-y-4 flex-1">
+                    <div>
+                        <div class="text-xs font-mono uppercase text-gray-500">Manual Hours Reclaimed</div>
+                        <div class="text-3xl font-bold" id="reportManual">10 hrs/wk</div>
+                    </div>
+                    <div>
+                        <div class="text-xs font-mono uppercase text-gray-500">Employees Optimised</div>
+                        <div class="text-3xl font-bold" id="reportTeam">3</div>
+                    </div>
+                </div>
+                
+                <div class="flex-1 text-right border-l-2 border-gray-200 pl-8 py-2">
+                    <div class="text-sm font-mono uppercase text-gray-500 mb-2">Projected 12-Month Savings</div>
+                    <div class="text-6xl font-bold" id="reportSavings">
+                        <span class="text-swiss-orange">DKK</span> 0
+                    </div>
+                    <div class="mt-2 text-xs font-bold uppercase bg-black text-white inline-block px-2 py-1">High Impact</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="text-center font-mono text-[10px] text-gray-400 mt-2">
         END OF TRANSMISSION
     </div>
 </div>
@@ -783,7 +856,7 @@ const services = [
         const annualHours = hours * emps * 52;
         const annualSavings = annualHours * rate;
 
-        document.getElementById('savingsResult').innerText = "$" + annualSavings.toLocaleString();
+        document.getElementById('savingsResult').innerHTML = `<span class="text-swiss-orange">DKK</span> ${annualSavings.toLocaleString()}`;
         document.getElementById('timeResult').innerText = annualHours.toLocaleString() + " hrs";
     }
 
@@ -832,7 +905,32 @@ const services = [
         });
         requestAnimationFrame(animateHero);
     }
-    window.toggleHeroOrder = () => heroMode = heroMode === 'chaos' ? 'order' : 'chaos';
+    // Update this function in your script
+// Funnel Logic: Standardize -> Then Contact
+    window.toggleHeroOrder = function() {
+        // 1. If already Standardized, go to Contact
+        if (heroMode === 'order') {
+            document.getElementById('contact').scrollIntoView({ behavior: 'smooth' });
+            return;
+        }
+
+        // 2. If Chaos, Standardize the System
+        heroMode = 'order'; // Lock it to order
+        
+        // Update Badge
+        const badge = document.getElementById('heroStatus');
+        badge.innerText = "System Status: Standardized";
+        badge.classList.remove('bg-swiss-black');
+        badge.classList.add('bg-swiss-orange');
+        
+        // Update Button to become a Contact Link
+        const btnText = document.getElementById('heroBtnText');
+        btnText.innerText = "Contact"; 
+        
+        // Update Icon to Down Arrow (Visual cue for the next click)
+        const btnIcon = document.querySelector('button[onclick="toggleHeroOrder()"] .material-symbols-outlined');
+        if(btnIcon) btnIcon.innerText = "arrow_downward";
+    };
     window.addEventListener('resize', resizeHero);
     resizeHero(); animateHero();
 // --- Optimized Pyramid Warehouse Simulation ---
@@ -1109,11 +1207,115 @@ const canvas = document.getElementById('warehouseCanvas');
     resizeSim(); initInventory(); updateSim();
 
     // --- 5. Export & Download ---
+    let selectedCourses = new Set(); // Store selected courses
+
+    // Toggle Course Selection (Visual + Data)
+    window.toggleCourse = function(el) {
+        const courseName = el.getAttribute('data-course');
+        const icon = el.querySelector('.check-icon');
+        
+        if (selectedCourses.has(courseName)) {
+            selectedCourses.delete(courseName);
+            el.classList.remove('checked');
+            icon.classList.add('opacity-0');
+        } else {
+            selectedCourses.add(courseName);
+            el.classList.add('checked');
+            icon.classList.remove('opacity-0');
+        }
+    }
+
+    // Modal Logic
+    const modal = document.getElementById('courseModal');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalDesc = document.getElementById('modalDesc');
+    const modalVideo = document.getElementById('modalVideo');
+
+window.openCourseModal = function(title, desc, gumletId) {
+        modalTitle.innerText = title;
+        modalDesc.innerText = desc;
+        
+        const container = document.getElementById('videoContainer');
+        
+        // Gumlet Embed Logic
+        container.innerHTML = `
+            <iframe 
+                src="https://play.gumlet.io/embed/${gumletId}?autoplay=false&preload=auto" 
+                title="Standardize Course Video"
+                class="w-full h-full"
+                style="border:none;"
+                allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen;"
+                referrerpolicy="origin">
+            </iframe>
+        `;
+        
+        modal.classList.remove('hidden');
+    }
+
+    window.closeCourseModal = function() {
+        const modal = document.getElementById('courseModal');
+        const container = document.getElementById('videoContainer');
+        
+        // Killing the innerHTML stops the video and audio immediately
+        container.innerHTML = ""; 
+        modal.classList.add('hidden');
+    }
+
+
+    // Generate Report Logic (With Course Codes & One Page Fix)
     window.generateReport = function() {
-        document.getElementById('reportDate').innerText = new Date().toLocaleDateString();
+        // 1. Format Date to dd/mm/yyyy
+        const now = new Date();
+        const d = String(now.getDate()).padStart(2, '0');
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const y = now.getFullYear();
+        document.getElementById('reportDate').innerText = `${d}/${m}/${y}`;
+
+        // 2. Populate ROI Data (Orange DKK / Black Numbers)
         document.getElementById('reportManual').innerText = document.getElementById('hoursDisplay').innerText;
-        document.getElementById('reportSavings').innerText = document.getElementById('savingsResult').innerText;
-        document.getElementById('reportNetImg').src = canvas.toDataURL();
+        document.getElementById('reportTeam').innerText = document.getElementById('empDisplay').innerText;
+        document.getElementById('reportSavings').innerHTML = document.getElementById('savingsResult').innerHTML;
+
+        // 3. Populate Selected Courses (Now fetching the Course Code)
+        const coursesList = document.getElementById('reportCoursesList');
+        coursesList.innerHTML = '';
+        
+        if(selectedCourses.size > 0) {
+            selectedCourses.forEach(courseName => {
+                // Find the original checkbox in the DOM to get the sibling code
+                const checkbox = document.querySelector(`.course-checkbox[data-course="${courseName}"]`);
+                // Grab the text from the .course-code element next to it
+                const code = checkbox ? checkbox.nextElementSibling.querySelector('.course-code').innerText : 'Selected Module';
+
+                const li = document.createElement('li');
+                li.className = 'border-b border-gray-100 pb-2 break-inside-avoid';
+                // Insert the code in the second div with font-mono
+                li.innerHTML = `<div class="font-bold uppercase text-swiss-black">${courseName}</div><div class="text-xs font-mono text-gray-500">${code}</div>`;
+                coursesList.appendChild(li);
+            });
+        } else {
+            coursesList.innerHTML = '<li class="text-gray-400 italic col-span-2">No specific courses selected.</li>';
+        }
+
+        // 4. Populate Core Competences (Middle Section)
+        const servicesList = document.getElementById('reportServices');
+        servicesList.innerHTML = '';
+        const selectedServices = services.filter(s => s.selected);
+        if (selectedServices.length > 0) {
+            selectedServices.forEach(s => {
+                const li = document.createElement('li');
+                li.className = 'pb-3 border-b border-gray-200 flex items-start gap-2 break-inside-avoid';
+                li.innerHTML = `
+                    <span class="material-symbols-outlined text-lg text-swiss-orange">${s.icon}</span>
+                    <div class="font-bold uppercase text-sm">${s.title}</div>
+                `;
+                servicesList.appendChild(li);
+            });
+        } else {
+            servicesList.innerHTML = '<li class="text-gray-400 italic col-span-2">No core modules selected.</li>';
+        }
+
+        // 5. Trigger Print
         window.print();
     };
 
@@ -1124,6 +1326,17 @@ const canvas = document.getElementById('warehouseCanvas');
         a.download = 'standardize_systems.html';
         a.click();
     };
+
+// --- Close Modal on Backdrop Click ---
+    const modalBackdrop = document.getElementById('courseModal');
+    
+    modalBackdrop.addEventListener('click', function(event) {
+        // If the click is strictly on the dark background (and not the white box inside)
+        if (event.target === modalBackdrop) {
+            closeCourseModal();
+        }
+    });
+
 </script>
 
 
