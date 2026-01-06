@@ -1,0 +1,1450 @@
+<!DOCTYPE html>
+<html class="scroll-smooth" lang="en"><head>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22%23FF4F00%22 stroke=%22%231a1a1a%22 stroke-width=%2210%22/></svg>">
+<script class="injected-ffc2e83d85">
+(function(){'use strict';function q(b){var c=0;return function(){return c<b.length?{done:!1,value:b[c++]}:{done:!0}}}function t(b){var c=typeof Symbol!="undefined"&&Symbol.iterator&&b[Symbol.iterator];if(c)return c.call(b);if(typeof b.length=="number")return{next:q(b)};throw Error(String(b)+" is not an iterable or ArrayLike");}var u=typeof Object.defineProperties=="function"?Object.defineProperty:function(b,c,g){if(b==Array.prototype||b==Object.prototype)return b;b[c]=g.value;return b};
+function v(b){b=["object"==typeof globalThis&&globalThis,b,"object"==typeof window&&window,"object"==typeof self&&self,"object"==typeof global&&global];for(var c=0;c<b.length;++c){var g=b[c];if(g&&g.Math==Math)return g}throw Error("Cannot find global object");}var w=v(this);function x(b,c){if(c)a:{var g=w;b=b.split(".");for(var h=0;h<b.length-1;h++){var l=b[h];if(!(l in g))break a;g=g[l]}b=b[b.length-1];h=g[b];c=c(h);c!=h&&c!=null&&u(g,b,{configurable:!0,writable:!0,value:c})}}
+function y(){this.j=!1;this.g=null;this.u=void 0;this.h=1;this.v=this.l=0;this.i=null}function z(b){if(b.j)throw new TypeError("Generator is already running");b.j=!0}y.prototype.o=function(b){this.u=b};function A(b,c){b.i={I:c,J:!0};b.h=b.l||b.v}y.prototype.return=function(b){this.i={return:b};this.h=this.v};function B(b){this.g=new y;this.h=b}function E(b,c){z(b.g);var g=b.g.g;if(g)return F(b,"return"in g?g["return"]:function(h){return{value:h,done:!0}},c,b.g.return);b.g.return(c);return G(b)}
+function F(b,c,g,h){try{var l=c.call(b.g.g,g);if(!(l instanceof Object))throw new TypeError("Iterator result "+l+" is not an object");if(!l.done)return b.g.j=!1,l;var m=l.value}catch(f){return b.g.g=null,A(b.g,f),G(b)}b.g.g=null;h.call(b.g,m);return G(b)}function G(b){for(;b.g.h;)try{var c=b.h(b.g);if(c)return b.g.j=!1,{value:c.value,done:!1}}catch(g){b.g.u=void 0,A(b.g,g)}b.g.j=!1;if(b.g.i){c=b.g.i;b.g.i=null;if(c.J)throw c.I;return{value:c.return,done:!0}}return{value:void 0,done:!0}}
+function H(b){this.next=function(c){z(b.g);b.g.g?c=F(b,b.g.g.next,c,b.g.o):(b.g.o(c),c=G(b));return c};this.throw=function(c){z(b.g);b.g.g?c=F(b,b.g.g["throw"],c,b.g.o):(A(b.g,c),c=G(b));return c};this.return=function(c){return E(b,c)};this[Symbol.iterator]=function(){return this}}function I(b){function c(h){return b.next(h)}function g(h){return b.throw(h)}return new Promise(function(h,l){function m(f){f.done?h(f.value):Promise.resolve(f.value).then(c,g).then(m,l)}m(b.next())})}
+x("Symbol",function(b){function c(m){if(this instanceof c)throw new TypeError("Symbol is not a constructor");return new g(h+(m||"")+"_"+l++,m)}function g(m,f){this.g=m;u(this,"description",{configurable:!0,writable:!0,value:f})}if(b)return b;g.prototype.toString=function(){return this.g};var h="jscomp_symbol_"+(Math.random()*1E9>>>0)+"_",l=0;return c});
+x("Symbol.iterator",function(b){if(b)return b;b=Symbol("Symbol.iterator");u(Array.prototype,b,{configurable:!0,writable:!0,value:function(){return J(q(this))}});return b});function J(b){b={next:b};b[Symbol.iterator]=function(){return this};return b}
+x("Promise",function(b){function c(f){this.h=0;this.i=void 0;this.g=[];this.u=!1;var a=this.j();try{f(a.resolve,a.reject)}catch(d){a.reject(d)}}function g(){this.g=null}function h(f){return f instanceof c?f:new c(function(a){a(f)})}if(b)return b;g.prototype.h=function(f){if(this.g==null){this.g=[];var a=this;this.i(function(){a.l()})}this.g.push(f)};var l=w.setTimeout;g.prototype.i=function(f){l(f,0)};g.prototype.l=function(){for(;this.g&&this.g.length;){var f=this.g;this.g=[];for(var a=0;a<f.length;++a){var d=
+f[a];f[a]=null;try{d()}catch(e){this.j(e)}}}this.g=null};g.prototype.j=function(f){this.i(function(){throw f;})};c.prototype.j=function(){function f(e){return function(k){d||(d=!0,e.call(a,k))}}var a=this,d=!1;return{resolve:f(this.D),reject:f(this.l)}};c.prototype.D=function(f){if(f===this)this.l(new TypeError("A Promise cannot resolve to itself"));else if(f instanceof c)this.G(f);else{a:switch(typeof f){case "object":var a=f!=null;break a;case "function":a=!0;break a;default:a=!1}a?this.C(f):this.o(f)}};
+c.prototype.C=function(f){var a=void 0;try{a=f.then}catch(d){this.l(d);return}typeof a=="function"?this.H(a,f):this.o(f)};c.prototype.l=function(f){this.v(2,f)};c.prototype.o=function(f){this.v(1,f)};c.prototype.v=function(f,a){if(this.h!=0)throw Error("Cannot settle("+f+", "+a+"): Promise already settled in state"+this.h);this.h=f;this.i=a;this.h===2&&this.F();this.K()};c.prototype.F=function(){var f=this;l(function(){if(f.B()){var a=w.console;typeof a!=="undefined"&&a.error(f.i)}},1)};c.prototype.B=
+function(){if(this.u)return!1;var f=w.CustomEvent,a=w.Event,d=w.dispatchEvent;if(typeof d==="undefined")return!0;typeof f==="function"?f=new f("unhandledrejection",{cancelable:!0}):typeof a==="function"?f=new a("unhandledrejection",{cancelable:!0}):(f=w.document.createEvent("CustomEvent"),f.initCustomEvent("unhandledrejection",!1,!0,f));f.promise=this;f.reason=this.i;return d(f)};c.prototype.K=function(){if(this.g!=null){for(var f=0;f<this.g.length;++f)m.h(this.g[f]);this.g=null}};var m=new g;c.prototype.G=
+function(f){var a=this.j();f.A(a.resolve,a.reject)};c.prototype.H=function(f,a){var d=this.j();try{f.call(a,d.resolve,d.reject)}catch(e){d.reject(e)}};c.prototype.then=function(f,a){function d(n,r){return typeof n=="function"?function(C){try{e(n(C))}catch(D){k(D)}}:r}var e,k,p=new c(function(n,r){e=n;k=r});this.A(d(f,e),d(a,k));return p};c.prototype.catch=function(f){return this.then(void 0,f)};c.prototype.A=function(f,a){function d(){switch(e.h){case 1:f(e.i);break;case 2:a(e.i);break;default:throw Error("Unexpected state: "+
+e.h);}}var e=this;this.g==null?m.h(d):this.g.push(d);this.u=!0};c.resolve=h;c.reject=function(f){return new c(function(a,d){d(f)})};c.race=function(f){return new c(function(a,d){for(var e=t(f),k=e.next();!k.done;k=e.next())h(k.value).A(a,d)})};c.all=function(f){var a=t(f),d=a.next();return d.done?h([]):new c(function(e,k){function p(C){return function(D){n[C]=D;r--;r==0&&e(n)}}var n=[],r=0;do n.push(void 0),r++,h(d.value).A(p(n.length-1),k),d=a.next();while(!d.done)})};return c});
+function K(b,c){return Object.prototype.hasOwnProperty.call(b,c)}x("Object.is",function(b){return b?b:function(c,g){return c===g?c!==0||1/c===1/g:c!==c&&g!==g}});x("Array.prototype.includes",function(b){return b?b:function(c,g){var h=this;h instanceof String&&(h=String(h));var l=h.length;g=g||0;for(g<0&&(g=Math.max(g+l,0));g<l;g++){var m=h[g];if(m===c||Object.is(m,c))return!0}return!1}});
+x("String.prototype.includes",function(b){return b?b:function(c,g){if(this==null)throw new TypeError("The 'this' value for String.prototype.includes must not be null or undefined");if(c instanceof RegExp)throw new TypeError("First argument to String.prototype.includes must not be a regular expression");return this.indexOf(c,g||0)!==-1}});
+x("WeakMap",function(b){function c(d){this.g=(a+=Math.random()+1).toString();if(d){d=t(d);for(var e;!(e=d.next()).done;)e=e.value,this.set(e[0],e[1])}}function g(){}function h(d){var e=typeof d;return e==="object"&&d!==null||e==="function"}function l(d){if(!K(d,f)){var e=new g;u(d,f,{value:e})}}function m(d){var e=Object[d];e&&(Object[d]=function(k){if(k instanceof g)return k;Object.isExtensible(k)&&l(k);return e(k)})}if(function(){if(!b||!Object.seal)return!1;try{var d=Object.seal({}),e=Object.seal({}),
+k=new b([[d,2],[e,3]]);if(k.get(d)!=2||k.get(e)!=3)return!1;k.delete(d);k.set(e,4);return!k.has(d)&&k.get(e)==4}catch(p){return!1}}())return b;var f="$jscomp_hidden_"+Math.random();m("freeze");m("preventExtensions");m("seal");var a=0;c.prototype.set=function(d,e){if(!h(d))throw Error("Invalid WeakMap key");l(d);if(!K(d,f))throw Error("WeakMap key fail: "+d);d[f][this.g]=e;return this};c.prototype.get=function(d){return h(d)&&K(d,f)?d[f][this.g]:void 0};c.prototype.has=function(d){return h(d)&&K(d,
+f)&&K(d[f],this.g)};c.prototype.delete=function(d){return h(d)&&K(d,f)&&K(d[f],this.g)?delete d[f][this.g]:!1};return c});
+x("Map",function(b){function c(){var a={};return a.m=a.next=a.head=a}function g(a,d){var e=a[1];return J(function(){if(e){for(;e.head!=a[1];)e=e.m;for(;e.next!=e.head;)return e=e.next,{done:!1,value:d(e)};e=null}return{done:!0,value:void 0}})}function h(a,d){var e=d&&typeof d;e=="object"||e=="function"?m.has(d)?e=m.get(d):(e=""+ ++f,m.set(d,e)):e="p_"+d;var k=a[0][e];if(k&&K(a[0],e))for(a=0;a<k.length;a++){var p=k[a];if(d!==d&&p.key!==p.key||d===p.key)return{id:e,list:k,index:a,entry:p}}return{id:e,
+list:k,index:-1,entry:void 0}}function l(a){this[0]={};this[1]=c();this.size=0;if(a){a=t(a);for(var d;!(d=a.next()).done;)d=d.value,this.set(d[0],d[1])}}if(function(){if(!b||typeof b!="function"||!b.prototype.entries||typeof Object.seal!="function")return!1;try{var a=Object.seal({x:4}),d=new b(t([[a,"s"]]));if(d.get(a)!="s"||d.size!=1||d.get({x:4})||d.set({x:4},"t")!=d||d.size!=2)return!1;var e=d.entries(),k=e.next();if(k.done||k.value[0]!=a||k.value[1]!="s")return!1;k=e.next();return k.done||k.value[0].x!=
+4||k.value[1]!="t"||!e.next().done?!1:!0}catch(p){return!1}}())return b;var m=new WeakMap;l.prototype.set=function(a,d){a=a===0?0:a;var e=h(this,a);e.list||(e.list=this[0][e.id]=[]);e.entry?e.entry.value=d:(e.entry={next:this[1],m:this[1].m,head:this[1],key:a,value:d},e.list.push(e.entry),this[1].m.next=e.entry,this[1].m=e.entry,this.size++);return this};l.prototype.delete=function(a){a=h(this,a);return a.entry&&a.list?(a.list.splice(a.index,1),a.list.length||delete this[0][a.id],a.entry.m.next=a.entry.next,
+a.entry.next.m=a.entry.m,a.entry.head=null,this.size--,!0):!1};l.prototype.clear=function(){this[0]={};this[1]=this[1].m=c();this.size=0};l.prototype.has=function(a){return!!h(this,a).entry};l.prototype.get=function(a){return(a=h(this,a).entry)&&a.value};l.prototype.entries=function(){return g(this,function(a){return[a.key,a.value]})};l.prototype.keys=function(){return g(this,function(a){return a.key})};l.prototype.values=function(){return g(this,function(a){return a.value})};l.prototype.forEach=
+function(a,d){for(var e=this.entries(),k;!(k=e.next()).done;)k=k.value,a.call(d,k[1],k[0],this)};l.prototype[Symbol.iterator]=l.prototype.entries;var f=0;return l});
+x("Set",function(b){function c(g){this.g=new Map;if(g){g=t(g);for(var h;!(h=g.next()).done;)this.add(h.value)}this.size=this.g.size}if(function(){if(!b||typeof b!="function"||!b.prototype.entries||typeof Object.seal!="function")return!1;try{var g=Object.seal({x:4}),h=new b(t([g]));if(!h.has(g)||h.size!=1||h.add(g)!=h||h.size!=1||h.add({x:4})!=h||h.size!=2)return!1;var l=h.entries(),m=l.next();if(m.done||m.value[0]!=g||m.value[1]!=g)return!1;m=l.next();return m.done||m.value[0]==g||m.value[0].x!=4||
+m.value[1]!=m.value[0]?!1:l.next().done}catch(f){return!1}}())return b;c.prototype.add=function(g){g=g===0?0:g;this.g.set(g,g);this.size=this.g.size;return this};c.prototype.delete=function(g){g=this.g.delete(g);this.size=this.g.size;return g};c.prototype.clear=function(){this.g.clear();this.size=0};c.prototype.has=function(g){return this.g.has(g)};c.prototype.entries=function(){return this.g.entries()};c.prototype.values=function(){return this.g.values()};c.prototype.keys=c.prototype.values;c.prototype[Symbol.iterator]=
+c.prototype.values;c.prototype.forEach=function(g,h){var l=this;this.g.forEach(function(m){return g.call(h,m,m,l)})};return c});(function(){function b(){return m?Promise.resolve(m):f?f:f=fetch("https://www.gstatic.com/bard-maui/resources/material-design-icon-names.804824289.json").then(function(a){if(!a.ok)throw Error("HTTP error! status: "+a.status+" fetching https://www.gstatic.com/bard-maui/resources/material-design-icon-names.804824289.json");return a.json()}).then(function(a){if(!Array.isArray(a))throw new TypeError("Fetched icon names from https://www.gstatic.com/bard-maui/resources/material-design-icon-names.804824289.json is not an array.");
+return m=a}).catch(function(a){console.error("IconChecker: Failed to load valid icon names from https://www.gstatic.com/bard-maui/resources/material-design-icon-names.804824289.json.",a);f=null;throw a;})}function c(a){var d,e,k,p;return I(new H(new B(function(n){switch(n.h){case 1:d=(a.textContent||"").trim();if(!d||a.classList.contains("js-replaced-missing-icon")&&d==="radio_button_unchecked")return n.return();e=window.getComputedStyle(a);if(e.display==="none"||e.visibility==="hidden")return n.return();
+n.l=2;var r=b();n.h=4;return{value:r};case 4:k=n.u;n.h=3;n.l=0;break;case 2:return n.l=0,n.i=null,console.warn('IconChecker: Skipping check for icon "'+d+'" as valid names could not be loaded.'),n.return();case 3:(p=k.includes(d))?a.classList.contains("js-replaced-missing-icon")&&a.classList.remove("js-replaced-missing-icon"):d==="radio_button_unchecked"&&a.classList.contains("js-replaced-missing-icon")||(a.textContent="radio_button_unchecked",a.classList.add("js-replaced-missing-icon")),n.h=0}})))}
+function g(a){a=a===void 0?document.body:a;a.querySelectorAll(l).forEach(function(d){c(d)})}function h(){b().catch(function(){});document.fonts.ready.then(function(){requestAnimationFrame(function(){g(document.body);(new MutationObserver(function(a){var d=new Set;a=t(a);for(var e=a.next();!e.done;e=a.next())if(e=e.value,e.type==="childList")e.addedNodes.forEach(function(p){p.nodeType===Node.ELEMENT_NODE&&(p.matches(l)&&d.add(p),p.querySelectorAll(l).forEach(function(n){d.add(n)}))});else if(e.type===
+"attributes"&&e.attributeName==="class"){var k=e.target;e.target.nodeType===Node.ELEMENT_NODE&&k.matches(l)&&d.add(k)}else e.type==="characterData"&&e.target.parentNode&&(e=e.target.parentNode,e.nodeType===Node.ELEMENT_NODE&&e.matches(l)&&d.add(e));d.size>0&&setTimeout(function(){d.forEach(function(p){c(p)})},500)})).observe(document.body,{childList:!0,subtree:!0,attributes:!0,attributeFilter:["class"],characterData:!0})})}).catch(function(a){console.error("IconChecker: Font loading error. Scanning icons anyway.",
+a);requestAnimationFrame(function(){g(document.body)})})}var l=["material-icons","material-symbols-outlined","material-symbols-rounded","material-symbols-sharp"].map(function(a){return"."+a}).join(","),m=null,f=null;document.readyState==="loading"?document.addEventListener("DOMContentLoaded",function(){h()}):h()})();}).call(this);
+
+</script>
+
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Standardize. | Process Optimization</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+<script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Space Grotesk', 'sans-serif'],
+                    },
+                    colors: {
+                        swiss: {
+                            black: '#1a1a1a',
+                            white: '#ffffff',
+                            offwhite: '#f4f4f4',
+                            orange: '#FF4F00', // International Orange
+                            slate: '#64748b', // Swiss Slate
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        :root {
+            --swiss-orange: #FF4F00;
+            --swiss-black: #1a1a1a;
+        }
+        body {
+            background-color: #f4f4f4;
+            color: #1a1a1a;
+        }
+        .grid-bg {
+            background-image: linear-gradient(#e5e5e5 1px, transparent 1px),
+            linear-gradient(90deg, #e5e5e5 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+        .grid-bg-dark {
+            background-image: linear-gradient(#262626 1px, transparent 1px),
+            linear-gradient(90deg, #262626 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+        .brutalist-border {
+            border: 2px solid #1a1a1a;
+        }
+        .brutalist-shadow {
+            box-shadow: 8px 8px 0px #1a1a1a;
+        }
+        .hover-lift {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .hover-lift:hover {
+            transform: translate(-4px, -4px);
+            box-shadow: 6px 6px 0px #1a1a1a;
+        }
+        .btn-swiss {
+            background-color: #ffffff;
+            border: 2px solid #1a1a1a;
+            color: #1a1a1a;
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 12px 24px;
+        }
+        .btn-swiss:hover {
+            background-color: #FF4F00;
+            color: white;
+            border-color: #FF4F00;
+        }
+        .btn-swiss-dark {
+            background-color: #1a1a1a;
+            color: white;
+            border: 2px solid #1a1a1a;
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 12px 24px;
+        }
+        .btn-swiss-dark:hover {
+            background-color: #FF4F00;
+            border-color: #FF4F00;
+            transform: translate(-2px, -2px);
+            box-shadow: 4px 4px 0px rgba(0,0,0,0.2);
+        }
+        .floating-frame {
+            position: relative;
+        }
+        .floating-frame::before {
+            content: '';
+            position: absolute;
+            top: -16px;
+            left: -16px;
+            right: -16px;
+            bottom: -16px;
+            border-bottom: 2px solid #FF4F00;
+            border-right: 2px solid #FF4F00;
+            z-index: 0;
+            pointer-events: none;
+        }
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
+            margin: 10px 0;
+            width: 100%;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 24px;
+            width: 24px;
+            background: #FF4F00;
+            border: 2px solid #1a1a1a;
+            cursor: pointer;
+            margin-top: -10px;
+            transition: transform 0.1s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            background: #1a1a1a;
+        }
+@media print {
+            @page { margin: 0; size: A4 portrait; }
+            html, body { 
+                height: 100%; 
+                overflow: hidden !important; /* Forces single page */
+            }
+            body { 
+                background: white; 
+                -webkit-print-color-adjust: exact !important; 
+                print-color-adjust: exact !important; 
+            }
+            #app-ui { display: none !important; }
+            
+            #print-report { 
+                display: flex !important; 
+                flex-direction: column;
+                width: 100%; 
+                height: 100vh; /* Use full height */
+                padding: 20px 40px; /* Reduced top/bottom padding */
+                zoom: 0.85; /* SCALES CONTENT DOWN TO FIT */
+            }
+            .no-print { display: none !important; }
+        }
+        .service-card.selected {
+            background-color: #1a1a1a;
+            color: white;
+            border-color: #1a1a1a;
+        }
+        .service-card.selected .icon-box {
+            background-color: #FF4F00;
+            color: white;
+            border-color: #FF4F00;
+        }
+        .service-card.selected p {
+            color: #d4d4d4;
+        }
+
+/* Checkbox Custom Style */
+        .course-checkbox {
+            transition: all 0.2s ease;
+            background-color: #e5e7eb !important; /* Force darker gray (Gray-200) */
+        }
+        
+        /* Ensure Hover and Checked states turn Orange */
+        .course-checkbox:hover, .course-checkbox.checked {
+            background-color: #FF4F00 !important; 
+            color: white !important;
+        }
+    </style>
+<style>*, ::before, ::after{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }::backdrop{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }::backdrop{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }::backdrop{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }/* ! tailwindcss v3.4.17 | MIT License | https://tailwindcss.com */*,::after,::before{box-sizing:border-box;border-width:0;border-style:solid;border-color:#e5e7eb}::after,::before{--tw-content:''}:host,html{line-height:1.5;-webkit-text-size-adjust:100%;-moz-tab-size:4;tab-size:4;font-family:Inter, sans-serif;font-feature-settings:normal;font-variation-settings:normal;-webkit-tap-highlight-color:transparent}body{margin:0;line-height:inherit}hr{height:0;color:inherit;border-top-width:1px}abbr:where([title]){-webkit-text-decoration:underline dotted;text-decoration:underline dotted}h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}a{color:inherit;text-decoration:inherit}b,strong{font-weight:bolder}code,kbd,pre,samp{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;font-feature-settings:normal;font-variation-settings:normal;font-size:1em}small{font-size:80%}sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline}sub{bottom:-.25em}sup{top:-.5em}table{text-indent:0;border-color:inherit;border-collapse:collapse}button,input,optgroup,select,textarea{font-family:inherit;font-feature-settings:inherit;font-variation-settings:inherit;font-size:100%;font-weight:inherit;line-height:inherit;letter-spacing:inherit;color:inherit;margin:0;padding:0}button,select{text-transform:none}button,input:where([type=button]),input:where([type=reset]),input:where([type=submit]){-webkit-appearance:button;background-color:transparent;background-image:none}:-moz-focusring{outline:auto}:-moz-ui-invalid{box-shadow:none}progress{vertical-align:baseline}::-webkit-inner-spin-button,::-webkit-outer-spin-button{height:auto}[type=search]{-webkit-appearance:textfield;outline-offset:-2px}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-file-upload-button{-webkit-appearance:button;font:inherit}summary{display:list-item}blockquote,dd,dl,figure,h1,h2,h3,h4,h5,h6,hr,p,pre{margin:0}fieldset{margin:0;padding:0}legend{padding:0}menu,ol,ul{list-style:none;margin:0;padding:0}dialog{padding:0}textarea{resize:vertical}input::placeholder,textarea::placeholder{opacity:1;color:#9ca3af}[role=button],button{cursor:pointer}:disabled{cursor:default}audio,canvas,embed,iframe,img,object,svg,video{display:block;vertical-align:middle}img,video{max-width:100%;height:auto}[hidden]:where(:not([hidden=until-found])){display:none}.container{width:100%}@media (min-width: 640px){.container{max-width:640px}}@media (min-width: 768px){.container{max-width:768px}}@media (min-width: 1024px){.container{max-width:1024px}}@media (min-width: 1280px){.container{max-width:1280px}}@media (min-width: 1536px){.container{max-width:1536px}}.pointer-events-none{pointer-events:none}.pointer-events-auto{pointer-events:auto}.fixed{position:fixed}.absolute{position:absolute}.relative{position:relative}.inset-0{inset:0px}.inset-y-0{top:0px;bottom:0px}.-bottom-4{bottom:-1rem}.-right-4{right:-1rem}.bottom-4{bottom:1rem}.left-0{left:0px}.left-4{left:1rem}.right-4{right:1rem}.top-4{top:1rem}.-z-0{z-index:0}.z-0{z-index:0}.z-10{z-index:10}.z-20{z-index:20}.z-50{z-index:50}.col-span-2{grid-column:span 2 / span 2}.mx-auto{margin-left:auto;margin-right:auto}.mb-1{margin-bottom:0.25rem}.mb-12{margin-bottom:3rem}.mb-16{margin-bottom:4rem}.mb-2{margin-bottom:0.5rem}.mb-4{margin-bottom:1rem}.mb-6{margin-bottom:1.5rem}.mb-8{margin-bottom:2rem}.mt-1{margin-top:0.25rem}.mt-20{margin-top:5rem}.mt-6{margin-top:1.5rem}.block{display:block}.inline-block{display:inline-block}.flex{display:flex}.grid{display:grid}.hidden{display:none}.h-12{height:3rem}.h-20{height:5rem}.h-3{height:0.75rem}.h-32{height:8rem}.h-4{height:1rem}.h-48{height:12rem}.h-6{height:1.5rem}.h-\[500px\]{height:500px}.h-full{height:100%}.h-px{height:1px}.h-screen{height:100vh}.w-12{width:3rem}.w-3{width:0.75rem}.w-4{width:1rem}.w-56{width:14rem}.w-6{width:1.5rem}.w-full{width:100%}.max-w-2xl{max-width:42rem}.max-w-4xl{max-width:56rem}.max-w-lg{max-width:32rem}.max-w-md{max-width:28rem}.flex-grow{flex-grow:1}.cursor-pointer{cursor:pointer}.grid-cols-1{grid-template-columns:repeat(1, minmax(0, 1fr))}.grid-cols-2{grid-template-columns:repeat(2, minmax(0, 1fr))}.grid-cols-3{grid-template-columns:repeat(3, minmax(0, 1fr))}.flex-col{flex-direction:column}.items-start{align-items:flex-start}.items-end{align-items:flex-end}.items-center{align-items:center}.justify-center{justify-content:center}.justify-between{justify-content:space-between}.gap-12{gap:3rem}.gap-16{gap:4rem}.gap-2{gap:0.5rem}.gap-4{gap:1rem}.gap-6{gap:1.5rem}.gap-8{gap:2rem}.space-x-8 > :not([hidden]) ~ :not([hidden]){--tw-space-x-reverse:0;margin-right:calc(2rem * var(--tw-space-x-reverse));margin-left:calc(2rem * calc(1 - var(--tw-space-x-reverse)))}.space-y-10 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(2.5rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(2.5rem * var(--tw-space-y-reverse))}.space-y-12 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(3rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(3rem * var(--tw-space-y-reverse))}.space-y-2 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(0.5rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(0.5rem * var(--tw-space-y-reverse))}.space-y-4 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(1rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(1rem * var(--tw-space-y-reverse))}.space-y-6 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(1.5rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(1.5rem * var(--tw-space-y-reverse))}.space-y-8 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(2rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(2rem * var(--tw-space-y-reverse))}.overflow-hidden{overflow:hidden}.scroll-smooth{scroll-behavior:smooth}.whitespace-nowrap{white-space:nowrap}.rounded-full{border-radius:9999px}.border{border-width:1px}.border-2{border-width:2px}.border-b-2{border-bottom-width:2px}.border-b-4{border-bottom-width:4px}.border-r-2{border-right-width:2px}.border-t{border-top-width:1px}.border-t-2{border-top-width:2px}.border-t-4{border-top-width:4px}.border-black{--tw-border-opacity:1;border-color:rgb(0 0 0 / var(--tw-border-opacity, 1))}.bg-swiss-slate { --tw-bg-opacity: 1; background-color: rgb(100 116 139 / var(--tw-bg-opacity, 1));}.text-swiss-slate { --tw-text-opacity: 1; color: rgb(100 116 139 / var(--tw-text-opacity, 1));}.border-swiss-slate { --tw-border-opacity: 1; border-color: rgb(100 116 139 / var(--tw-border-opacity, 1));}.border-gray-200{--tw-border-opacity:1;border-color:rgb(229 231 235 / var(--tw-border-opacity, 1))}.border-gray-300{--tw-border-opacity:1;border-color:rgb(209 213 219 / var(--tw-border-opacity, 1))}.border-swiss-black{--tw-border-opacity:1;border-color:rgb(26 26 26 / var(--tw-border-opacity, 1))}.border-swiss-orange{--tw-border-opacity:1;border-color:rgb(255 79 0 / var(--tw-border-opacity, 1))}.border-white{--tw-border-opacity:1;border-color:rgb(255 255 255 / var(--tw-border-opacity, 1))}.bg-black{--tw-bg-opacity:1;background-color:rgb(0 0 0 / var(--tw-bg-opacity, 1))}.bg-black\/50{background-color:rgb(0 0 0 / 0.5)}.bg-gray-300{--tw-bg-opacity:1;background-color:rgb(209 213 219 / var(--tw-bg-opacity, 1))}.bg-gray-50{--tw-bg-opacity:1;background-color:rgb(249 250 251 / var(--tw-bg-opacity, 1))}.bg-swiss-black{--tw-bg-opacity:1;background-color:rgb(26 26 26 / var(--tw-bg-opacity, 1))}.bg-swiss-offwhite{--tw-bg-opacity:1;background-color:rgb(244 244 244 / var(--tw-bg-opacity, 1))}.bg-swiss-orange{--tw-bg-opacity:1;background-color:rgb(255 79 0 / var(--tw-bg-opacity, 1))}.bg-white{--tw-bg-opacity:1;background-color:rgb(255 255 255 / var(--tw-bg-opacity, 1))}.object-cover{object-fit:cover}.p-2{padding:0.5rem}.p-3{padding:0.75rem}.p-4{padding:1rem}.p-6{padding:1.5rem}.p-8{padding:2rem}.px-2{padding-left:0.5rem;padding-right:0.5rem}.px-3{padding-left:0.75rem;padding-right:0.75rem}.px-4{padding-left:1rem;padding-right:1rem}.px-6{padding-left:1.5rem;padding-right:1.5rem}.py-1{padding-top:0.25rem;padding-bottom:0.25rem}.py-12{padding-top:3rem;padding-bottom:3rem}.py-2{padding-top:0.5rem;padding-bottom:0.5rem}.py-24{padding-top:6rem;padding-bottom:6rem}.py-3{padding-top:0.75rem;padding-bottom:0.75rem}.py-8{padding-top:2rem;padding-bottom:2rem}.pb-8{padding-bottom:2rem}.pl-3{padding-left:0.75rem}.pl-8{padding-left:2rem}.pr-4{padding-right:1rem}.pt-20{padding-top:5rem}.pt-4{padding-top:1rem}.pt-6{padding-top:1.5rem}.text-center{text-align:center}.text-right{text-align:right}.font-display{font-family:Space Grotesk, sans-serif}.font-mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}.font-sans{font-family:Inter, sans-serif}.font-serif{font-family:ui-serif, Georgia, Cambria, "Times New Roman", Times, serif}.text-2xl{font-size:1.5rem;line-height:2rem}.text-3xl{font-size:1.875rem;line-height:2.25rem}.text-4xl{font-size:2.25rem;line-height:2.5rem}.text-5xl{font-size:3rem;line-height:1}.text-6xl{font-size:3.75rem;line-height:1}.text-lg{font-size:1.125rem;line-height:1.75rem}.text-sm{font-size:0.875rem;line-height:1.25rem}.text-xl{font-size:1.25rem;line-height:1.75rem}.text-xs{font-size:0.75rem;line-height:1rem}.font-bold{font-weight:700}.font-medium{font-weight:500}.uppercase{text-transform:uppercase}.leading-\[0\.9\]{line-height:0.9}.leading-relaxed{line-height:1.625}.leading-tight{line-height:1.25}.tracking-tight{letter-spacing:-0.025em}.tracking-tighter{letter-spacing:-0.05em}.tracking-wide{letter-spacing:0.025em}.tracking-wider{letter-spacing:0.05em}.tracking-widest{letter-spacing:0.1em}.text-gray-400{--tw-text-opacity:1;color:rgb(156 163 175 / var(--tw-text-opacity, 1))}.text-gray-500{--tw-text-opacity:1;color:rgb(107 114 128 / var(--tw-text-opacity, 1))}.text-gray-600{--tw-text-opacity:1;color:rgb(75 85 99 / var(--tw-text-opacity, 1))}.text-swiss-black{--tw-text-opacity:1;color:rgb(26 26 26 / var(--tw-text-opacity, 1))}.text-swiss-orange{--tw-text-opacity:1;color:rgb(255 79 0 / var(--tw-text-opacity, 1))}.text-white{--tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1))}.antialiased{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}.opacity-10{opacity:0.1}.opacity-20{opacity:0.2}.opacity-50{opacity:0.5}.shadow-\[4px_4px_0px_\#1a1a1a\]{--tw-shadow:4px 4px 0px #1a1a1a;--tw-shadow-colored:4px 4px 0px var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.grayscale{--tw-grayscale:grayscale(100%);filter:var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow)}.transition-all{transition-property:all;transition-timing-function:cubic-bezier(0.4, 0, 0.2, 1);transition-duration:150ms}.transition-colors{transition-property:color, background-color, border-color, fill, stroke, -webkit-text-decoration-color;transition-property:color, background-color, border-color, text-decoration-color, fill, stroke;transition-property:color, background-color, border-color, text-decoration-color, fill, stroke, -webkit-text-decoration-color;transition-timing-function:cubic-bezier(0.4, 0, 0.2, 1);transition-duration:150ms}.duration-500{transition-duration:500ms}.duration-200{transition-duration:200ms}.selection\:bg-swiss-orange *::selection{--tw-bg-opacity:1;background-color:rgb(255 79 0 / var(--tw-bg-opacity, 1))}.selection\:text-white *::selection{--tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1))}.selection\:bg-swiss-orange::selection{--tw-bg-opacity:1;background-color:rgb(255 79 0 / var(--tw-bg-opacity, 1))}.selection\:text-white::selection{--tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1))}.hover\:bg-swiss-orange:hover{--tw-bg-opacity:1;background-color:rgb(255 79 0 / var(--tw-bg-opacity, 1))}.hover\:text-swiss-orange:hover{--tw-text-opacity:1;color:rgb(255 79 0 / var(--tw-text-opacity, 1))}.hover\:text-white:hover{--tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1))}.hover\:grayscale-0:hover{--tw-grayscale:grayscale(0);filter:var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow)}.focus\:border-swiss-orange:focus{--tw-border-opacity:1;border-color:rgb(255 79 0 / var(--tw-border-opacity, 1))}.focus\:outline-none:focus{outline:2px solid transparent;outline-offset:2px}.group:hover .group-hover\:bg-white{--tw-bg-opacity:1;background-color:rgb(255 255 255 / var(--tw-bg-opacity, 1))}.group:hover .group-hover\:text-swiss-black{--tw-text-opacity:1;color:rgb(26 26 26 / var(--tw-text-opacity, 1))}.group:hover .group-hover\:text-white{--tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1))}.group:hover .group-hover\:text-white\/90{color:rgb(255 255 255 / 0.9)}@media (min-width: 768px){.md\:flex{display:flex}.md\:grid-cols-2{grid-template-columns:repeat(2, minmax(0, 1fr))}.md\:flex-row{flex-direction:row}.md\:p-12{padding:3rem}.md\:text-7xl{font-size:4.5rem;line-height:1}.md\:text-8xl{font-size:6rem;line-height:1}}@media (min-width: 1024px){.lg\:col-span-2{grid-column:span 2 / span 2}.lg\:flex{display:flex}.lg\:grid-cols-2{grid-template-columns:repeat(2, minmax(0, 1fr))}.lg\:grid-cols-3{grid-template-columns:repeat(3, minmax(0, 1fr))}.lg\:grid-cols-4{grid-template-columns:repeat(4, minmax(0, 1fr))}}</style></head>
+<body class="antialiased selection:bg-swiss-orange selection:text-white">
+<div id="app-ui">
+<nav class="fixed w-full z-50 bg-white border-b-2 border-swiss-black">
+<div class="container mx-auto px-6 h-20 flex justify-between items-center">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 bg-swiss-orange border border-swiss-black"></div>
+<span class="text-2xl font-display font-bold tracking-tight">Standardize<span class="text-swiss-orange">.</span></span>
+</div>
+<div class="hidden md:flex space-x-8 font-display font-medium text-sm tracking-wide">
+<a class="hover:text-swiss-orange transition-colors" href="#Competences">COMPETENCES</a>
+<a class="hover:text-swiss-orange transition-colors" href="#framework">FRAMEWORK</a>
+<a class="hover:text-swiss-orange transition-colors" href="#simulation">SIMULATOR</a>
+<a class="hover:text-swiss-orange transition-colors" href="#roi">FY SAVINGS</a>
+<a class="hover:text-swiss-orange transition-colors" href="#contact">CONTACT</a>
+</div>
+<div class="flex gap-4">
+<button class="btn-swiss-dark text-xs" onclick="generateReport()">
+                    Export Project Plan
+                </button>
+</div>
+</div>
+</nav>
+<header class="relative h-screen flex flex-col border-b-2 border-swiss-black pt-20">
+<div class="absolute inset-0 z-0 bg-swiss-offwhite grid-bg"></div>
+<canvas class="absolute inset-0 z-0 w-full h-full opacity-50" id="heroCanvas" width="1301" height="564"></canvas>
+<div class="relative z-10 container mx-auto px-6 flex-grow flex flex-col justify-center items-start pointer-events-none">
+<div class="bg-white border-2 border-swiss-black p-8 max-w-2xl brutalist-shadow pointer-events-auto">
+<div id="heroStatus" class="inline-block bg-swiss-black text-white px-3 py-1 font-display font-bold text-xs uppercase mb-4 tracking-widest transition-colors duration-300">
+    System Error: Not standardized
+</div>
+<h1 class="text-6xl md:text-8xl font-display font-bold leading-[0.9] mb-6 tracking-tighter">
+                    Build. Train.<br>
+<span class="text-swiss-orange">Standardize.</span>
+</h1>
+<p class="text-lg text-gray-600 mb-8 font-sans max-w-lg leading-relaxed">
+                We re-engineer your "spaghetti" excel spreadsheets into professional systems and then train your staff to master them.
+                You get the tools you need and a team more motivated to develop themselves.
+                </p>
+<div class="flex gap-4">
+    <button class="btn-swiss-dark flex items-center gap-2" onclick="toggleHeroOrder()">
+        <span class="material-symbols-outlined">grid_view</span>
+        <span id="heroBtnText">Standardize System</span>
+    </button>
+</div>
+</div>
+</div>
+<div class="bg-swiss-orange text-white overflow-hidden border-t-2 border-swiss-black py-3 relative z-20">
+<div class="whitespace-nowrap font-display font-bold text-sm tracking-widest uppercase animate-marquee">
+                Reclaim FTE Capacity /// Files That Just Work /// Fewer Headaches /// Stop Manual Data Entry /// One-Click Report Refresh /// Zero-Error Formulas /// Faster Mondays /// Reliable Numbers /// No More Copy-Pasting /// Less Manual Work ///
+            </div>
+</div>
+</header>
+<section class="py-24 bg-white border-b-2 border-swiss-black" id="Competences">
+<div class="container mx-auto px-6">
+<div class="mb-16">
+<h2 class="text-5xl font-display font-bold mb-4">Our Core Competences</h2>
+<p class="text-gray-600 max-w-2xl text-lg">Select the competences your company is interested in developing.<br>Selected competences will be added to our project plan.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8" id="services-grid"><div class="service-card border-2 border-swiss-black p-6 cursor-pointer transition-all duration-200 brutalist-shadow hover:bg-swiss-orange hover:text-white group selected">
+                <div class="flex justify-between items-start mb-4">
+                    <div class="icon-box w-12 h-12 border-2 border-swiss-black flex items-center justify-center bg-swiss-offwhite group-hover:bg-white group-hover:text-swiss-black transition-colors">
+                        <span class="material-symbols-outlined">mark_email_read</span>
+                    </div>
+                    <span class="material-symbols-outlined text-swiss-orange group-hover:text-white font-bold">check_circle</span>
+                </div>
+                <h3 class="text-xl font-display font-bold mb-2 uppercase leading-tight">Scheduled Email Reports</h3>
+                <p class="text-sm text-gray-600 font-mono group-hover:text-white/90">Automated PDF/Excel generation &amp; SMTP distribution.</p>
+            </div><div class="service-card border-2 border-swiss-black p-6 cursor-pointer transition-all duration-200 brutalist-shadow hover:bg-swiss-orange hover:text-white group selected">
+                <div class="flex justify-between items-start mb-4">
+                    <div class="icon-box w-12 h-12 border-2 border-swiss-black flex items-center justify-center bg-swiss-offwhite group-hover:bg-white group-hover:text-swiss-black transition-colors">
+                        <span class="material-symbols-outlined">sync</span>
+                    </div>
+                    <span class="material-symbols-outlined text-swiss-orange group-hover:text-white font-bold">check_circle</span>
+                </div>
+                <h3 class="text-xl font-display font-bold mb-2 uppercase leading-tight">Auto-Update Systems</h3>
+                <p class="text-sm text-gray-600 font-mono group-hover:text-white/90">Live SQL/Web/CSV connections refreshing on trigger.</p>
+            </div><div class="service-card border-2 border-swiss-black p-6 cursor-pointer transition-all duration-200 brutalist-shadow hover:bg-swiss-orange hover:text-white group selected">
+                <div class="flex justify-between items-start mb-4">
+                    <div class="icon-box w-12 h-12 border-2 border-swiss-black flex items-center justify-center bg-swiss-offwhite group-hover:bg-white group-hover:text-swiss-black transition-colors">
+                        <span class="material-symbols-outlined">bolt</span>
+                    </div>
+                    <span class="material-symbols-outlined text-swiss-orange group-hover:text-white font-bold">check_circle</span>
+                </div>
+                <h3 class="text-xl font-display font-bold mb-2 uppercase leading-tight">Power Automate</h3>
+                <p class="text-sm text-gray-600 font-mono group-hover:text-white/90">Cross-platform logic: 'If Inventory &lt; 100, Order'.</p>
+            </div><div class="service-card border-2 border-swiss-black p-6 cursor-pointer transition-all duration-200 brutalist-shadow hover:bg-swiss-orange hover:text-white group bg-white">
+                <div class="flex justify-between items-start mb-4">
+                    <div class="icon-box w-12 h-12 border-2 border-swiss-black flex items-center justify-center bg-swiss-offwhite group-hover:bg-white group-hover:text-swiss-black transition-colors">
+                        <span class="material-symbols-outlined">code</span>
+                    </div>
+                    
+                </div>
+                <h3 class="text-xl font-display font-bold mb-2 uppercase leading-tight">VBA Automation</h3>
+                <p class="text-sm text-gray-600 font-mono group-hover:text-white/90">Macro refactoring for complex logic &amp; file management.</p>
+            </div><div class="service-card border-2 border-swiss-black p-6 cursor-pointer transition-all duration-200 brutalist-shadow hover:bg-swiss-orange hover:text-white group selected">
+                <div class="flex justify-between items-start mb-4">
+                    <div class="icon-box w-12 h-12 border-2 border-swiss-black flex items-center justify-center bg-swiss-offwhite group-hover:bg-white group-hover:text-swiss-black transition-colors">
+                        <span class="material-symbols-outlined">monitoring</span>
+                    </div>
+                    <span class="material-symbols-outlined text-swiss-orange group-hover:text-white font-bold">check_circle</span>
+                </div>
+                <h3 class="text-xl font-display font-bold mb-2 uppercase leading-tight">Power BI Dashboards</h3>
+                <p class="text-sm text-gray-600 font-mono group-hover:text-white/90">Executive visualization suites replacing static tables.</p>
+            </div><div class="service-card border-2 border-swiss-black p-6 cursor-pointer transition-all duration-200 brutalist-shadow hover:bg-swiss-orange hover:text-white group bg-white">
+                <div class="flex justify-between items-start mb-4">
+                    <div class="icon-box w-12 h-12 border-2 border-swiss-black flex items-center justify-center bg-swiss-offwhite group-hover:bg-white group-hover:text-swiss-black transition-colors">
+                        <span class="material-symbols-outlined">science</span>
+                    </div>
+                    
+                </div>
+                <h3 class="text-xl font-display font-bold mb-2 uppercase leading-tight">Solution Simulation</h3>
+                <p class="text-sm text-gray-600 font-mono group-hover:text-white/90">Monte Carlo models for 'What-If' scenario testing.</p>
+            </div><div class="service-card border-2 border-swiss-black p-6 cursor-pointer transition-all duration-200 brutalist-shadow hover:bg-swiss-orange hover:text-white group bg-white">
+                <div class="flex justify-between items-start mb-4">
+                    <div class="icon-box w-12 h-12 border-2 border-swiss-black flex items-center justify-center bg-swiss-offwhite group-hover:bg-white group-hover:text-swiss-black transition-colors">
+                        <span class="material-symbols-outlined">warehouse</span>
+                    </div>
+                    
+                </div>
+                <h3 class="text-xl font-display font-bold mb-2 uppercase leading-tight">Warehouse Optimization</h3>
+                <p class="text-sm text-gray-600 font-mono group-hover:text-white/90">Heat-map analysis for bin location logic.</p>
+            </div><div class="service-card border-2 border-swiss-black p-6 cursor-pointer transition-all duration-200 brutalist-shadow hover:bg-swiss-orange hover:text-white group bg-white">
+                <div class="flex justify-between items-start mb-4">
+                    <div class="icon-box w-12 h-12 border-2 border-swiss-black flex items-center justify-center bg-swiss-offwhite group-hover:bg-white group-hover:text-swiss-black transition-colors">
+                        <span class="material-symbols-outlined">inventory_2</span>
+                    </div>
+                    
+                </div>
+                <h3 class="text-xl font-display font-bold mb-2 uppercase leading-tight">Inventory Intelligence</h3>
+                <p class="text-sm text-gray-600 font-mono group-hover:text-white/90">Procurement planning based on run-rates.</p>
+            </div></div>
+</div>
+</section>
+<section id="framework" class="scroll-mt-20 py-12 bg-swiss-offwhite border-b-2 border-swiss-black overflow-hidden">
+    <div class="container mx-auto px-6">
+        <div class="mb-10">
+            <h2 class="text-4xl font-display font-bold mb-2 uppercase tracking-tighter">The Framework</h2>
+            <p class="text-gray-600 max-w-2xl text-md leading-tight">
+                We don't just fix the file; we fix the flow. <br class="hidden md:block">
+                Our 4-step methodology is engineered for continuity and scale.
+            </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-px bg-swiss-black border-2 border-swiss-black">
+            <div class="bg-white p-6 relative group overflow-hidden">
+                <div class="text-[10px] font-mono text-swiss-orange mb-3 font-bold">STEP_01</div>
+                <h3 class="text-xl font-display font-bold mb-3 uppercase tracking-tight">Scoping Project</h3>
+                <p class="text-xs text-gray-500 font-mono leading-relaxed">We map your current "spaghetti" logic, identifying redundancy, broken links, and manual bottlenecks.</p>
+                <span class="absolute -bottom-2 -right-2 material-symbols-outlined text-7xl opacity-5 group-hover:opacity-10 transition-opacity">search</span>
+            </div>
+            
+            <div class="bg-white p-6 relative group overflow-hidden">
+                <div class="text-[10px] font-mono text-swiss-orange mb-3 font-bold">STEP_02</div>
+                <h3 class="text-xl font-display font-bold mb-3 uppercase tracking-tight">Re-Engineering</h3>
+                <p class="text-xs text-gray-500 font-mono leading-relaxed">Logic is rebuilt from the ground up using professional data structures (SQL, Power Query, or VBA).</p>
+                <span class="absolute -bottom-2 -right-2 material-symbols-outlined text-7xl opacity-5 group-hover:opacity-10 transition-opacity">precision_manufacturing</span>
+            </div>
+
+            <div class="bg-white p-6 relative group overflow-hidden">
+                <div class="text-[10px] font-mono text-swiss-orange mb-3 font-bold">STEP_03</div>
+                <h3 class="text-xl font-display font-bold mb-3 uppercase tracking-tight">Implementation</h3>
+                <p class="text-xs text-gray-500 font-mono leading-relaxed">The new system is deployed within your IT environment. One-click refreshes and automated reporting go live.</p>
+                <span class="absolute -bottom-2 -right-2 material-symbols-outlined text-7xl opacity-5 group-hover:opacity-10 transition-opacity">rocket_launch</span>
+            </div>
+
+            <div class="bg-white p-6 relative group overflow-hidden">
+                <div class="text-[10px] font-mono text-swiss-orange mb-3 font-bold">STEP_04</div>
+                <h3 class="text-xl font-display font-bold mb-3 uppercase tracking-tight">Training</h3>
+                <p class="text-xs text-gray-500 font-mono leading-relaxed">We train your staff to master the new tools, ensuring the standard survives future organizational changes.</p>
+                <span class="absolute -bottom-2 -right-2 material-symbols-outlined text-7xl opacity-5 group-hover:opacity-10 transition-opacity">groups</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="training" class="py-24 bg-white border-b-2 border-swiss-black">
+        <div class="container mx-auto px-6">
+            <div class="flex flex-col md:flex-row justify-between items-end mb-16 gap-8">
+                <div>
+                    <h2 class="text-5xl font-display font-bold mb-4">Course Catalogue</h2>
+                    <p class="text-gray-600 max-w-xl text-lg">
+                        Don't just rent the competences. Own it. Click the module to preview its curriculum. Select the courses below to add them to our project plan.
+                    </p>
+                </div>
+                <div class="flex items-center gap-4 text-right">
+                    <div>
+                        <div class="text-4xl font-display font-bold text-swiss-orange leading-none" id="headerParticipants">2</div>
+                        <div class="text-xs font-mono text-gray-400 uppercase tracking-widest">Employees Standardized</div>
+                    </div>
+                    <div class="w-px h-12 bg-swiss-black opacity-20"></div> <span class="material-symbols-outlined text-6xl text-swiss-black">school</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-px bg-swiss-black border-2 border-swiss-black">
+                
+                <div class="bg-white p-8 group hover:bg-swiss-offwhite transition-colors">
+                    <div class="flex items-center gap-3 mb-6">
+                        <span class="material-symbols-outlined text-swiss-orange text-3xl">grid_on</span>
+                        <h3 class="font-display font-bold text-2xl uppercase">Excel Mastery</h3>
+                    </div>
+                    <ul class="space-y-4">
+                        <li class="course-item flex items-stretch border border-gray-100 bg-white">
+                            <div onclick="toggleCourse(this)" class="w-14 cursor-pointer flex items-center justify-center border-r-2 border-swiss-black bg-swiss-offwhite hover:bg-swiss-orange hover:text-white transition-colors course-checkbox" data-course="Excel 1 – Basic">
+                                <span class="material-symbols-outlined text-2xl opacity-0 check-icon">check</span>
+                            </div>
+                            <div onclick="openCourseModal('Excel 1 – Basic', 'Master the fundamentals of Excel. From navigation to basic formulas and formatting.', '69550523d73a53e69e3f14a3')" class="flex-grow p-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                <div class="flex justify-between items-baseline">
+                                    <span class="font-bold text-lg">Excel 1 – Basic</span>
+                                    <span class="text-xs font-mono text-gray-400">EN / DK</span>
+                                </div>
+                                <p class="text-xs font-mono text-gray-500 course-code">ALL_EXCEL_BASIC</p>
+                            </div>
+                        </li>
+
+                        <li class="course-item flex items-stretch border border-gray-100 bg-white">
+                            <div onclick="toggleCourse(this)" class="w-14 cursor-pointer flex items-center justify-center border-r-2 border-swiss-black bg-swiss-offwhite hover:bg-swiss-orange hover:text-white transition-colors course-checkbox" data-course="Excel 2 – Intermediate">
+                                <span class="material-symbols-outlined text-2xl opacity-0 check-icon">check</span>
+                            </div>
+                            <div onclick="openCourseModal('Excel 2 – Intermediate', 'Deep dive into Pivot Tables, VLOOKUP, and essential data management.', '69550523d73a53e69e3f14a3')" class="flex-grow p-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                <div class="flex justify-between items-baseline">
+                                    <span class="font-bold text-lg">Excel 2 – Intermediate</span>
+                                    <span class="text-xs font-mono text-gray-400">EN / DK</span>
+                                </div>
+                                <p class="text-xs font-mono text-gray-500 course-code">ALL_EXCEL_INTER</p>
+                            </div>
+                        </li>
+                        
+                        <li class="course-item flex items-stretch border border-gray-100 bg-white">
+                            <div onclick="toggleCourse(this)" class="w-14 cursor-pointer flex items-center justify-center border-r-2 border-swiss-black bg-swiss-offwhite hover:bg-swiss-orange hover:text-white transition-colors course-checkbox" data-course="Excel 3 – Advanced">
+                                <span class="material-symbols-outlined text-2xl opacity-0 check-icon">check</span>
+                            </div>
+                            <div onclick="openCourseModal('Excel 3 – Advanced', 'Complex array formulas, data modeling, and professional reporting.', '69550523d73a53e69e3f14a3')" class="flex-grow p-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                <div class="flex justify-between items-baseline">
+                                    <span class="font-bold text-lg">Excel 3 – Advanced</span>
+                                    <span class="text-xs font-mono text-gray-400">EN / DK</span>
+                                </div>
+                                <p class="text-xs font-mono text-gray-500 course-code">ALL_EXCEL_ADVAN</p>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="bg-white p-8 group hover:bg-swiss-offwhite transition-colors">
+                    <div class="flex items-center gap-3 mb-6">
+                        <span class="material-symbols-outlined text-swiss-orange text-3xl">transform</span>
+                        <h3 class="font-display font-bold text-2xl uppercase">Data Engineering</h3>
+                    </div>
+                    <ul class="space-y-4">
+                        <li class="course-item flex items-stretch border border-gray-100 bg-white">
+                            <div onclick="toggleCourse(this)" class="w-14 cursor-pointer flex items-center justify-center border-r-2 border-swiss-black bg-swiss-offwhite hover:bg-swiss-orange hover:text-white transition-colors course-checkbox" data-course="Intro to Power Query">
+                                <span class="material-symbols-outlined text-2xl opacity-0 check-icon">check</span>
+                            </div>
+                            <div onclick="openCourseModal('Intro to Power Query', 'Automate data cleanup without code. The modern way to handle CSVs.', '69550523d73a53e69e3f14a3')" class="flex-grow p-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                <div class="flex justify-between items-baseline">
+                                    <span class="font-bold text-lg">Intro to Power Query</span>
+                                    <span class="text-xs font-mono text-gray-400">EN / DK</span>
+                                </div>
+                                <p class="text-xs font-mono text-gray-500 course-code">POWER_QUERY</p>
+                            </div>
+                        </li>
+
+                        <li class="course-item flex items-stretch border border-gray-100 bg-white">
+                            <div onclick="toggleCourse(this)" class="w-14 cursor-pointer flex items-center justify-center border-r-2 border-swiss-black bg-swiss-offwhite hover:bg-swiss-orange hover:text-white transition-colors course-checkbox" data-course="Automated Invoicing">
+                                <span class="material-symbols-outlined text-2xl opacity-0 check-icon">check</span>
+                            </div>
+                            <div onclick="openCourseModal('Automated Invoicing', 'Learn to build fully automated invoice generation tools.', '69550523d73a53e69e3f14a3')" class="flex-grow p-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                <div class="flex justify-between items-baseline">
+                                    <span class="font-bold text-lg">Automated Invoicing</span>
+                                    <span class="text-xs font-mono text-gray-400">EN / DK</span>
+                                </div>
+                                <p class="text-xs font-mono text-gray-500 course-code">AUTO_INVOICE</p>
+                            </div>
+                        </li>
+
+                        <li class="course-item flex items-stretch border border-gray-100 bg-white">
+                            <div onclick="toggleCourse(this)" class="w-14 cursor-pointer flex items-center justify-center border-r-2 border-swiss-black bg-swiss-offwhite hover:bg-swiss-orange hover:text-white transition-colors course-checkbox" data-course="Analysis for Office">
+                                <span class="material-symbols-outlined text-2xl opacity-0 check-icon">check</span>
+                            </div>
+                            <div onclick="openCourseModal('Analysis for Office', 'Direct SAP connection from Excel. The gold standard for controllers.', '69550523d73a53e69e3f14a3')" class="flex-grow p-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                <div class="flex justify-between items-baseline">
+                                    <span class="font-bold text-lg">Analysis for Office</span>
+                                    <span class="text-xs font-mono text-gray-400">EN / DK</span>
+                                </div>
+                                <p class="text-xs font-mono text-gray-500 course-code">INTRO_ANALYSIS_OFFICE</p>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="bg-white p-8 group hover:bg-swiss-offwhite transition-colors">
+                    <div class="flex items-center gap-3 mb-6">
+                        <span class="material-symbols-outlined text-swiss-orange text-3xl">terminal</span>
+                        <h3 class="font-display font-bold text-2xl uppercase">Enterprise Scripting</h3>
+                    </div>
+                    <ul class="space-y-4">
+                        <li class="course-item flex items-stretch border border-gray-100 bg-white">
+                            <div onclick="toggleCourse(this)" class="w-14 cursor-pointer flex items-center justify-center border-r-2 border-swiss-black bg-swiss-offwhite hover:bg-swiss-orange hover:text-white transition-colors course-checkbox" data-course="SAP Scripting">
+                                <span class="material-symbols-outlined text-2xl opacity-0 check-icon">check</span>
+                            </div>
+                            <div onclick="openCourseModal('SAP Scripting', 'Automate clicks and data entry in SAP GUI using VBA.', '69550523d73a53e69e3f14a3')" class="flex-grow p-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                <div class="flex justify-between items-baseline">
+                                    <span class="font-bold text-lg">SAP Scripting</span>
+                                    <span class="text-xs font-mono text-gray-400">EN / DK</span>
+                                </div>
+                                <p class="text-xs font-mono text-gray-500 course-code">SAP_SCRIPTING</p>
+                            </div>
+                        </li>
+
+                        <li class="course-item flex items-stretch border border-gray-100 bg-white">
+                            <div onclick="toggleCourse(this)" class="w-14 cursor-pointer flex items-center justify-center border-r-2 border-swiss-black bg-swiss-offwhite hover:bg-swiss-orange hover:text-white transition-colors course-checkbox" data-course="Power Automate">
+                                <span class="material-symbols-outlined text-2xl opacity-0 check-icon">check</span>
+                            </div>
+                            <div onclick="openCourseModal('Power Automate', 'Cloud flows to connect Outlook, SharePoint, and Teams.', '69550523d73a53e69e3f14a3')" class="flex-grow p-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                <div class="flex justify-between items-baseline">
+                                    <span class="font-bold text-lg">Power Automate</span>
+                                    <span class="text-xs font-mono text-gray-400">EN / DK</span>
+                                </div>
+                                <p class="text-xs font-mono text-gray-500 course-code">POW_AUT_BASIC</p>
+                            </div>
+                        </li>
+
+                        <li class="course-item flex items-stretch border border-gray-100 bg-white">
+                            <div onclick="toggleCourse(this)" class="w-14 cursor-pointer flex items-center justify-center border-r-2 border-swiss-black bg-swiss-offwhite hover:bg-swiss-orange hover:text-white transition-colors course-checkbox" data-course="Excel VBA x AI">
+                                <span class="material-symbols-outlined text-2xl opacity-0 check-icon">check</span>
+                            </div>
+                            <div onclick="openCourseModal('Excel VBA x AI', 'Using OpenAI API inside Excel to categorize text and write emails.', '69550523d73a53e69e3f14a3')" class="flex-grow p-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                <div class="flex justify-between items-baseline">
+                                    <span class="font-bold text-lg">Excel VBA x AI</span>
+                                    <span class="text-xs font-mono text-gray-400">EN / DK</span>
+                                </div>
+                                <p class="text-xs font-mono text-gray-500 course-code">REDUCE_SUPPORT_DEPENDENCY</p>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="bg-white p-8 group hover:bg-swiss-offwhite transition-colors">
+                    <div class="flex items-center gap-3 mb-6">
+                        <span class="material-symbols-outlined text-swiss-orange text-3xl">psychology</span>
+                        <h3 class="font-display font-bold text-2xl uppercase">AI & Workplace</h3>
+                    </div>
+                    <ul class="space-y-4">
+                        <li class="course-item flex items-stretch border border-gray-100 bg-white">
+                            <div onclick="toggleCourse(this)" class="w-14 cursor-pointer flex items-center justify-center border-r-2 border-swiss-black bg-swiss-offwhite hover:bg-swiss-orange hover:text-white transition-colors course-checkbox" data-course="Grundlæggende AI">
+                                <span class="material-symbols-outlined text-2xl opacity-0 check-icon">check</span>
+                            </div>
+                            <div onclick="openCourseModal('Grundlæggende AI', 'Understanding LLMs and Prompt Engineering for business.', '69550523d73a53e69e3f14a3')" class="flex-grow p-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                <div class="flex justify-between items-baseline">
+                                    <span class="font-bold text-lg">Grundlæggende AI</span>
+                                    <span class="text-xs font-mono text-gray-400">EN / DK</span>
+                                </div>
+                                <p class="text-xs font-mono text-gray-500 course-code">ALL_GRUND_AI</p>
+                            </div>
+                        </li>
+
+                        <li class="course-item flex items-stretch border border-gray-100 bg-white">
+                            <div onclick="toggleCourse(this)" class="w-14 cursor-pointer flex items-center justify-center border-r-2 border-swiss-black bg-swiss-offwhite hover:bg-swiss-orange hover:text-white transition-colors course-checkbox" data-course="MS Teams">
+                                <span class="material-symbols-outlined text-2xl opacity-0 check-icon">check</span>
+                            </div>
+                            <div onclick="openCourseModal('MS Teams', 'Efficient collaboration, channels, and meeting management.', '69550523d73a53e69e3f14a3')" class="flex-grow p-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                <div class="flex justify-between items-baseline">
+                                    <span class="font-bold text-lg">MS Teams</span>
+                                    <span class="text-xs font-mono text-gray-400">EN / DK</span>
+                                </div>
+                                <p class="text-xs font-mono text-gray-500 course-code">MS_TEAMS_ESSENTIALS</p>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+
+            </div>
+<div class="mt-8 bg-swiss-offwhite border-2 border-swiss-black p-6 flex flex-col md:flex-row gap-5 items-center brutalist-shadow">
+    
+    <div class="w-16 h-16 bg-white border-2 border-swiss-black flex items-center justify-center flex-shrink-0">
+        <span class="material-symbols-outlined text-3xl text-swiss-orange">verified_user</span>
+    </div>
+
+    <div>
+        <div class="text-[9px] font-mono text-gray-400 uppercase tracking-widest mb-1">Documentation Protocol</div>
+        
+        <h3 class="font-display font-bold text-xl uppercase mb-2">Built for Continuity</h3>
+        
+        <p class="text-gray-600 text-xs md:text-sm max-w-3xl leading-relaxed">
+            One of the biggest fears with consultants is: <span class="italic text-swiss-black">"What happens if you leave and the file breaks?"</span>
+            <br>
+            Every solution we make comes with <strong class="text-swiss-orange border-b border-swiss-orange">documentation</strong> and is made in close collaboration with your employee.
+        </p>
+    </div>
+
+</div>
+        </div>
+    </section>
+
+    <div id="courseModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div class="bg-white border-2 border-swiss-black p-0 w-full max-w-3xl m-4 brutalist-shadow relative">
+            <div class="bg-swiss-black text-white p-4 flex justify-between items-center">
+                <h3 id="modalTitle" class="font-display font-bold text-xl uppercase tracking-wider">Course Title</h3>
+                <button onclick="closeCourseModal()" class="text-white hover:text-swiss-orange">
+                    <span class="material-symbols-outlined text-3xl">close</span>
+                </button>
+            </div>
+            <div class="p-6">
+                <p id="modalDesc" class="text-gray-600 font-mono mb-6">Course Description...</p>
+<div id="videoContainer" class="aspect-video w-full bg-black border-2 border-swiss-black">
+    </div>
+            </div>
+        </div>
+    </div>
+        
+<section class="py-24 bg-swiss-black border-b-2 border-swiss-black grid-bg-dark" id="simulation">
+<div class="container mx-auto px-6">
+<div class="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
+<div>
+<h2 class="text-5xl font-display font-bold mb-4 text-white">Picking Simulator</h2>
+<p class="text-gray-400 max-w-md">
+                        Warehouse logic simulation. Stop guessing which warehouse layout is best. Run a "What-If" simulation to find the one that minimizes walking distance and labor costs.
+                    </p>
+</div>
+
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8 floating-frame">
+<div class="lg:col-span-2">
+<div class="w-full h-[500px] bg-white border-2 border-white relative overflow-hidden brutalist-shadow">
+<div class="absolute top-4 left-4 z-10 bg-white border-2 border-swiss-black p-4 text-xs font-mono space-y-2 shadow-[4px_4px_0px_#1a1a1a]">
+<div class="flex justify-between w-56">
+<span>STRATEGY:</span>
+<span class="font-bold text-swiss-orange uppercase" id="simStrategyDisplay">optimized</span>
+</div>
+<div class="flex justify-between w-56">
+<span>TRAVEL_DIST:</span>
+<span class="font-bold" id="stat-distance">295 px</span>
+</div>
+</div>
+<div class="absolute bottom-4 right-4 z-10 bg-white border-2 border-swiss-black p-3 text-xs font-mono flex flex-col gap-2">
+<div class="flex items-center gap-2"><span class="w-3 h-3 bg-swiss-orange"></span> High Freq</div>
+<div class="flex items-center gap-2"><span class="w-3 h-3 bg-swiss-slate"></span> Med Freq</div>
+<div class="flex items-center gap-2"><span class="w-3 h-3 bg-gray-300"></span> Low Freq</div>
+
+<div class="flex items-center gap-2"><span class="w-3 h-3 bg-swiss-black rounded-full"></span> Picker</div>
+</div>
+<canvas class="w-full h-full" id="warehouseCanvas" width="811" height="500"></canvas>
+</div>
+</div>
+<div class="flex flex-col gap-6">
+<div class="bg-white border-2 border-white p-8 h-full">
+<div class="mb-6">
+<span class="material-symbols-outlined text-4xl mb-4 text-swiss-orange">science</span>
+<h3 class="font-display font-bold text-2xl mb-2">Logic Engine</h3>
+<p class="text-gray-600 font-mono text-sm leading-relaxed">
+                                This simulator compares a standard 'random' setup against a data-driven layout. Since every warehouse has its own unique flow and constraints, get in touch to see how these results look with your actual data.
+                            </p>
+</div>
+<div class="border-t-2 border-swiss-black pt-6">
+<div class="text-sm font-bold uppercase text-gray-400 mb-1">Efficiency Gain</div>
+<div class="text-5xl font-display font-bold text-gray-400 mb-6" id="stat-efficiency">--%</div>
+<div class="flex gap-4">
+<button class="flex-1 px-4 py-3 font-display font-bold uppercase tracking-wider text-sm transition-all border-2 bg-swiss-black text-white border-swiss-black hover:bg-swiss-orange hover:border-swiss-orange" id="btn-random" onclick="setSimMode('random')">
+                                        Random
+                                    </button>
+<button class="flex-1 px-4 py-3 font-display font-bold uppercase tracking-wider text-sm transition-all border-2 bg-swiss-orange text-white border-swiss-orange" id="btn-optimized" onclick="setSimMode('optimized')">
+                                        Optimized
+                                    </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section class="py-12 bg-swiss-orange border-y-2 border-swiss-black relative overflow-hidden">
+    <div class="absolute inset-0 opacity-10 pointer-events-none grid-bg"></div>
+
+    <div class="container mx-auto px-6 relative z-10">
+        <div class="flex flex-col lg:flex-row gap-12 items-center">
+            
+            <div class="lg:w-1/4 text-white">
+                <h2 class="text-3xl font-display font-bold leading-none tracking-tighter uppercase mb-2">Standard<br>Deliverances</h2>
+                <div class="h-1 w-12 bg-swiss-black"></div>
+            </div>
+
+            <div class="lg:w-3/4 grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+                
+                <div class="bg-white border-2 border-swiss-black p-6 brutalist-shadow relative mt-2">
+                    <div class="absolute -top-3 left-6 bg-swiss-black text-white px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-widest">
+                        Case_Study_01
+                    </div>
+                    <p class="text-lg font-display font-bold text-swiss-black mb-4 leading-tight">
+                        "We eliminated 24 hours of manual data entry per week. The ROI was immediate."
+                    </p>
+                    <div class="flex items-center gap-3 border-t-2 border-swiss-offwhite pt-4">
+                        <div class="w-8 h-8 bg-swiss-orange border-2 border-swiss-black flex items-center justify-center text-white">
+                            <span class="material-symbols-outlined text-xs">analytics</span>
+                        </div>
+                        <div>
+                            <div class="font-bold uppercase text-[9px] tracking-tight">Head of Controlling</div>
+                            <div class="text-[8px] font-mono text-gray-400 uppercase tracking-widest">Global Logistics</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-swiss-black border-2 border-white p-6 shadow-[6px_6px_0px_#ffffff] relative mt-2">
+                    <div class="absolute -top-3 left-6 bg-white text-swiss-black px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-widest">
+                        Case_Study_02
+                    </div>
+                    <p class="text-lg font-display font-bold text-white mb-4 leading-tight">
+                        "They gave our people the skills to never need 'spaghetti' sheets again."
+                    </p>
+                    <div class="flex items-center gap-3 border-t-2 border-gray-800 pt-4">
+                        <div class="w-8 h-8 bg-white border-2 border-white flex items-center justify-center text-swiss-black">
+                            <span class="material-symbols-outlined text-xs text-swiss-orange">psychology</span>
+                        </div>
+                        <div>
+                            <div class="font-bold uppercase text-[9px] tracking-tight text-white">Operations Director</div>
+                            <div class="text-[8px] font-mono text-gray-500 uppercase tracking-widest">Retail Supply Chain</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</section>
+<section class="scroll-mt-20 py-12 bg-white border-b-2 border-swiss-black relative" id="roi">
+<div class="container mx-auto px-6">
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+<div class="space-y-12">
+<div>
+<h2 class="text-5xl font-display font-bold mb-4">FY Savings Calculator</h2>
+<p class="text-gray-600">Quantify the cost of manual intervention. Calculate the financial impact of standardizing your processes.</p>
+</div>
+<div class="space-y-10">
+<div>
+<div class="flex justify-between mb-2 font-display font-bold text-sm uppercase">
+<label>Manual Reporting Hours / Week</label>
+<span class="text-swiss-orange text-lg" id="hoursDisplay">7 hrs</span>
+</div>
+<input class="w-full" id="hoursInput" max="37" min="1" oninput="calculateROI()" type="range" value="7">
+</div>
+<div>
+<div class="flex justify-between mb-2 font-display font-bold text-sm uppercase">
+<label>Employees Involved</label>
+<span class="text-swiss-orange text-lg" id="empDisplay">2 People</span>
+</div>
+<input class="w-full" id="empInput" max="10" min="1" oninput="calculateROI()" type="range" value="2">
+</div>
+<div>
+<label class="block mb-2 font-display font-bold text-sm uppercase">Hourly Operational Cost (DKK)</label>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="text-swiss-black font-bold">DKK</span>
+</div>
+<input class="w-full bg-swiss-offwhite border-2 border-swiss-black py-3 pl-12 pr-4 font-mono font-bold focus:outline-none focus:border-swiss-orange transition-colors" id="rateInput" oninput="calculateROI()" type="number" value="300" min="150" max="1000">
+</div>
+</div>
+</div>
+</div>
+<div class="bg-swiss-offwhite border-2 border-swiss-black p-8 relative brutalist-shadow flex flex-col justify-center">
+<div class="absolute top-4 left-4 font-mono text-xs text-gray-400">FIG 1.0 // PROJECTED_IMPACT</div>
+<div class="space-y-8 text-center py-8">
+<div>
+<div class="text-sm font-mono text-gray-500 uppercase tracking-widest mb-2">Full Year Savings</div>
+<div class="text-6xl md:text-7xl font-display font-bold text-swiss-black tracking-tight" id="savingsResult">
+    <span class="text-swiss-orange">DKK</span> 218,400
+</div>
+</div>
+<div class="w-full h-px bg-swiss-black opacity-20"></div>
+<div>
+<div class="text-sm font-mono text-gray-500 uppercase tracking-widest mb-2">Hours Reclaimed</div>
+<div class="text-4xl font-display font-bold text-swiss-black" id="timeResult">1,560 hrs</div>
+</div>
+</div>
+<div class="mt-6 flex justify-between items-center border-t-2 border-swiss-black pt-4 bg-white p-4">
+<div>
+<span class="block text-xs uppercase font-bold text-gray-400">System Status</span>
+<span class="text-lg font-display font-bold text-swiss-black">INEFFICIENT</span>
+</div>
+<div class="px-4 py-2 bg-swiss-black text-white text-xs font-bold uppercase tracking-widest">
+                            Optimization Required
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section class="py-24 bg-swiss-offwhite" id="contact">
+<div class="container mx-auto px-6">
+<div class="max-w-4xl mx-auto bg-white border-2 border-swiss-black p-8 md:p-12 brutalist-shadow">
+<div class="text-center mb-12">
+<h2 class="text-4xl font-display font-bold mb-4">Ready to Optimize?</h2>
+<p class="text-gray-600">Initial consultation includes a free review of your messiest spreadsheet.</p>
+</div>
+<form class="space-y-6" onsubmit="event.preventDefault(); alert('Transmission Received. A Systems Engineer will contact you.');">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="space-y-2">
+<label class="font-bold text-sm uppercase">First Name</label>
+<input class="w-full border-2 border-swiss-black p-3 focus:outline-none focus:border-swiss-orange bg-swiss-offwhite" placeholder="LARS" type="text">
+</div>
+<div class="space-y-2">
+<label class="font-bold text-sm uppercase">Last Name</label>
+<input class="w-full border-2 border-swiss-black p-3 focus:outline-none focus:border-swiss-orange bg-swiss-offwhite" placeholder="PEDERSEN" type="text">
+</div>
+</div>
+<div class="space-y-2">
+<label class="font-bold text-sm uppercase">Work Email</label>
+<input class="w-full border-2 border-swiss-black p-3 focus:outline-none focus:border-swiss-orange bg-swiss-offwhite" placeholder="LARS@COMPANY.COM" type="email">
+</div>
+<div class="space-y-2">
+<label class="font-bold text-sm uppercase">Context (optional)</label>
+<textarea id="contactMessage" class="w-full border-2 border-swiss-black p-3 focus:outline-none focus:border-swiss-orange bg-swiss-offwhite h-32" placeholder="DESCRIBE CURRENT CHALLENGES"></textarea>
+</div>
+<button class="w-full btn-swiss-dark text-lg" type="submit">
+                    Initiate Contact
+                </button>
+</form>
+</div>
+</div>
+</section>
+<footer class="bg-swiss-black text-white py-12 border-t-4 border-swiss-orange">
+<div class="container mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
+<div class="flex items-center gap-2">
+<div class="w-4 h-4 bg-swiss-orange border border-white"></div>
+<span class="text-xl font-display font-bold tracking-tight">Standardize.</span>
+</div>
+<p class="font-mono text-xs text-gray-500">
+                SYSTEM VERSION 2.5.1 // © 2026 STANDARDIZE CONSULTING
+            </p>
+</div>
+</footer>
+</div>
+<div class="hidden" id="print-report">
+    <div class="border-b-4 border-black pb-2 mb-4 flex justify-between items-end h-[80px]">
+        <div>
+            <div class="flex items-center gap-3 mb-1">
+                <div class="w-8 h-8 bg-swiss-orange border-2 border-black"></div>
+                <h1 class="text-5xl font-display font-bold tracking-tight leading-none">
+                    Standardize<span class="text-swiss-orange">.</span>
+                </h1>
+            </div>
+            <p class="font-mono text-sm tracking-widest uppercase pl-[2.75rem]">Process Standardization Proposal</p>
+        </div>
+        <div class="text-right">
+            <p class="text-xs font-mono text-gray-500 mb-1">GENERATED ON:</p>
+            <p class="text-xl font-bold" id="reportDate">DATE</p>
+        </div>
+    </div>
+
+    <div class="flex flex-col h-[calc(100%-100px)] gap-4">
+        
+        <div class="flex-1 border-b-2 border-dashed border-gray-300 pb-2 overflow-hidden min-h-0">
+            <h3 class="font-display font-bold text-xl mb-2 uppercase bg-black text-white inline-block px-2">01 // Selected Courses</h3>
+            <p class="mb-2 text-sm font-serif text-gray-600">Training curriculum to be held.</p>
+            <div class="border-2 border-black bg-white p-4 h-[calc(100%-60px)]">
+                <ul id="reportCoursesList" class="grid grid-cols-2 gap-x-4 gap-y-2 font-mono text-sm">
+                    </ul>
+            </div>
+        </div>
+
+        <div class="flex-1 border-b-2 border-dashed border-gray-300 pb-2 overflow-hidden min-h-0">
+            <h3 class="font-display font-bold text-xl mb-2 uppercase bg-black text-white inline-block px-2">02 // Selected Modules</h3>
+            <p class="mb-2 text-sm font-serif text-gray-600">Core competences we should build up.</p>
+            <ul id="reportServices" class="border-t-2 border-black font-mono text-sm grid grid-cols-2 gap-x-8 gap-y-2 pt-2">
+                </ul>
+        </div>
+
+        <div class="flex-1 min-h-0">
+            <h3 class="font-display font-bold text-xl mb-2 uppercase bg-black text-white inline-block px-2">03 // FY Savings</h3>
+            <div class="border-2 border-black p-6 bg-gray-50 h-[calc(100%-40px)] flex items-center justify-between gap-8">
+                <div class="space-y-4 flex-1">
+                    <div>
+                        <div class="text-xs font-mono uppercase text-gray-500">Manual Hours Reclaimed</div>
+                        <div class="text-3xl font-bold" id="reportManual">10 hrs/wk</div>
+                    </div>
+                    <div>
+                        <div class="text-xs font-mono uppercase text-gray-500">Employees Optimised</div>
+                        <div class="text-3xl font-bold" id="reportTeam">3</div>
+                    </div>
+                </div>
+                
+                <div class="flex-1 text-right border-l-2 border-gray-200 pl-8 py-2">
+                    <div class="text-sm font-mono uppercase text-gray-500 mb-2">Projected Full Year Savings</div>
+                    <div class="text-6xl font-bold" id="reportSavings">
+                        <span class="text-swiss-orange">DKK</span> 0
+                    </div>
+                    <div class="mt-2 text-xs font-bold uppercase bg-black text-white inline-block px-2 py-1">High Impact</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="text-center font-mono text-[10px] text-gray-400 mt-2">
+        END OF TRANSMISSION
+    </div>
+</div>
+<script>
+
+        
+// --- 1. Core Competences Data ---
+const services = [
+        { id: 's1', icon: 'mark_email_read', title: "Scheduled Email Reports", desc: "Automated PDF/Excel generation & SMTP distribution.", selected: true },
+        { id: 's2', icon: 'bolt', title: "Power Automate", desc: "Cross-platform logic: 'If Inventory < 100, Order'.", selected: true },
+        { id: 's3', icon: 'code', title: "VBA Automation", desc: "Macro refactoring for complex logic & file management.", selected: true },
+        { id: 's4', icon: 'sync', title: "Auto-Update Systems", desc: "Live SQL/Web/CSV connections refreshing on trigger.", selected: false },
+        { id: 's5', icon: 'science', title: "Solution Simulation", desc: "Monte Carlo models for 'What-If' scenario testing.", selected: true },
+        { id: 's6', icon: 'monitoring', title: "Power BI Dashboards", desc: "Executive visualization suites replacing static tables.", selected: false },
+        { id: 's7', icon: 'warehouse', title: "Warehouse Optimization", desc: "Heat-map analysis for bin location logic.", selected: false },
+        { id: 's8', icon: 'inventory_2', title: "Inventory Intelligence", desc: "Procurement planning based on run-rates.", selected: false }
+    ];
+
+    const grid = document.getElementById('services-grid');
+    
+    function renderServices() {
+        grid.innerHTML = '';
+        services.forEach(s => {
+            const card = document.createElement('div');
+            card.className = `service-card border-2 border-swiss-black p-6 cursor-pointer transition-all duration-200 brutalist-shadow hover:bg-swiss-orange hover:text-white group ${s.selected ? 'selected' : 'bg-white'}`;
+            card.onclick = () => toggleService(s.id);
+            card.innerHTML = `
+                <div class="flex justify-between items-start mb-4">
+                    <div class="icon-box w-12 h-12 border-2 border-swiss-black flex items-center justify-center bg-swiss-offwhite group-hover:bg-white group-hover:text-swiss-black transition-colors">
+                        <span class="material-symbols-outlined">${s.icon}</span>
+                    </div>
+                    ${s.selected ? '<span class="material-symbols-outlined text-swiss-orange group-hover:text-white font-bold">check_circle</span>' : ''}
+                </div>
+                <h3 class="text-xl font-display font-bold mb-2 uppercase leading-tight">${s.title}</h3>
+                <p class="text-sm text-gray-600 font-mono group-hover:text-white/90">${s.desc}</p>
+            `;
+            grid.appendChild(card);
+        });
+    }
+
+    function toggleService(id) {
+        const s = services.find(x => x.id === id);
+        if(s) s.selected = !s.selected;
+        renderServices();
+    }
+    renderServices();
+
+        
+    // --- 2. ROI Calculator ---
+    function calculateROI() {
+        const hours = parseInt(document.getElementById('hoursInput').value);
+        const emps = parseInt(document.getElementById('empInput').value);
+        const rate = parseFloat(document.getElementById('rateInput').value) || 0;
+
+        document.getElementById('hoursDisplay').innerText = hours + " hrs";
+        document.getElementById('empDisplay').innerText = emps + (emps === 1 ? " Person" : " People");
+
+        const annualHours = hours * emps * 52;
+        const annualSavings = annualHours * rate;
+
+        document.getElementById('savingsResult').innerHTML = `<span class="text-swiss-orange">DKK</span> ${annualSavings.toLocaleString()}`;
+        document.getElementById('timeResult').innerText = annualHours.toLocaleString() + " hrs";
+    }
+
+    // --- 3. Hero Canvas ---
+    const heroCanvas = document.getElementById('heroCanvas');
+    const hCtx = heroCanvas.getContext('2d');
+    let particles = [];
+    let heroMode = 'chaos'; 
+
+    function resizeHero() {
+        heroCanvas.width = heroCanvas.parentElement.offsetWidth;
+        heroCanvas.height = heroCanvas.parentElement.offsetHeight;
+        initParticles();
+    }
+
+    function initParticles() {
+        particles = [];
+        for(let i=0; i<80; i++) {
+            particles.push({
+                x: Math.random() * heroCanvas.width,
+                y: Math.random() * heroCanvas.height,
+                vx: (Math.random() - 0.5) * 2,
+                vy: (Math.random() - 0.5) * 2
+            });
+        }
+    }
+
+    function animateHero() {
+        hCtx.clearRect(0, 0, heroCanvas.width, heroCanvas.height);
+        const cols = 10;
+        const gap = heroCanvas.width / cols;
+
+        particles.forEach((p, i) => {
+            if(heroMode === 'chaos') {
+                p.x += p.vx; p.y += p.vy;
+                if(p.x < 0 || p.x > heroCanvas.width) p.vx *= -1;
+                if(p.y < 0 || p.y > heroCanvas.height) p.vy *= -1;
+            } else {
+                const targetX = ((i % cols) * gap) + (gap/2);
+                const targetY = (Math.floor(i / cols) * gap) + (gap/2);
+                p.x += (targetX - p.x) * 0.1;
+                p.y += (targetY - p.y) * 0.1;
+            }
+            hCtx.fillStyle = '#1a1a1a';
+            hCtx.fillRect(p.x, p.y, 4, 4);
+        });
+        requestAnimationFrame(animateHero);
+    }
+    // Update this function in your script
+// Funnel Logic: Standardize -> Then Contact
+    window.toggleHeroOrder = function() {
+        // 1. If already Standardized, go to Contact
+        if (heroMode === 'order') {
+            document.getElementById('contact').scrollIntoView({ behavior: 'smooth' });
+            return;
+        }
+
+        // 2. If Chaos, Standardize the System
+        heroMode = 'order'; // Lock it to order
+        
+        // Update Badge
+        const badge = document.getElementById('heroStatus');
+        badge.innerText = "System Status: Standardized";
+        badge.classList.remove('bg-swiss-black');
+        badge.classList.add('bg-swiss-orange');
+        
+        // Update Button to become a Contact Link
+        const btnText = document.getElementById('heroBtnText');
+        btnText.innerText = "Contact"; 
+        
+        // Update Icon to Down Arrow (Visual cue for the next click)
+        const btnIcon = document.querySelector('button[onclick="toggleHeroOrder()"] .material-symbols-outlined');
+        if(btnIcon) btnIcon.innerText = "arrow_downward";
+    };
+    window.addEventListener('resize', resizeHero);
+    resizeHero(); animateHero();
+// --- Optimized Pyramid Warehouse Simulation ---
+const canvas = document.getElementById('warehouseCanvas');
+    const ctx = canvas.getContext('2d');
+    const ROWS = 8, COLS = 11, CELL_SIZE = 40, GAP = 10, SPEED = 6;
+    
+    let simMode = 'random';
+    let inventory = [];
+    let dock = { x: canvas.width / 2, y: canvas.height - 40 };
+    let picker = { x: dock.x, y: dock.y, target: null, state: 'idle' };
+    
+    // Global Efficiency State
+    let efficiencyState = {
+        currentAvg: 0,
+        baseline: null, 
+        trips: 0,
+        totalDist: 0
+    };
+
+    function initInventory() {
+        inventory = [];
+        // 1. Generate items with varied frequencies
+        for(let r=0; r<ROWS; r++) {
+            for(let c=0; c<COLS; c++) {
+                inventory.push({ 
+                    r, c, 
+                    currentX: 0, currentY: 0, 
+                    freq: 5 + Math.random() * 25, // Default Low
+                    id: r*COLS+c 
+                });
+            }
+        }
+
+        // 2. Assign exactly 16 High Freq (Hot Items)
+        let highCount = 0;
+            while(highCount < 16) {
+                let idx = Math.floor(Math.random() * inventory.length);
+                if(inventory[idx].freq < 80) {
+                    inventory[idx].freq = 85 + Math.random() * 15;
+                    highCount++;
+                }
+            }
+
+            // 3. Assign exactly 20 Medium Freq (Middle Tier)
+            let medCount = 0;
+            while(medCount < 20) {
+                let idx = Math.floor(Math.random() * inventory.length);
+                // Only assign if it hasn't been made High Freq and isn't already Med Freq
+                if(inventory[idx].freq < 40) {
+                    inventory[idx].freq = 45 + Math.random() * 30;
+                    medCount++;
+                }
+            }
+
+            // 4. Set colors and initial visual positions
+            inventory.forEach(item => {
+                // Assign colors based on tiers
+                item.color = item.freq > 80 ? '#FF4F00' : (item.freq > 40 ? '#64748b' : '#d1d5db');
+                const pos = getCoords(item.r, item.c);
+                item.currentX = pos.x;
+                item.currentY = pos.y;
+            });
+        // --- CRITICAL CHANGE START ---
+        simMode = 'optimized'; // Temporarily set to optimized...
+        setSimMode('random');  // ...then call this to force the UI to switch to 'random' and paint the buttons correctly
+        // --- CRITICAL CHANGE END ---        randomizeLayout(); // Default to optimized
+    }
+
+    function getCoords(r, c) {
+        const totalW = COLS * (CELL_SIZE + GAP);
+        const offsetX = (canvas.width - totalW) / 2;
+        const offsetY = 40;
+        return {
+            x: offsetX + c * (CELL_SIZE + GAP) + CELL_SIZE/2,
+            y: offsetY + r * (CELL_SIZE + GAP) + CELL_SIZE/2
+        };
+    }
+
+    function drawWarehouse() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Rack Slots
+        for(let r=0; r<ROWS; r++) {
+            for(let c=0; c<COLS; c++) {
+                const pos = getCoords(r, c);
+                ctx.fillStyle = '#f8fafc';
+                ctx.strokeStyle = '#e2e8f0';
+                ctx.fillRect(pos.x - CELL_SIZE/2, pos.y - CELL_SIZE/2, CELL_SIZE, CELL_SIZE);
+                ctx.strokeRect(pos.x - CELL_SIZE/2, pos.y - CELL_SIZE/2, CELL_SIZE, CELL_SIZE);
+            }
+        }
+
+        // Fluid Dots
+        inventory.forEach(item => {
+            const target = getCoords(item.r, item.c);
+            item.currentX += (target.x - item.currentX) * 0.12;
+            item.currentY += (target.y - item.currentY) * 0.12;
+
+            ctx.beginPath();
+            ctx.arc(item.currentX, item.currentY, 8, 0, Math.PI*2);
+            ctx.fillStyle = item.color;
+            ctx.fill();
+        });
+
+        // Dock
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(dock.x - 50, dock.y, 100, 25);
+        ctx.fillStyle = '#fff';
+        ctx.font = "bold 9px Inter";
+        ctx.textAlign = "center";
+        ctx.fillText("OUTBOUND", dock.x, dock.y + 16);
+
+        drawPicker();
+    }
+
+    function drawPicker() {
+        if(picker.state === 'idle') return;
+        const targetPos = getCoords(picker.target.r, picker.target.c);
+        
+        ctx.beginPath();
+        ctx.moveTo(picker.x, picker.y);
+        ctx.lineTo(targetPos.x, targetPos.y);
+        ctx.strokeStyle = 'rgba(26, 26, 26, 0.15)'; // Updated to Swiss Black trail
+        ctx.setLineDash([4, 4]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = '#1a1a1a'; // Updated to Swiss Black shadow
+        ctx.beginPath();
+        ctx.arc(picker.x, picker.y, 7, 0, Math.PI*2);
+        ctx.fillStyle = '#1a1a1a'; // Updated to Swiss Black
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    }
+
+    function updateSim() {
+        if(picker.state === 'idle') {
+            const totalFreq = inventory.reduce((s, i) => s + i.freq, 0);
+            let rand = Math.random() * totalFreq;
+            for(let item of inventory) {
+                rand -= item.freq;
+                if(rand <= 0) { picker.target = item; break; }
+            }
+            picker.state = 'moving_to';
+        }
+
+        const targetPos = getCoords(picker.target.r, picker.target.c);
+        let destX = (picker.state === 'moving_to') ? targetPos.x : dock.x;
+        let destY = (picker.state === 'moving_to') ? targetPos.y : dock.y;
+
+        const dx = destX - picker.x;
+        const dy = destY - picker.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+
+        if(dist < SPEED) {
+            picker.x = destX; picker.y = destY;
+            if(picker.state === 'moving_to') {
+                picker.state = 'moving_back';
+            } else {
+                // Trip complete
+                const tripDist = Math.abs(dock.x - targetPos.x) + Math.abs(dock.y - targetPos.y);
+                
+                // Update stats (continuous)
+                efficiencyState.totalDist += tripDist;
+                efficiencyState.trips++;
+                efficiencyState.currentAvg = efficiencyState.totalDist / efficiencyState.trips;
+
+                // Update Display
+                document.getElementById('stat-distance').innerText = efficiencyState.currentAvg.toFixed(0) + " px";
+
+                // Update Efficiency Percentage (Fixed Baseline Logic)
+                const BASELINE_RANDOM = 361;
+                const BASELINE_OPTIMIZED = 271.5;
+                
+                let targetBaseline = (simMode === 'optimized') ? BASELINE_RANDOM : BASELINE_OPTIMIZED;
+                
+                // Formula: (1 - (Current / Baseline)) * 100
+                const eff = ((1 - (efficiencyState.currentAvg / targetBaseline)) * 100).toFixed(1);
+                const sign = eff > 0 ? "+" : "";
+                
+                const effEl = document.getElementById('stat-efficiency');
+                effEl.innerText = `${sign}${eff}%`;
+                
+                // Color coding
+                if (eff > 0) effEl.className = "text-5xl font-display font-bold text-swiss-orange mb-6"; 
+                else effEl.className = "text-5xl font-display font-bold text-gray-400 mb-6";
+
+                picker.state = 'idle';
+            }
+        } else {
+            picker.x += (dx/dist) * SPEED;
+            picker.y += (dy/dist) * SPEED;
+        }
+
+        drawWarehouse();
+        requestAnimationFrame(updateSim);
+    }
+
+    window.setSimMode = function(mode) {
+        if (mode === simMode) return;
+        
+        // RESET STATS on switch
+        efficiencyState.trips = 0;
+        efficiencyState.totalDist = 0;
+        efficiencyState.currentAvg = 0;
+        document.getElementById('stat-distance').innerText = "-- px";
+        document.getElementById('stat-efficiency').innerText = "--%";
+
+        simMode = mode;
+        document.getElementById('simStrategyDisplay').innerText = mode;
+
+        if (mode === 'optimized') optimizeLayout();
+        else randomizeLayout();
+
+        // Button Styling
+        const btnOpt = document.getElementById('btn-optimized');
+        const btnRnd = document.getElementById('btn-random');
+        
+        const baseClass = "flex-1 px-4 py-3 font-display font-bold uppercase tracking-wider text-sm transition-all border-2";
+        // Change these variables to swap colors
+        const activeClass = "bg-swiss-orange text-white border-swiss-orange"; // Active color
+        const inactiveClass = "bg-swiss-black text-white border-swiss-black hover:bg-swiss-orange hover:border-swiss-orange"; // Inactive/Hover
+        if (mode === 'optimized') {
+            btnOpt.className = `${baseClass} ${activeClass}`;
+            btnRnd.className = `${baseClass} ${inactiveClass}`;
+        } else {
+            btnOpt.className = `${baseClass} ${inactiveClass}`;
+            btnRnd.className = `${baseClass} ${activeClass}`;
+        }
+    };
+
+    function optimizeLayout() {
+        const sorted = [...inventory].sort((a,b) => b.freq - a.freq);
+        const slots = [];
+        for(let r=0; r<ROWS; r++) {
+            for(let c=0; c<COLS; c++) {
+                const pos = getCoords(r, c);
+                // Manhattan distance to dock for pyramid weight
+                slots.push({r, c, d: Math.abs(pos.x - dock.x) + Math.abs(pos.y - dock.y)});
+            }
+        }
+        slots.sort((a,b) => a.d - b.d);
+        inventory.forEach((item) => {
+            const match = sorted.find(s => s.id === item.id);
+            const slotIdx = sorted.indexOf(match);
+            item.r = slots[slotIdx].r;
+            item.c = slots[slotIdx].c;
+        });
+    }
+
+    function randomizeLayout() {
+        const positions = [];
+        for(let r=0; r<ROWS; r++) {
+            for(let c=0; c<COLS; c++) positions.push({r, c});
+        }
+        for (let i = positions.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [positions[i], positions[j]] = [positions[j], positions[i]];
+        }
+        inventory.forEach((item, idx) => {
+            item.r = positions[idx].r;
+            item.c = positions[idx].c;
+        });
+    }
+
+    function resizeSim() {
+        canvas.width = canvas.parentElement.offsetWidth;
+        dock = { x: canvas.width / 2, y: canvas.height - 40 };
+    }
+
+    window.addEventListener('resize', resizeSim);
+    resizeSim(); initInventory(); updateSim();
+
+    // --- 5. Export & Download ---
+    let selectedCourses = new Set(); // Store selected courses
+
+    // Toggle Course Selection (Visual + Data)
+    window.toggleCourse = function(el) {
+        const courseName = el.getAttribute('data-course');
+        const icon = el.querySelector('.check-icon');
+        
+        if (selectedCourses.has(courseName)) {
+            selectedCourses.delete(courseName);
+            el.classList.remove('checked');
+            icon.classList.add('opacity-0');
+        } else {
+            selectedCourses.add(courseName);
+            el.classList.add('checked');
+            icon.classList.remove('opacity-0');
+        }
+    }
+
+    // Modal Logic
+    const modal = document.getElementById('courseModal');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalDesc = document.getElementById('modalDesc');
+    const modalVideo = document.getElementById('modalVideo');
+
+window.openCourseModal = function(title, desc, gumletId) {
+        modalTitle.innerText = title;
+        modalDesc.innerText = desc;
+        
+        const container = document.getElementById('videoContainer');
+        
+        // Gumlet Embed Logic
+        container.innerHTML = `
+            <iframe 
+                src="https://play.gumlet.io/embed/${gumletId}?autoplay=false&preload=auto" 
+                title="Standardize Course Video"
+                class="w-full h-full"
+                style="border:none;"
+                allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen;"
+                referrerpolicy="origin">
+            </iframe>
+        `;
+        
+        modal.classList.remove('hidden');
+    }
+
+    window.closeCourseModal = function() {
+        const modal = document.getElementById('courseModal');
+        const container = document.getElementById('videoContainer');
+        
+        // Killing the innerHTML stops the video and audio immediately
+        container.innerHTML = ""; 
+        modal.classList.add('hidden');
+    }
+
+
+    // Generate Report Logic (With Course Codes & One Page Fix)
+    window.generateReport = function() {
+        // 1. Format Date to dd/mm/yyyy
+        const now = new Date();
+        const d = String(now.getDate()).padStart(2, '0');
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const y = now.getFullYear();
+        document.getElementById('reportDate').innerText = `${d}/${m}/${y}`;
+
+        // 2. Populate ROI Data (Orange DKK / Black Numbers)
+        document.getElementById('reportManual').innerText = document.getElementById('hoursDisplay').innerText;
+        document.getElementById('reportTeam').innerText = document.getElementById('empDisplay').innerText;
+        document.getElementById('reportSavings').innerHTML = document.getElementById('savingsResult').innerHTML;
+
+        // 3. Populate Selected Courses (Now fetching the Course Code)
+        const coursesList = document.getElementById('reportCoursesList');
+        coursesList.innerHTML = '';
+        
+        if(selectedCourses.size > 0) {
+            selectedCourses.forEach(courseName => {
+                // Find the original checkbox in the DOM to get the sibling code
+                const checkbox = document.querySelector(`.course-checkbox[data-course="${courseName}"]`);
+                // Grab the text from the .course-code element next to it
+                const code = checkbox ? checkbox.nextElementSibling.querySelector('.course-code').innerText : 'Selected Module';
+
+                const li = document.createElement('li');
+                li.className = 'border-b border-gray-100 pb-2 break-inside-avoid';
+                // Insert the code in the second div with font-mono
+                li.innerHTML = `<div class="font-bold uppercase text-swiss-black">${courseName}</div><div class="text-xs font-mono text-gray-500">${code}</div>`;
+                coursesList.appendChild(li);
+            });
+        } else {
+            coursesList.innerHTML = '<li class="text-gray-400 italic col-span-2">No specific courses selected.</li>';
+        }
+
+        // 4. Populate Core Competences (Middle Section)
+        const servicesList = document.getElementById('reportServices');
+        servicesList.innerHTML = '';
+        const selectedServices = services.filter(s => s.selected);
+        if (selectedServices.length > 0) {
+            selectedServices.forEach(s => {
+                const li = document.createElement('li');
+                li.className = 'pb-3 border-b border-gray-200 flex items-start gap-2 break-inside-avoid';
+                li.innerHTML = `
+                    <span class="material-symbols-outlined text-lg text-swiss-orange">${s.icon}</span>
+                    <div class="font-bold uppercase text-sm">${s.title}</div>
+                `;
+                servicesList.appendChild(li);
+            });
+        } else {
+            servicesList.innerHTML = '<li class="text-gray-400 italic col-span-2">No core modules selected.</li>';
+        }
+
+        // 5. Trigger Print
+        window.print();
+    };
+
+
+
+// --- Close Modal on Backdrop Click ---
+    const modalBackdrop = document.getElementById('courseModal');
+    
+    modalBackdrop.addEventListener('click', function(event) {
+        // If the click is strictly on the dark background (and not the white box inside)
+        if (event.target === modalBackdrop) {
+            closeCourseModal();
+        }
+    });
+
+</script>
+
+
+</body></html>
