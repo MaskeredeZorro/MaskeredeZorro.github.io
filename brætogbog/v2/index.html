@@ -3,269 +3,238 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Board Game Takeover</title>
+    <title>Board Game Takeover - Unboxing</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;600&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;600&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
 
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                        display: ['Fredoka', 'sans-serif'],
-                    },
-                    colors: {
-                        brand: {
-                            dark: '#1a1a1a', // Box color
-                            gold: '#fbbf24',
-                            paper: '#f5f5f4',
-                            cardboard: '#d4c4a8' // Inner box color
-                        }
-                    },
-                    boxShadow: {
-                        'inner-box': 'inset 0 0 50px rgba(0,0,0,0.5)',
-                        'lid': '0 25px 50px -12px rgba(0, 0, 0, 0.75)'
-                    }
-                }
-            }
-        }
-    </script>
     <style>
         body {
-            background-color: #111; /* Dark background behind the box */
-            overflow: hidden; /* Prevent scrolling while intro is active */
-            perspective: 1500px; /* Crucial for the 3D lift effect */
-        }
-
-        /* THE LID (COVER)
-           Texture mimics a high-quality linen finish board game box 
-        */
-        #box-lid {
-            background: 
-                linear-gradient(rgba(26, 26, 26, 0.95), rgba(26, 26, 26, 0.95)),
-                url('https://www.transparenttextures.com/patterns/black-linen.png');
-            transform-origin: 50% 0%; /* Rotates from the top */
-            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
-            z-index: 50;
-        }
-
-        /* THE BOTTOM TRAY (WEBSITE CONTAINER)
-           This creates the illusion that the website is INSIDE the box
-        */
-        #box-bottom {
-            transform-style: preserve-3d;
-            transform: scale(0.96); /* Slightly smaller than lid initially */
-            box-shadow: inset 0 0 100px rgba(0,0,0,0.8); /* Deep shadow inside box */
-            overflow-y: auto;
+            background-color: #0f0f0f; /* Mørkt bord/baggrund */
             height: 100vh;
-            background-color: #fafaf9;
-            /* The cardboard rim effect */
-            border: 12px solid #2d2a26; 
-            border-top: 12px solid #3d3833; /* Top light hits rim */
-            border-bottom: 12px solid #1a1816; /* Bottom shadow on rim */
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            perspective: 1200px; /* VIGTIGT: Definerer 3D dybden */
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Containeren til hele spilæsken */
+        .game-box-container {
+            width: 90vw;
+            max-width: 1000px;
+            height: 80vh;
             position: relative;
+            transform-style: preserve-3d; /* Gør at børnene kan rotere i 3D */
+            transform: rotateX(20deg); /* Start vinkel: Vi kigger lidt skråt ned på æsken */
         }
 
-        /* Helper to hide scrollbar during intro */
-        .no-scroll {
-            overflow: hidden !important;
+        /* --- BUNDEN (Hjemmesiden) --- */
+        .box-bottom {
+            position: absolute;
+            inset: 0;
+            background-color: #f3f4f6;
+            border: 1px solid #ccc;
+            /* Tykkelse på bunden (siderne af den nederste kasse) */
+            box-shadow: 
+                0 0 0 2px #d4d4d4, /* inner rim */
+                0 20px 50px rgba(0,0,0,0.5), /* Drop shadow on table */
+                5px 5px 0px 0px #222, /* Fake 3D side right */
+                -2px 5px 0px 0px #222, /* Fake 3D side left */
+                0px 10px 0px 0px #111; /* Fake 3D side bottom */
+            border-radius: 4px;
+            overflow: hidden; /* Skjul scrollbars indtil åbnet */
+            z-index: 1;
+            transform-origin: center bottom;
         }
 
-        /* Card hover effects on the lid */
-        .selection-card {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            background: linear-gradient(145deg, #ffffff, #f3f4f6);
+        /* Skygge overlay nede i kassen der forsvinder når låget ryger */
+        .ambient-shadow {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at center, rgba(0,0,0,0.4), rgba(0,0,0,0.8));
+            z-index: 50;
+            pointer-events: none;
         }
-        .selection-card:hover {
-            transform: translateY(-5px) scale(1.02);
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+
+        /* --- LÅGET (The Lid) --- */
+        .box-lid {
+            position: absolute;
+            inset: -5px; /* Låget er lidt større end bunden */
+            background: #1a1a1a;
+            background-image: url('https://www.transparenttextures.com/patterns/black-linen.png');
+            z-index: 100;
+            transform-style: preserve-3d;
+            border-radius: 6px;
+            /* Denne skygge er skyggen FRA låget NED på bordet */
+            box-shadow: 0 5px 15px rgba(0,0,0,0.8); 
+        }
+
+        /* 3D Sider på låget (Det her giver realismen når det løftes) */
+        .lid-side {
+            position: absolute;
+            background-color: #111; /* Mørk papkant */
+            border: 1px solid #333;
+        }
+        .lid-side.bottom { width: 100%; height: 40px; bottom: 0; transform-origin: bottom; transform: rotateX(-90deg); }
+        .lid-side.top    { width: 100%; height: 40px; top: 0; transform-origin: top; transform: rotateX(90deg); }
+        .lid-side.left   { width: 40px; height: 100%; left: 0; transform-origin: left; transform: rotateY(90deg); }
+        .lid-side.right  { width: 40px; height: 100%; right: 0; transform-origin: right; transform: rotateY(-90deg); }
+
+        /* Grafik på låget */
+        .lid-content {
+            height: 100%;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #fbbf24; /* Gold */
+            backface-visibility: hidden; /* Skjul bagsiden */
+            border: 2px solid #333;
+            border-radius: 6px;
+        }
+
+        /* Interaktive knapper på låget */
+        .sticker-btn {
+            background: #fff;
+            color: #1a1a1a;
+            padding: 1rem 2rem;
+            margin: 1rem;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: transform 0.1s;
+            border: 2px solid white;
+        }
+        .sticker-btn:hover {
+            transform: scale(1.05);
+            background: #fbbf24;
             border-color: #fbbf24;
         }
+
     </style>
 </head>
 <body>
 
-    <div id="box-lid" class="fixed inset-0 flex flex-col items-center justify-center text-white border-b-8 border-stone-800">
+    <div class="game-box-container" id="gameBox">
         
-        <div class="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none" 
-             style="background-image: url('https://www.transparenttextures.com/patterns/hexellence.png');">
-        </div>
-
-        <div class="z-10 text-center mb-12">
-            <div class="inline-block bg-brand-gold text-brand-dark px-3 py-1 font-bold tracking-widest text-xs rounded mb-4 uppercase">
-                Strategy & Social Edition
-            </div>
-            <h1 class="font-display text-6xl md:text-8xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-brand-gold via-yellow-200 to-yellow-600 drop-shadow-sm">
-                BOARD GAME<br>TAKEOVER
-            </h1>
-            <p class="mt-4 text-stone-400 text-xl font-light tracking-wide">Vælg din karakter for at åbne spillet</p>
-        </div>
-
-        <div class="flex flex-col md:flex-row gap-8 z-10 px-6">
+        <div class="box-bottom" id="boxBottom">
+            <div class="ambient-shadow" id="ambientShadow"></div>
             
-            <button onclick="liftLid('private')" class="selection-card group w-72 h-80 rounded-xl border-4 border-stone-200 p-6 flex flex-col items-center text-stone-800 relative overflow-hidden">
-                <div class="absolute top-0 right-0 bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-bl-lg">1-4 Players</div>
-                <div class="flex-1 flex items-center justify-center">
-                    <span class="text-6xl group-hover:scale-110 transition-transform duration-300">♟️</span>
+            <div class="h-full w-full bg-stone-50 overflow-y-auto p-8 text-center flex flex-col items-center">
+                <nav class="w-full flex justify-between items-center mb-12 border-b pb-4">
+                    <div class="text-2xl">🎲 BoardGameTakeover</div>
+                    <div class="space-x-4 text-stone-500">
+                        <span>Events</span>
+                        <span>Shop</span>
+                    </div>
+                </nav>
+                <h2 class="text-4xl font-bold text-stone-800 mb-6">Velkommen til spillet</h2>
+                <p class="text-lg text-stone-600 max-w-2xl">
+                    Du har nu åbnet æsken. Herfra kan du booke events, købe spil eller finde din nærmeste café-turnering.
+                </p>
+                <div class="mt-12 grid grid-cols-3 gap-4 w-full max-w-4xl">
+                    <div class="bg-white h-40 rounded shadow"></div>
+                    <div class="bg-white h-40 rounded shadow"></div>
+                    <div class="bg-white h-40 rounded shadow"></div>
                 </div>
-                <div class="text-center">
-                    <h2 class="font-display text-2xl font-bold mb-1">Jeg er Spiller</h2>
-                    <p class="text-xs text-stone-500">Find events & køb spil</p>
-                </div>
-                <div class="mt-4 w-full bg-stone-800 text-brand-gold py-2 rounded font-bold text-sm uppercase tracking-wider group-hover:bg-blue-600 transition-colors">
-                    Start Spil
-                </div>
-            </button>
-
-            <button onclick="liftLid('cafe')" class="selection-card group w-72 h-80 rounded-xl border-4 border-stone-200 p-6 flex flex-col items-center text-stone-800 relative overflow-hidden">
-                <div class="absolute top-0 right-0 bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-bl-lg">Expansion Pack</div>
-                <div class="flex-1 flex items-center justify-center">
-                    <span class="text-6xl group-hover:scale-110 transition-transform duration-300">☕</span>
-                </div>
-                <div class="text-center">
-                    <h2 class="font-display text-2xl font-bold mb-1">Jeg er Café</h2>
-                    <p class="text-xs text-stone-500">Book en takeover</p>
-                </div>
-                <div class="mt-4 w-full bg-stone-800 text-brand-gold py-2 rounded font-bold text-sm uppercase tracking-wider group-hover:bg-orange-600 transition-colors">
-                    Start Spil
-                </div>
-            </button>
-
+            </div>
         </div>
 
-        <div class="absolute bottom-4 text-stone-600 text-xs font-mono tracking-widest uppercase">
-            Designed in Denmark • Est. 2024
+        <div class="box-lid" id="boxLid">
+            <div class="lid-side top"></div>
+            <div class="lid-side bottom"></div>
+            <div class="lid-side left"></div>
+            <div class="lid-side right"></div>
+
+            <div class="lid-content relative">
+                <div class="absolute inset-0 opacity-10" style="background-image: url('https://www.transparenttextures.com/patterns/hexellence.png');"></div>
+                
+                <h1 class="text-6xl md:text-8xl font-black tracking-tighter mb-2 relative z-10" style="font-family: 'Fredoka', sans-serif;">
+                    TAKEOVER
+                </h1>
+                <p class="text-stone-400 mb-12 uppercase tracking-widest text-sm relative z-10">The Social Strategy Game</p>
+
+                <div class="flex flex-row gap-8 relative z-10">
+                    <button onclick="openBox('private')" class="sticker-btn rotate-2">
+                        <span class="block text-2xl mb-1">♟️</span>
+                        JEG ER SPILLER
+                    </button>
+                    <button onclick="openBox('cafe')" class="sticker-btn -rotate-2">
+                        <span class="block text-2xl mb-1">☕</span>
+                        JEG ER CAFÉ
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
-
-    <main id="box-bottom" class="no-scroll">
-        
-        <div id="inner-shadow" class="fixed inset-0 bg-black/60 z-40 pointer-events-none transition-opacity duration-1000"></div>
-
-        <nav class="bg-white/90 backdrop-blur-md border-b border-stone-200 sticky top-0 z-30">
-            <div class="container mx-auto px-4 py-3 flex justify-between items-center">
-                <div class="flex items-center gap-2">
-                    <span class="text-2xl">🎲</span>
-                    <span class="font-display font-bold text-xl tracking-tight text-stone-800">BoardGame<span class="text-indigo-600">Takeover</span></span>
-                </div>
-                <div class="hidden md:flex gap-6 text-sm font-medium text-stone-600">
-                    <a href="#concept" class="hover:text-indigo-600 transition-colors">Konceptet</a>
-                    <a href="#events" class="hover:text-indigo-600 transition-colors">Events</a>
-                    <a href="#shop" class="hover:text-indigo-600 transition-colors">Shop</a>
-                </div>
-                <button class="bg-stone-900 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-stone-700 transition-colors">Book Billet</button>
-            </div>
-        </nav>
-
-        <header class="relative bg-stone-900 text-white overflow-hidden py-20 md:py-32">
-            <div class="absolute inset-0 opacity-40">
-                <img src="https://images.unsplash.com/photo-1610890716271-e746515d4e19?q=80&w=2070&auto=format&fit=crop" class="w-full h-full object-cover">
-            </div>
-            <div class="absolute inset-0 bg-gradient-to-t from-stone-900 via-stone-900/60 to-transparent"></div>
-            <div class="container mx-auto px-4 relative z-10 text-center">
-                <span class="inline-block py-1 px-3 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-xs font-bold tracking-wider mb-6 uppercase">Den Analoge Revolution</span>
-                <h1 class="font-display text-5xl md:text-7xl font-bold mb-6 leading-tight">Vi gør din lokale café<br>til en <span class="text-indigo-400">brætspils-oase</span></h1>
-                <p class="text-xl text-stone-300 max-w-2xl mx-auto mb-10 leading-relaxed">Oplev stemningen når vi overtager caféen med 100+ brætspil, dedikerede 'Game Sommeliers' og kuraterede bøger.</p>
-            </div>
-        </header>
-
-        <section id="concept" class="py-20 bg-stone-50">
-            <div class="container mx-auto px-4">
-                <div class="text-center mb-16">
-                    <h2 class="font-display text-3xl md:text-4xl font-bold text-stone-800 mb-4">Mere end bare ludo</h2>
-                    <p class="text-stone-600 max-w-xl mx-auto">Vi kombinerer det bedste fra en brætspilscafé med hyggen fra din yndlingsbar.</p>
-                </div>
-                <div class="grid md:grid-cols-3 gap-8">
-                    <div class="bg-white p-8 rounded-2xl shadow-sm border border-stone-100 hover:shadow-md transition-shadow">
-                        <div class="w-12 h-12 bg-orange-100 text-orange-600 rounded-xl flex items-center justify-center text-2xl mb-6">🎯</div>
-                        <h3 class="font-display text-xl font-bold mb-3">Game Sommeliers</h3>
-                        <p class="text-stone-600 text-sm">Vi lærer dig reglerne på 3 minutter.</p>
-                    </div>
-                    <div class="bg-white p-8 rounded-2xl shadow-sm border border-stone-100 hover:shadow-md transition-shadow">
-                        <div class="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center text-2xl mb-6">📚</div>
-                        <h3 class="font-display text-xl font-bold mb-3">Spil & Bøger</h3>
-                        <p class="text-stone-600 text-sm">Køb spillet med hjem hvis du kan lide det.</p>
-                    </div>
-                    <div class="bg-white p-8 rounded-2xl shadow-sm border border-stone-100 hover:shadow-md transition-shadow">
-                        <div class="w-12 h-12 bg-green-100 text-green-600 rounded-xl flex items-center justify-center text-2xl mb-6">🍻</div>
-                        <h3 class="font-display text-xl font-bold mb-3">Social Dining</h3>
-                        <p class="text-stone-600 text-sm">Mad og drikke serveret ved spillebordet.</p>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section id="shop" class="py-20 bg-stone-900 text-white overflow-hidden">
-            <div class="container mx-auto px-4 relative z-10">
-                <div class="flex flex-col md:flex-row items-center justify-between gap-12">
-                    <div class="md:w-1/2">
-                        <h2 class="font-display text-3xl md:text-5xl font-bold mb-6">Pop-Up Shoppen</h2>
-                        <div class="space-y-6">
-                            <div class="flex items-center gap-4 p-4 bg-white/5 rounded-xl border border-white/10">
-                                <div class="bg-indigo-500/20 p-3 rounded-lg">🚀</div>
-                                <div><h4 class="font-bold text-indigo-300">Sci-Fi Fans</h4><p class="text-sm text-stone-400">Terraforming Mars + The Martian</p></div>
-                            </div>
-                            <div class="flex items-center gap-4 p-4 bg-white/5 rounded-xl border border-white/10">
-                                <div class="bg-orange-500/20 p-3 rounded-lg">🐉</div>
-                                <div><h4 class="font-bold text-orange-300">Fantasy Lovers</h4><p class="text-sm text-stone-400">Wyrmspan + Fourth Wing</p></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="md:w-1/2 relative">
-                         <div class="relative w-full aspect-square bg-gradient-to-br from-indigo-600 to-purple-700 rounded-full blur-3xl opacity-20 absolute inset-0"></div>
-                        <img src="https://images.unsplash.com/photo-1589829085413-56de8ae18c73?q=80&w=2000&auto=format&fit=crop" class="relative rounded-2xl shadow-2xl border border-white/10 -rotate-3">
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <footer class="bg-white border-t border-stone-200 py-12 text-center text-sm text-stone-400">
-            © 2024 Board Game Takeover
-        </footer>
-
-    </main>
-
     <script>
-        function liftLid(type) {
-            console.log("Valgt: " + type);
+        function openBox(type) {
+            const tl = gsap.timeline();
 
-            const timeline = gsap.timeline();
+            // Lyd-effekt (forestil dig lyden af pap mod pap: "Schhwiiip-Pop")
+            // Det visuelle skal matche denne lyd.
 
-            // 1. LID ANIMATION (Lifts UP and TILTS BACK)
-            timeline.to("#box-lid", {
-                duration: 1.8,
-                yPercent: -150,    // Flytter den helt op ud af skærmen
-                rotationX: 30,     // Tipper den bagover
-                scale: 1.1,        // Gør den lidt større (kommer mod kameraet)
-                ease: "power3.inOut" // Starter langsomt (tunge låg), accelererer
-            });
-
-            // 2. LIGHT/SHADOW REVEAL
-            // Gør skyggen gennemsigtig så man kan se indholdet
-            timeline.to("#inner-shadow", {
-                duration: 1.5,
-                opacity: 0,
+            // TRIN 1: VAKUUM START (The Struggle)
+            // Låget løftes lidt, men bunden følger med op (sugekop-effekt)
+            tl.to("#gameBox", {
+                duration: 0.6,
+                z: 100, // Hele kassen kommer tættere på kameraet
+                rotateX: 10, // Tipper lidt mere mod os
                 ease: "power2.out"
-            }, "-=1.5"); // Starter samtidig med låget
+            }, 0);
 
-            // 3. ZOOM IND I KASSEN
-            // Hjemmesiden starter lidt lille (nede i kassen) og kommer op i "normal" størrelse
-            // men vi beholder den lidt zoomet ud for at se "kanten" (borderen)
-            timeline.to("#box-bottom", {
+            // Bunden løftes op sammen med låget (fordi den sidder fast)
+            tl.to("#boxBottom", {
+                duration: 0.6,
+                y: -30, // Løftes op fra "bordet"
+                ease: "power2.out"
+            }, 0);
+
+            // TRIN 2: SUGEKOPPEN SLIPPER (The Pop)
+            // Bunden falder tungt tilbage på bordet
+            tl.to("#boxBottom", {
+                duration: 0.5,
+                y: 0, // Falder tilbage
+                ease: "bounce.out" // Bouncer når den rammer bordet
+            }, 0.5);
+
+            // TRIN 3: LÅGET FLYVER AF (The Reveal)
+            // Nu hvor bunden er sluppet, kan låget flyve frit
+            tl.to("#boxLid", {
                 duration: 1.5,
-                scale: 1, 
-                ease: "power2.out",
+                y: -1200,    // Flyver OP ud af skærmen
+                z: 400,      // Kommer tættere på kameraet (over hovedet på os)
+                rotateX: 70, // Roterer så vi ser undersiden
+                opacity: 0,  // Fader ud til sidst
+                ease: "power3.in" // Accelererer væk
+            }, 0.5);
+
+            // TRIN 4: LYSET KOMMER IND
+            // Skyggen nede i kassen forsvinder
+            tl.to("#ambientShadow", {
+                duration: 1.2,
+                opacity: 0,
+                ease: "power2.inOut"
+            }, 0.6);
+
+            // TRIN 5: RESET VIEW
+            // Vi retter kameraet op, så vi ser hjemmesiden fladt (normal browsing)
+            tl.to(".game-box-container", {
+                duration: 1,
+                rotateX: 0, // Tilbage til flad skærm
+                ease: "power2.inOut",
                 onComplete: () => {
-                    // Tillad scrolling når animationen er færdig
+                    // Fjern låget helt for performance
+                    document.getElementById("boxLid").style.display = "none";
+                    // Tillad interaktion med hjemmesiden
                     document.body.style.overflow = "auto";
-                    document.getElementById("box-bottom").classList.remove("no-scroll");
-                    // Valgfrit: Fjern låget fra DOM for performance
-                    document.getElementById("box-lid").style.display = "none"; 
                 }
-            }, "-=1.8");
+            }, 1.0);
         }
     </script>
 </body>
