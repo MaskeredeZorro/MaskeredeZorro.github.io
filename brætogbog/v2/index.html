@@ -9,232 +9,277 @@
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;600&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
 
     <style>
+        :root {
+            --box-width: min(90vw, 1000px);
+            --box-height: 85vh;
+            --lid-depth: 50px; /* Hvor tykt er låget/siderne */
+        }
+
         body {
-            background-color: #0f0f0f; /* Mørkt bord/baggrund */
+            background-color: #111;
             height: 100vh;
-            overflow: hidden;
+            margin: 0;
+            overflow: hidden; /* Ingen scroll mens vi åbner */
             display: flex;
             align-items: center;
             justify-content: center;
-            perspective: 1200px; /* VIGTIGT: Definerer 3D dybden */
+            perspective: 1500px; /* VIGTIGT: Dette skaber 3D dybden */
             font-family: 'Inter', sans-serif;
         }
 
-        /* Containeren til hele spilæsken */
-        .game-box-container {
-            width: 90vw;
-            max-width: 1000px;
-            height: 80vh;
+        /* SCENE CONTAINER */
+        #scene {
+            width: var(--box-width);
+            height: var(--box-height);
             position: relative;
-            transform-style: preserve-3d; /* Gør at børnene kan rotere i 3D */
-            transform: rotateX(20deg); /* Start vinkel: Vi kigger lidt skråt ned på æsken */
+            transform-style: preserve-3d;
+            transform: rotateX(25deg); /* Start vinkel: Vi kigger skråt på æsken */
         }
 
         /* --- BUNDEN (Hjemmesiden) --- */
-        .box-bottom {
+        #box-bottom {
             position: absolute;
-            inset: 0;
-            background-color: #f3f4f6;
-            border: 1px solid #ccc;
-            /* Tykkelse på bunden (siderne af den nederste kasse) */
+            width: 100%;
+            height: 100%;
+            background-color: #fafaf9;
+            transform-style: preserve-3d;
+            /* Det her laver de tykke pap-kanter på bunden */
+            border: 1px solid #999;
             box-shadow: 
-                0 0 0 2px #d4d4d4, /* inner rim */
-                0 20px 50px rgba(0,0,0,0.5), /* Drop shadow on table */
-                5px 5px 0px 0px #222, /* Fake 3D side right */
-                -2px 5px 0px 0px #222, /* Fake 3D side left */
-                0px 10px 0px 0px #111; /* Fake 3D side bottom */
-            border-radius: 4px;
-            overflow: hidden; /* Skjul scrollbars indtil åbnet */
+                inset 0 0 100px rgba(0,0,0,0.5), /* Skygge nede i kassen */
+                0 0 0 2px #d6d3d1, /* Lys kant */
+                0 20px 50px rgba(0,0,0,0.8); /* Skygge på bordet */
             z-index: 1;
-            transform-origin: center bottom;
         }
 
-        /* Skygge overlay nede i kassen der forsvinder når låget ryger */
-        .ambient-shadow {
+        /* De fysiske sider på underkassen (så den ser tyk ud når den falder) */
+        .side-panel {
+            position: absolute;
+            background: #292524; /* Mørk papfarve */
+        }
+        .side-bottom { width: 100%; height: 20px; bottom: 0; transform-origin: bottom; transform: rotateX(-90deg); }
+        .side-right  { width: 20px; height: 100%; right: 0; transform-origin: right; transform: rotateY(-90deg); }
+        .side-left   { width: 20px; height: 100%; left: 0; transform-origin: left; transform: rotateY(90deg); }
+
+        /* Mørkt overlay der simulerer mørket nede i en lukket kasse */
+        #darkness-overlay {
             position: absolute;
             inset: 0;
-            background: radial-gradient(circle at center, rgba(0,0,0,0.4), rgba(0,0,0,0.8));
-            z-index: 50;
+            background: rgba(0,0,0,0.85);
+            z-index: 10;
             pointer-events: none;
         }
 
-        /* --- LÅGET (The Lid) --- */
-        .box-lid {
+        /* --- LÅGET (Coveret) --- */
+        #box-lid {
             position: absolute;
-            inset: -5px; /* Låget er lidt større end bunden */
-            background: #1a1a1a;
+            width: 102%; /* Låget er lidt større end bunden */
+            height: 102%;
+            left: -1%;
+            top: -1%;
+            background: #1c1917;
             background-image: url('https://www.transparenttextures.com/patterns/black-linen.png');
-            z-index: 100;
             transform-style: preserve-3d;
-            border-radius: 6px;
-            /* Denne skygge er skyggen FRA låget NED på bordet */
-            box-shadow: 0 5px 15px rgba(0,0,0,0.8); 
+            transform-origin: center center;
+            z-index: 20;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
         }
 
-        /* 3D Sider på låget (Det her giver realismen når det løftes) */
-        .lid-side {
+        /* Siderne på låget (3D) */
+        .lid-wall {
             position: absolute;
-            background-color: #111; /* Mørk papkant */
+            background: #1c1917;
             border: 1px solid #333;
         }
-        .lid-side.bottom { width: 100%; height: 40px; bottom: 0; transform-origin: bottom; transform: rotateX(-90deg); }
-        .lid-side.top    { width: 100%; height: 40px; top: 0; transform-origin: top; transform: rotateX(90deg); }
-        .lid-side.left   { width: 40px; height: 100%; left: 0; transform-origin: left; transform: rotateY(90deg); }
-        .lid-side.right  { width: 40px; height: 100%; right: 0; transform-origin: right; transform: rotateY(-90deg); }
+        .lid-wall.top    { width: 100%; height: var(--lid-depth); top: 0; transform-origin: top; transform: rotateX(90deg); }
+        .lid-wall.bottom { width: 100%; height: var(--lid-depth); bottom: 0; transform-origin: bottom; transform: rotateX(-90deg); }
+        .lid-wall.left   { width: var(--lid-depth); height: 100%; left: 0; transform-origin: left; transform: rotateY(90deg); }
+        .lid-wall.right  { width: var(--lid-depth); height: 100%; right: 0; transform-origin: right; transform: rotateY(-90deg); }
 
-        /* Grafik på låget */
-        .lid-content {
-            height: 100%;
+        /* Indersiden af låget (den ser vi når det flyver af) */
+        .lid-inside {
+            position: absolute;
             width: 100%;
+            height: 100%;
+            background: #2d2a26; /* Rå pap farve */
+            transform: translateZ(-1px) rotateY(180deg); /* Vender indad */
+            backface-visibility: visible;
+        }
+
+        /* Indhold på låget */
+        .lid-art {
+            position: absolute;
+            inset: 0;
             display: flex;
             flex-direction: column;
-            justify-content: center;
             align-items: center;
-            color: #fbbf24; /* Gold */
-            backface-visibility: hidden; /* Skjul bagsiden */
-            border: 2px solid #333;
-            border-radius: 6px;
+            justify-content: center;
+            backface-visibility: hidden; /* Skjuler det når vi ser bagsiden */
+            border: 4px solid #44403c;
         }
 
-        /* Interaktive knapper på låget */
-        .sticker-btn {
-            background: #fff;
-            color: #1a1a1a;
-            padding: 1rem 2rem;
-            margin: 1rem;
-            border-radius: 4px;
-            font-weight: bold;
+        /* Knap styling */
+        .card-btn {
+            background: white;
+            padding: 20px;
+            width: 250px;
+            border-radius: 12px;
+            text-align: center;
             cursor: pointer;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            transition: transform 0.1s;
-            border: 2px solid white;
+            transition: transform 0.2s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
-        .sticker-btn:hover {
-            transform: scale(1.05);
-            background: #fbbf24;
-            border-color: #fbbf24;
-        }
+        .card-btn:hover { transform: scale(1.05) translateY(-2px); }
 
+        /* Klasse til at aktivere scroll når kassen er åben */
+        .scroll-active { overflow-y: auto !important; }
     </style>
 </head>
 <body>
 
-    <div class="game-box-container" id="gameBox">
+    <div id="scene">
         
-        <div class="box-bottom" id="boxBottom">
-            <div class="ambient-shadow" id="ambientShadow"></div>
+        <div id="box-bottom">
+            <div class="side-panel side-bottom"></div>
+            <div class="side-panel side-right"></div>
+            <div class="side-panel side-left"></div>
             
-            <div class="h-full w-full bg-stone-50 overflow-y-auto p-8 text-center flex flex-col items-center">
-                <nav class="w-full flex justify-between items-center mb-12 border-b pb-4">
-                    <div class="text-2xl">🎲 BoardGameTakeover</div>
-                    <div class="space-x-4 text-stone-500">
-                        <span>Events</span>
-                        <span>Shop</span>
-                    </div>
+            <div id="darkness-overlay"></div>
+
+            <div class="h-full w-full overflow-hidden relative" id="website-content">
+                <nav class="p-6 flex justify-between items-center border-b border-stone-300 bg-stone-100">
+                    <div class="font-display font-bold text-2xl text-stone-800">BoardGame<span class="text-indigo-600">Takeover</span></div>
+                    <button class="bg-stone-800 text-white px-4 py-2 rounded font-bold text-sm">Book Billet</button>
                 </nav>
-                <h2 class="text-4xl font-bold text-stone-800 mb-6">Velkommen til spillet</h2>
-                <p class="text-lg text-stone-600 max-w-2xl">
-                    Du har nu åbnet æsken. Herfra kan du booke events, købe spil eller finde din nærmeste café-turnering.
-                </p>
-                <div class="mt-12 grid grid-cols-3 gap-4 w-full max-w-4xl">
-                    <div class="bg-white h-40 rounded shadow"></div>
-                    <div class="bg-white h-40 rounded shadow"></div>
-                    <div class="bg-white h-40 rounded shadow"></div>
+                
+                <div class="p-10 text-center space-y-6">
+                    <span class="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide">Nu åbent</span>
+                    <h1 class="font-display text-5xl md:text-6xl font-bold text-stone-800">Velkommen ned i<br>kassen</h1>
+                    <p class="text-stone-600 text-xl max-w-2xl mx-auto">Du har nu åbnet spillet. Herfra starter oplevelsen.</p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12 text-left">
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-200">
+                            <div class="text-3xl mb-2">📅</div>
+                            <h3 class="font-bold">Events</h3>
+                            <p class="text-sm text-stone-500">Se hvor vi spiller næste gang.</p>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-200">
+                            <div class="text-3xl mb-2">📚</div>
+                            <h3 class="font-bold">Shop</h3>
+                            <p class="text-sm text-stone-500">Køb spillene med hjem.</p>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-200">
+                            <div class="text-3xl mb-2">🤝</div>
+                            <h3 class="font-bold">Community</h3>
+                            <p class="text-sm text-stone-500">Mød nye mennesker.</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="box-lid" id="boxLid">
-            <div class="lid-side top"></div>
-            <div class="lid-side bottom"></div>
-            <div class="lid-side left"></div>
-            <div class="lid-side right"></div>
-
-            <div class="lid-content relative">
-                <div class="absolute inset-0 opacity-10" style="background-image: url('https://www.transparenttextures.com/patterns/hexellence.png');"></div>
+        <div id="box-lid">
+            <div class="lid-wall top"></div>
+            <div class="lid-wall bottom"></div>
+            <div class="lid-wall left"></div>
+            <div class="lid-wall right"></div>
+            <div class="lid-inside"></div> <div class="lid-art">
+                <div class="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/hexellence.png')]"></div>
                 
-                <h1 class="text-6xl md:text-8xl font-black tracking-tighter mb-2 relative z-10" style="font-family: 'Fredoka', sans-serif;">
+                <h1 class="font-display text-7xl md:text-9xl font-black text-transparent bg-clip-text bg-gradient-to-br from-yellow-400 to-yellow-600 mb-2 drop-shadow-lg">
                     TAKEOVER
                 </h1>
-                <p class="text-stone-400 mb-12 uppercase tracking-widest text-sm relative z-10">The Social Strategy Game</p>
+                <p class="text-stone-400 uppercase tracking-[0.3em] mb-12 font-bold text-sm">The Ultimate Café Experience</p>
 
-                <div class="flex flex-row gap-8 relative z-10">
-                    <button onclick="openBox('private')" class="sticker-btn rotate-2">
-                        <span class="block text-2xl mb-1">♟️</span>
-                        JEG ER SPILLER
-                    </button>
-                    <button onclick="openBox('cafe')" class="sticker-btn -rotate-2">
-                        <span class="block text-2xl mb-1">☕</span>
-                        JEG ER CAFÉ
-                    </button>
+                <div class="flex gap-8 z-10">
+                    <div onclick="openBox('player')" class="card-btn rotate-1 hover:rotate-0">
+                        <div class="text-4xl mb-2">♟️</div>
+                        <div class="font-bold text-lg text-stone-800">JEG ER SPILLER</div>
+                        <div class="text-xs text-stone-500 mt-1">Find events</div>
+                    </div>
+                    <div onclick="openBox('cafe')" class="card-btn -rotate-1 hover:rotate-0">
+                        <div class="text-4xl mb-2">☕</div>
+                        <div class="font-bold text-lg text-stone-800">JEG ER CAFÉ</div>
+                        <div class="text-xs text-stone-500 mt-1">Bliv vært</div>
+                    </div>
                 </div>
+                
+                <div class="absolute bottom-6 text-stone-600 text-xs font-mono uppercase">Version 1.0 • Made in Denmark</div>
             </div>
         </div>
+
     </div>
 
     <script>
-        function openBox(type) {
+        function openBox(userType) {
+            console.log("Valgt rolle: " + userType);
+            
             const tl = gsap.timeline();
 
-            // Lyd-effekt (forestil dig lyden af pap mod pap: "Schhwiiip-Pop")
-            // Det visuelle skal matche denne lyd.
-
-            // TRIN 1: VAKUUM START (The Struggle)
-            // Låget løftes lidt, men bunden følger med op (sugekop-effekt)
-            tl.to("#gameBox", {
-                duration: 0.6,
-                z: 100, // Hele kassen kommer tættere på kameraet
-                rotateX: 10, // Tipper lidt mere mod os
-                ease: "power2.out"
-            }, 0);
-
-            // Bunden løftes op sammen med låget (fordi den sidder fast)
-            tl.to("#boxBottom", {
-                duration: 0.6,
-                y: -30, // Løftes op fra "bordet"
-                ease: "power2.out"
-            }, 0);
-
-            // TRIN 2: SUGEKOPPEN SLIPPER (The Pop)
-            // Bunden falder tungt tilbage på bordet
-            tl.to("#boxBottom", {
+            // --- FASE 1: SUGEKOPPEN (Vakuum) ---
+            // Vi løfter låget... men bunden følger med!
+            
+            tl.to("#box-lid", {
                 duration: 0.5,
-                y: 0, // Falder tilbage
-                ease: "bounce.out" // Bouncer når den rammer bordet
-            }, 0.5);
+                z: 150,      // Låget kommer mod os
+                y: -50,      // Og lidt op
+                ease: "power2.out"
+            }, "start");
 
-            // TRIN 3: LÅGET FLYVER AF (The Reveal)
-            // Nu hvor bunden er sluppet, kan låget flyve frit
-            tl.to("#boxLid", {
+            tl.to("#box-bottom", {
+                duration: 0.5,
+                z: 150,      // Bunden følger med op (suget fast)
+                y: -50,
+                ease: "power2.out"
+            }, "start");
+
+
+            // --- FASE 2: SLIPPET (Gravity) ---
+            // Bunden mister grebet og falder ned
+            
+            tl.to("#box-bottom", {
+                duration: 0.8,
+                z: 0,        // Tilbage til 0
+                y: 0,        // Tilbage til bordet
+                ease: "bounce.out" // BOING! Den rammer bordet tungt
+            }, "release");
+
+
+            // --- FASE 3: LÅGET FLYVER AF (The Reveal) ---
+            // Låget fortsætter sin rejse væk fra kassen
+            
+            tl.to("#box-lid", {
                 duration: 1.5,
-                y: -1200,    // Flyver OP ud af skærmen
-                z: 400,      // Kommer tættere på kameraet (over hovedet på os)
-                rotateX: 70, // Roterer så vi ser undersiden
-                opacity: 0,  // Fader ud til sidst
-                ease: "power3.in" // Accelererer væk
-            }, 0.5);
-
-            // TRIN 4: LYSET KOMMER IND
-            // Skyggen nede i kassen forsvinder
-            tl.to("#ambientShadow", {
-                duration: 1.2,
-                opacity: 0,
-                ease: "power2.inOut"
-            }, 0.6);
-
-            // TRIN 5: RESET VIEW
-            // Vi retter kameraet op, så vi ser hjemmesiden fladt (normal browsing)
-            tl.to(".game-box-container", {
-                duration: 1,
-                rotateX: 0, // Tilbage til flad skærm
+                z: 600,       // Kommer meget tæt på kameraet
+                y: -1500,     // Flyver opad (ud af billedet)
+                rotationX: 110, // Roterer så vi ser undersiden
                 ease: "power2.inOut",
                 onComplete: () => {
-                    // Fjern låget helt for performance
-                    document.getElementById("boxLid").style.display = "none";
-                    // Tillad interaktion med hjemmesiden
+                    document.getElementById("box-lid").style.display = "none";
+                }
+            }, "release"); // Starter samtidig med at bunden falder
+
+
+            // --- FASE 4: LYSET & KAMERA SKIFT ---
+            // Nu hvor låget er væk, kommer lyset ned, og vi retter kameraet op
+            
+            tl.to("#darkness-overlay", {
+                duration: 1,
+                opacity: 0, // Lyset tændes
+                ease: "power1.inOut"
+            }, "release+=0.2");
+
+            // Vi roterer "Scenen" så vi kigger fladt på hjemmesiden (2D mode)
+            tl.to("#scene", {
+                duration: 1.2,
+                rotateX: 0,  // Fra skrå vinkel til flad
+                ease: "power2.inOut",
+                onComplete: () => {
+                    // Aktiver scrolling inde i kassen
+                    document.getElementById("website-content").style.overflowY = "auto";
                     document.body.style.overflow = "auto";
                 }
-            }, 1.0);
+            }, "release+=0.5");
         }
     </script>
 </body>
