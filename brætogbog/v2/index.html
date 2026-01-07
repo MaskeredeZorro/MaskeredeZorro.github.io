@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="da" class="scroll-smooth">
+<html lang="da">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Board Game Takeover - Vælg din rolle</title>
+    <title>Board Game Takeover</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;600&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
@@ -18,113 +18,134 @@
                     },
                     colors: {
                         brand: {
-                            dark: '#1a1a1a',
+                            dark: '#1a1a1a', // Box color
                             gold: '#fbbf24',
-                            red: '#ef4444',
-                            green: '#22c55e',
-                            cream: '#fef3c7',
-                            wood: '#78350f'
+                            paper: '#f5f5f4',
+                            cardboard: '#d4c4a8' // Inner box color
                         }
                     },
-                    backgroundImage: {
-                        'felt-pattern': "url('https://www.transparenttextures.com/patterns/felt.png')"
+                    boxShadow: {
+                        'inner-box': 'inset 0 0 50px rgba(0,0,0,0.5)',
+                        'lid': '0 25px 50px -12px rgba(0, 0, 0, 0.75)'
                     }
                 }
             }
         }
     </script>
     <style>
-        /* Custom 3D Card Effect for the Intro */
-        .game-card {
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            transform-style: preserve-3d;
-        }
-        .game-card:hover {
-            transform: translateY(-10px) rotateX(5deg);
-            box-shadow: 0 20px 40px -5px rgba(0,0,0,0.4);
-        }
-        
-        /* The Curtain/Lid Animation Class */
-        .lid-lift-off {
-            transform: translateY(-100%);
-            transition: transform 1.2s cubic-bezier(0.7, 0, 0.3, 1);
+        body {
+            background-color: #111; /* Dark background behind the box */
+            overflow: hidden; /* Prevent scrolling while intro is active */
+            perspective: 1500px; /* Crucial for the 3D lift effect */
         }
 
-        /* Subtle texture for the background */
-        .bg-texture {
-            background-color: #1f2937;
-            background-image: radial-gradient(#374151 1px, transparent 1px);
-            background-size: 20px 20px;
+        /* THE LID (COVER)
+           Texture mimics a high-quality linen finish board game box 
+        */
+        #box-lid {
+            background: 
+                linear-gradient(rgba(26, 26, 26, 0.95), rgba(26, 26, 26, 0.95)),
+                url('https://www.transparenttextures.com/patterns/black-linen.png');
+            transform-origin: 50% 0%; /* Rotates from the top */
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            z-index: 50;
+        }
+
+        /* THE BOTTOM TRAY (WEBSITE CONTAINER)
+           This creates the illusion that the website is INSIDE the box
+        */
+        #box-bottom {
+            transform-style: preserve-3d;
+            transform: scale(0.96); /* Slightly smaller than lid initially */
+            box-shadow: inset 0 0 100px rgba(0,0,0,0.8); /* Deep shadow inside box */
+            overflow-y: auto;
+            height: 100vh;
+            background-color: #fafaf9;
+            /* The cardboard rim effect */
+            border: 12px solid #2d2a26; 
+            border-top: 12px solid #3d3833; /* Top light hits rim */
+            border-bottom: 12px solid #1a1816; /* Bottom shadow on rim */
+            position: relative;
+        }
+
+        /* Helper to hide scrollbar during intro */
+        .no-scroll {
+            overflow: hidden !important;
+        }
+
+        /* Card hover effects on the lid */
+        .selection-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: linear-gradient(145deg, #ffffff, #f3f4f6);
+        }
+        .selection-card:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+            border-color: #fbbf24;
         }
     </style>
 </head>
-<body class="bg-stone-50 text-stone-800 antialiased overflow-x-hidden">
+<body>
 
-    <div id="game-intro" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-brand-dark bg-texture text-brand-cream overflow-hidden">
+    <div id="box-lid" class="fixed inset-0 flex flex-col items-center justify-center text-white border-b-8 border-stone-800">
         
-        <div class="absolute top-10 left-10 w-24 h-24 bg-brand-red rounded-lg opacity-20 rotate-12 blur-sm"></div>
-        <div class="absolute bottom-20 right-20 w-32 h-32 bg-brand-gold rounded-full opacity-20 -rotate-12 blur-sm"></div>
+        <div class="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none" 
+             style="background-image: url('https://www.transparenttextures.com/patterns/hexellence.png');">
+        </div>
 
-        <div class="text-center mb-12 relative z-10">
-            <h1 class="font-display text-5xl md:text-7xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-brand-gold to-orange-400 drop-shadow-lg">
+        <div class="z-10 text-center mb-12">
+            <div class="inline-block bg-brand-gold text-brand-dark px-3 py-1 font-bold tracking-widest text-xs rounded mb-4 uppercase">
+                Strategy & Social Edition
+            </div>
+            <h1 class="font-display text-6xl md:text-8xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-brand-gold via-yellow-200 to-yellow-600 drop-shadow-sm">
                 BOARD GAME<br>TAKEOVER
             </h1>
-            <p class="text-xl md:text-2xl opacity-80 font-light">Vælg din karakter for at starte spillet</p>
+            <p class="mt-4 text-stone-400 text-xl font-light tracking-wide">Vælg din karakter for at åbne spillet</p>
         </div>
 
-        <div class="flex flex-col md:flex-row gap-8 md:gap-16 z-10 px-4">
+        <div class="flex flex-col md:flex-row gap-8 z-10 px-6">
             
-            <button onclick="startGame('private')" class="game-card group relative w-72 h-96 bg-white rounded-2xl p-6 flex flex-col items-center justify-between cursor-pointer border-8 border-brand-cream ring-4 ring-black/20">
-                <div class="absolute inset-0 bg-blue-50 rounded-xl m-1 border-2 border-dashed border-blue-200"></div>
-                
-                <div class="relative z-10 mt-4">
-                    <div class="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-14 h-14 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2M15 8H19V22H16V16H14V22H9V8H15M7 8H5V16H8V8H7Z" />
-                        </svg>
-                    </div>
-                    <h2 class="font-display text-2xl font-bold text-gray-800 text-center">JEG ER<br>SPILLER</h2>
+            <button onclick="liftLid('private')" class="selection-card group w-72 h-80 rounded-xl border-4 border-stone-200 p-6 flex flex-col items-center text-stone-800 relative overflow-hidden">
+                <div class="absolute top-0 right-0 bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-bl-lg">1-4 Players</div>
+                <div class="flex-1 flex items-center justify-center">
+                    <span class="text-6xl group-hover:scale-110 transition-transform duration-300">♟️</span>
                 </div>
-
-                <div class="relative z-10 text-center text-sm text-gray-500 mb-4">
-                    <p>Find events, mød nye mennesker og køb spil med hjem.</p>
+                <div class="text-center">
+                    <h2 class="font-display text-2xl font-bold mb-1">Jeg er Spiller</h2>
+                    <p class="text-xs text-stone-500">Find events & køb spil</p>
                 </div>
-
-                <div class="relative z-10 w-full bg-blue-600 text-white py-2 rounded-lg font-bold uppercase tracking-wider text-sm group-hover:bg-blue-700">
-                    Vælg Kort
+                <div class="mt-4 w-full bg-stone-800 text-brand-gold py-2 rounded font-bold text-sm uppercase tracking-wider group-hover:bg-blue-600 transition-colors">
+                    Start Spil
                 </div>
             </button>
 
-            <button onclick="startGame('cafe')" class="game-card group relative w-72 h-96 bg-white rounded-2xl p-6 flex flex-col items-center justify-between cursor-pointer border-8 border-brand-cream ring-4 ring-black/20">
-                <div class="absolute inset-0 bg-orange-50 rounded-xl m-1 border-2 border-dashed border-orange-200"></div>
-                
-                <div class="relative z-10 mt-4">
-                    <div class="w-24 h-24 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-14 h-14 text-orange-600" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12,18H6V14H12M21,14V12L20,7H4L3,12V14H4V20H14V14H18V20H20V14M20,4H4V6H20V4Z" />
-                        </svg>
-                    </div>
-                    <h2 class="font-display text-2xl font-bold text-gray-800 text-center">JEG ER<br>CAFÉ-EJER</h2>
+            <button onclick="liftLid('cafe')" class="selection-card group w-72 h-80 rounded-xl border-4 border-stone-200 p-6 flex flex-col items-center text-stone-800 relative overflow-hidden">
+                <div class="absolute top-0 right-0 bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-bl-lg">Expansion Pack</div>
+                <div class="flex-1 flex items-center justify-center">
+                    <span class="text-6xl group-hover:scale-110 transition-transform duration-300">☕</span>
                 </div>
-
-                <div class="relative z-10 text-center text-sm text-gray-500 mb-4">
-                    <p>Fyld din café, øg omsætningen og skab liv på stille aftener.</p>
+                <div class="text-center">
+                    <h2 class="font-display text-2xl font-bold mb-1">Jeg er Café</h2>
+                    <p class="text-xs text-stone-500">Book en takeover</p>
                 </div>
-
-                <div class="relative z-10 w-full bg-orange-600 text-white py-2 rounded-lg font-bold uppercase tracking-wider text-sm group-hover:bg-orange-700">
-                    Vælg Kort
+                <div class="mt-4 w-full bg-stone-800 text-brand-gold py-2 rounded font-bold text-sm uppercase tracking-wider group-hover:bg-orange-600 transition-colors">
+                    Start Spil
                 </div>
             </button>
 
         </div>
-        
-        <p class="mt-8 text-white/40 text-sm font-mono animate-pulse">Vælg et kort for at starte...</p>
+
+        <div class="absolute bottom-4 text-stone-600 text-xs font-mono tracking-widest uppercase">
+            Designed in Denmark • Est. 2024
+        </div>
     </div>
 
 
-    <main id="main-content" class="relative z-0">
+    <main id="box-bottom" class="no-scroll">
         
-        <nav class="bg-white/90 backdrop-blur-md border-b border-stone-200 sticky top-0 z-40">
+        <div id="inner-shadow" class="fixed inset-0 bg-black/60 z-40 pointer-events-none transition-opacity duration-1000"></div>
+
+        <nav class="bg-white/90 backdrop-blur-md border-b border-stone-200 sticky top-0 z-30">
             <div class="container mx-auto px-4 py-3 flex justify-between items-center">
                 <div class="flex items-center gap-2">
                     <span class="text-2xl">🎲</span>
@@ -134,38 +155,20 @@
                     <a href="#concept" class="hover:text-indigo-600 transition-colors">Konceptet</a>
                     <a href="#events" class="hover:text-indigo-600 transition-colors">Events</a>
                     <a href="#shop" class="hover:text-indigo-600 transition-colors">Shop</a>
-                    <a href="#contact" class="hover:text-indigo-600 transition-colors">Kontakt</a>
                 </div>
-                <button class="bg-stone-900 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-stone-700 transition-colors">
-                    Book Billet
-                </button>
+                <button class="bg-stone-900 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-stone-700 transition-colors">Book Billet</button>
             </div>
         </nav>
 
         <header class="relative bg-stone-900 text-white overflow-hidden py-20 md:py-32">
             <div class="absolute inset-0 opacity-40">
-                <img src="https://images.unsplash.com/photo-1610890716271-e746515d4e19?q=80&w=2070&auto=format&fit=crop" class="w-full h-full object-cover" alt="Board game atmosphere">
+                <img src="https://images.unsplash.com/photo-1610890716271-e746515d4e19?q=80&w=2070&auto=format&fit=crop" class="w-full h-full object-cover">
             </div>
             <div class="absolute inset-0 bg-gradient-to-t from-stone-900 via-stone-900/60 to-transparent"></div>
-            
             <div class="container mx-auto px-4 relative z-10 text-center">
-                <span class="inline-block py-1 px-3 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-xs font-bold tracking-wider mb-6 uppercase">
-                    Den Analoge Revolution
-                </span>
-                <h1 class="font-display text-5xl md:text-7xl font-bold mb-6 leading-tight">
-                    Vi gør din lokale café<br>til en <span class="text-indigo-400">brætspils-oase</span>
-                </h1>
-                <p class="text-xl text-stone-300 max-w-2xl mx-auto mb-10 leading-relaxed">
-                    Oplev stemningen når vi overtager caféen med 100+ brætspil, dedikerede 'Game Sommeliers' og kuraterede bøger. Sluk telefonen og vær med.
-                </p>
-                <div class="flex flex-col sm:flex-row gap-4 justify-center">
-                    <button class="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-4 rounded-xl font-bold text-lg shadow-lg shadow-indigo-900/50 transition-all hover:-translate-y-1">
-                        Find næste event
-                    </button>
-                    <button class="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white px-8 py-4 rounded-xl font-bold text-lg transition-all">
-                        Læs om konceptet
-                    </button>
-                </div>
+                <span class="inline-block py-1 px-3 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-xs font-bold tracking-wider mb-6 uppercase">Den Analoge Revolution</span>
+                <h1 class="font-display text-5xl md:text-7xl font-bold mb-6 leading-tight">Vi gør din lokale café<br>til en <span class="text-indigo-400">brætspils-oase</span></h1>
+                <p class="text-xl text-stone-300 max-w-2xl mx-auto mb-10 leading-relaxed">Oplev stemningen når vi overtager caféen med 100+ brætspil, dedikerede 'Game Sommeliers' og kuraterede bøger.</p>
             </div>
         </header>
 
@@ -173,32 +176,23 @@
             <div class="container mx-auto px-4">
                 <div class="text-center mb-16">
                     <h2 class="font-display text-3xl md:text-4xl font-bold text-stone-800 mb-4">Mere end bare ludo</h2>
-                    <p class="text-stone-600 max-w-xl mx-auto">Vi kombinerer det bedste fra en brætspilscafé med hyggen fra din yndlingsbar og en pop-up boghandel.</p>
+                    <p class="text-stone-600 max-w-xl mx-auto">Vi kombinerer det bedste fra en brætspilscafé med hyggen fra din yndlingsbar.</p>
                 </div>
-
                 <div class="grid md:grid-cols-3 gap-8">
                     <div class="bg-white p-8 rounded-2xl shadow-sm border border-stone-100 hover:shadow-md transition-shadow">
                         <div class="w-12 h-12 bg-orange-100 text-orange-600 rounded-xl flex items-center justify-center text-2xl mb-6">🎯</div>
                         <h3 class="font-display text-xl font-bold mb-3">Game Sommeliers</h3>
-                        <p class="text-stone-600 text-sm leading-relaxed">
-                            Glem alt om tunge regelbøger. Vores guider matcher dig med det perfekte spil og lærer dig reglerne på 3 minutter.
-                        </p>
+                        <p class="text-stone-600 text-sm">Vi lærer dig reglerne på 3 minutter.</p>
                     </div>
-
                     <div class="bg-white p-8 rounded-2xl shadow-sm border border-stone-100 hover:shadow-md transition-shadow">
                         <div class="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center text-2xl mb-6">📚</div>
                         <h3 class="font-display text-xl font-bold mb-3">Spil & Bøger</h3>
-                        <p class="text-stone-600 text-sm leading-relaxed">
-                            Blev du grebet af stemningen? Alle vores spil og et unikt udvalg af bøger kan købes med hjem direkte fra vores pop-up shop.
-                        </p>
+                        <p class="text-stone-600 text-sm">Køb spillet med hjem hvis du kan lide det.</p>
                     </div>
-
                     <div class="bg-white p-8 rounded-2xl shadow-sm border border-stone-100 hover:shadow-md transition-shadow">
                         <div class="w-12 h-12 bg-green-100 text-green-600 rounded-xl flex items-center justify-center text-2xl mb-6">🍻</div>
                         <h3 class="font-display text-xl font-bold mb-3">Social Dining</h3>
-                        <p class="text-stone-600 text-sm leading-relaxed">
-                            Nyd caféens lækre menu mens du spiller. Vi sørger for "spil-venlig" mad og drikke, så brikkerne ikke bliver fedtede.
-                        </p>
+                        <p class="text-stone-600 text-sm">Mad og drikke serveret ved spillebordet.</p>
                     </div>
                 </div>
             </div>
@@ -209,96 +203,69 @@
                 <div class="flex flex-col md:flex-row items-center justify-between gap-12">
                     <div class="md:w-1/2">
                         <h2 class="font-display text-3xl md:text-5xl font-bold mb-6">Pop-Up Shoppen</h2>
-                        <p class="text-stone-400 text-lg mb-8">
-                            Vi tror på at den rigtige bog passer til det rigtige spil. Vores shop er kurateret efter stemninger.
-                        </p>
-                        
                         <div class="space-y-6">
                             <div class="flex items-center gap-4 p-4 bg-white/5 rounded-xl border border-white/10">
                                 <div class="bg-indigo-500/20 p-3 rounded-lg">🚀</div>
-                                <div>
-                                    <h4 class="font-bold text-indigo-300">Sci-Fi Fans</h4>
-                                    <p class="text-sm text-stone-400">Spil: <em>Terraforming Mars</em> + Bog: <em>The Martian</em></p>
-                                </div>
+                                <div><h4 class="font-bold text-indigo-300">Sci-Fi Fans</h4><p class="text-sm text-stone-400">Terraforming Mars + The Martian</p></div>
                             </div>
                             <div class="flex items-center gap-4 p-4 bg-white/5 rounded-xl border border-white/10">
                                 <div class="bg-orange-500/20 p-3 rounded-lg">🐉</div>
-                                <div>
-                                    <h4 class="font-bold text-orange-300">Fantasy Lovers</h4>
-                                    <p class="text-sm text-stone-400">Spil: <em>Wyrmspan</em> + Bog: <em>Fourth Wing</em></p>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-4 p-4 bg-white/5 rounded-xl border border-white/10">
-                                <div class="bg-green-500/20 p-3 rounded-lg">🌿</div>
-                                <div>
-                                    <h4 class="font-bold text-green-300">Cozy Gamers</h4>
-                                    <p class="text-sm text-stone-400">Spil: <em>Wingspan</em> + Bog: <em>Hvor flodkrebsene synger</em></p>
-                                </div>
+                                <div><h4 class="font-bold text-orange-300">Fantasy Lovers</h4><p class="text-sm text-stone-400">Wyrmspan + Fourth Wing</p></div>
                             </div>
                         </div>
                     </div>
-                    
                     <div class="md:w-1/2 relative">
-                        <div class="relative w-full aspect-square bg-gradient-to-br from-indigo-600 to-purple-700 rounded-full blur-3xl opacity-20 absolute inset-0"></div>
-                        <img src="https://images.unsplash.com/photo-1589829085413-56de8ae18c73?q=80&w=2000&auto=format&fit=crop" alt="Books and Games" class="relative rounded-2xl shadow-2xl border border-white/10 rotate-3 hover:rotate-0 transition-transform duration-500">
+                         <div class="relative w-full aspect-square bg-gradient-to-br from-indigo-600 to-purple-700 rounded-full blur-3xl opacity-20 absolute inset-0"></div>
+                        <img src="https://images.unsplash.com/photo-1589829085413-56de8ae18c73?q=80&w=2000&auto=format&fit=crop" class="relative rounded-2xl shadow-2xl border border-white/10 -rotate-3">
                     </div>
                 </div>
             </div>
         </section>
 
-        <footer id="contact" class="bg-white border-t border-stone-200 py-16">
-            <div class="container mx-auto px-4 text-center">
-                <h2 class="font-display text-3xl font-bold mb-6">Klar til at spille?</h2>
-                <p class="text-stone-600 mb-8 max-w-lg mx-auto">Tilmeld dig nyhedsbrevet og få besked, når vi overtager en café nær dig – eller book os til dit venue.</p>
-                
-                <div class="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-                    <input type="email" placeholder="Din email adresse..." class="px-6 py-4 rounded-xl border border-stone-300 w-full sm:w-80 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <button class="bg-stone-900 text-white px-8 py-4 rounded-xl font-bold hover:bg-stone-700 w-full sm:w-auto">
-                        Hold mig opdateret
-                    </button>
-                </div>
-
-                <div class="flex gap-6 justify-center text-stone-400 text-sm">
-                    <a href="#" class="hover:text-stone-800">Instagram</a>
-                    <a href="#" class="hover:text-stone-800">Facebook</a>
-                    <a href="#" class="hover:text-stone-800">Kontakt</a>
-                </div>
-                <p class="mt-8 text-stone-300 text-xs">© 2024 Board Game Takeover. All rights reserved.</p>
-            </div>
+        <footer class="bg-white border-t border-stone-200 py-12 text-center text-sm text-stone-400">
+            © 2024 Board Game Takeover
         </footer>
 
     </main>
 
     <script>
-        // Intro Animation Logic
-        function startGame(userType) {
-            console.log("User selected: " + userType);
-            
-            // 1. Save selection for later (if we want to change content dynamically)
-            // localStorage.setItem('userType', userType); 
+        function liftLid(type) {
+            console.log("Valgt: " + type);
 
-            // 2. Play the sound (Optional - browser policy might block autoplay without interaction, but click allows it)
-            // var audio = new Audio('dice-roll.mp3'); // You would need a sound file
-            // audio.play();
+            const timeline = gsap.timeline();
 
-            // 3. Trigger the CSS Animation on the overlay
-            const overlay = document.getElementById('game-intro');
-            overlay.classList.add('lid-lift-off');
-
-            // 4. Reveal the main content underneath smoothly
-            // (The content is already there, but we can do a subtle scale-up effect on the main body)
-            gsap.from("#main-content", {
-                duration: 1.5,
-                scale: 0.95,
-                opacity: 0.5,
-                delay: 0.2,
-                ease: "power2.out"
+            // 1. LID ANIMATION (Lifts UP and TILTS BACK)
+            timeline.to("#box-lid", {
+                duration: 1.8,
+                yPercent: -150,    // Flytter den helt op ud af skærmen
+                rotationX: 30,     // Tipper den bagover
+                scale: 1.1,        // Gør den lidt større (kommer mod kameraet)
+                ease: "power3.inOut" // Starter langsomt (tunge låg), accelererer
             });
-            
-            // 5. Remove the overlay from DOM after animation to enable clicking on main content
-            setTimeout(() => {
-                overlay.style.display = 'none';
-            }, 1200); // Matches the transition duration in CSS
+
+            // 2. LIGHT/SHADOW REVEAL
+            // Gør skyggen gennemsigtig så man kan se indholdet
+            timeline.to("#inner-shadow", {
+                duration: 1.5,
+                opacity: 0,
+                ease: "power2.out"
+            }, "-=1.5"); // Starter samtidig med låget
+
+            // 3. ZOOM IND I KASSEN
+            // Hjemmesiden starter lidt lille (nede i kassen) og kommer op i "normal" størrelse
+            // men vi beholder den lidt zoomet ud for at se "kanten" (borderen)
+            timeline.to("#box-bottom", {
+                duration: 1.5,
+                scale: 1, 
+                ease: "power2.out",
+                onComplete: () => {
+                    // Tillad scrolling når animationen er færdig
+                    document.body.style.overflow = "auto";
+                    document.getElementById("box-bottom").classList.remove("no-scroll");
+                    // Valgfrit: Fjern låget fra DOM for performance
+                    document.getElementById("box-lid").style.display = "none"; 
+                }
+            }, "-=1.8");
         }
     </script>
 </body>
