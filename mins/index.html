@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vær min kæreste!! :)?</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Quicksand:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@48,400,1,0">
+
+    <style>
+        body {
+            font-family: 'Quicksand', sans-serif;
+            overflow: hidden; /* No scrollbars */
+        }
+        h1 { font-family: 'Pacifico', cursive; }
+
+        /* Floating Hearts Background */
+        .floating-heart {
+            position: absolute;
+            color: rgba(255, 255, 255, 0.4);
+            animation: floatUp linear forwards;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(110vh) scale(0.5); opacity: 0; }
+            10% { opacity: 1; }
+            100% { transform: translateY(-10vh) scale(1.2); opacity: 0; }
+        }
+
+        .heart-beat { animation: beat 1.5s infinite; }
+        @keyframes beat {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        #yesBtn { transition: transform 0.1s ease; }
+
+        /* NO BUTTON STYLES */
+        #noBtn {
+            position: fixed; /* Relative to viewport */
+            z-index: 50; 
+            /* CRITICAL: No transition property here. This makes it WARP instantly. */
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-pink-300 via-purple-300 to-indigo-400 h-screen w-screen flex flex-col items-center justify-center relative select-none">
+
+    <div id="bg-hearts" class="absolute inset-0 overflow-hidden pointer-events-none"></div>
+
+    <main class="relative z-10 text-center flex flex-col items-center p-4">
+        <div class="text-9xl text-red-500 heart-beat mb-8 drop-shadow-2xl">❤️</div>
+        <h1 class="text-4xl md:text-6xl text-white font-bold drop-shadow-md mb-24">
+            Hej baby, vil du være min kæreste igen?
+        </h1>
+
+        <div class="relative">
+            <button id="yesBtn" class="bg-green-500 hover:bg-green-600 text-white text-2xl font-bold py-4 px-12 rounded-full shadow-lg flex items-center gap-2 transform scale-100 z-50 relative">
+                YES <span class="material-symbols-outlined">favorite</span>
+            </button>
+        </div>
+    </main>
+
+    <button id="noBtn" class="bg-white text-gray-500 hover:text-gray-700 text-xl font-bold py-4 px-12 rounded-full shadow-lg border-2 border-gray-200">
+        No
+    </button>
+
+    <div id="successOverlay" class="fixed inset-0 bg-pink-600 z-[100] hidden flex-col items-center justify-center text-white">
+        <h2 class="text-6xl md:text-8xl font-serif font-bold mb-4 animate-bounce">YAY! 💖</h2>
+        <p class="text-2xl md:text-3xl font-light">I knew you'd say yes!</p>
+        <button onclick="location.reload()" class="mt-12 bg-white text-pink-600 px-8 py-3 rounded-full font-bold hover:bg-gray-100 transition shadow-xl">
+            Replay
+        </button>
+    </div>
+
+    <script>
+        const yesBtn = document.getElementById('yesBtn');
+        const noBtn = document.getElementById('noBtn');
+        const successOverlay = document.getElementById('successOverlay');
+        const bgContainer = document.getElementById('bg-hearts');
+
+        // CONFIGURATION
+        const PROTECTION_RADIUS = 70; // The "Invisible Sphere" size in pixels
+        const BUTTON_PADDING = 20; // Keep away from screen edge
+
+        // 1. Initial Position
+        function centerNoButton() {
+            const yesRect = yesBtn.getBoundingClientRect();
+            const initialLeft = yesRect.right + 50; 
+            const initialTop = yesRect.top;
+            noBtn.style.left = initialLeft + 'px';
+            noBtn.style.top = initialTop + 'px';
+        }
+        centerNoButton();
+
+        // 2. The Teleport Logic
+        function moveNoButton() {
+            const screenWidth = window.innerWidth;
+            const screenHeight = window.innerHeight;
+            const btnWidth = noBtn.offsetWidth;
+            const btnHeight = noBtn.offsetHeight;
+
+            // Define the safe area where the button is allowed to exist
+            const maxX = screenWidth - btnWidth - BUTTON_PADDING;
+            const maxY = screenHeight - btnHeight - BUTTON_PADDING;
+
+            let newX, newY;
+            
+            // While Loop: Keep generating new positions until we find one 
+            // that is NOT currently under the mouse. 
+            // This prevents it from accidentally warping directly into your path.
+            let safetyCounter = 0;
+            do {
+                newX = Math.max(BUTTON_PADDING, Math.random() * maxX);
+                newY = Math.max(BUTTON_PADDING, Math.random() * maxY);
+                safetyCounter++;
+            } while (isUnderMouse(newX, newY, btnWidth, btnHeight) && safetyCounter < 10);
+
+            // Apply "Warp" (Instant change because CSS transition is removed)
+            noBtn.style.left = newX + 'px';
+            noBtn.style.top = newY + 'px';
+
+            // Change Text
+            const texts = ["No", "Nope", "Can't catch me", "Try Yes!", "Too slow :P", "Wrong button!", "Missed!"];
+            noBtn.innerText = texts[Math.floor(Math.random() * texts.length)];
+        }
+
+        // Helper to check if a hypothetical position is under the mouse
+        // (Used to ensure we don't teleport the button ONTO the mouse)
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+        function isUnderMouse(x, y, w, h) {
+            // Check if the mouse is inside the box defined by x,y,w,h + padding
+            return (lastMouseX > x - 50 && lastMouseX < x + w + 50 &&
+                    lastMouseY > y - 50 && lastMouseY < y + h + 50);
+        }
+
+        // 3. The "Invisible Sphere" Detection
+        document.addEventListener('mousemove', (e) => {
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+
+            // Get current button position
+            const btnRect = noBtn.getBoundingClientRect();
+            const btnCenterX = btnRect.left + (btnRect.width / 2);
+            const btnCenterY = btnRect.top + (btnRect.height / 2);
+
+            // Calculate Distance (Pythagorean theorem)
+            const distance = Math.sqrt(
+                Math.pow(e.clientX - btnCenterX, 2) + 
+                Math.pow(e.clientY - btnCenterY, 2)
+            );
+
+            // If mouse is inside the force field, WARP immediately
+            if (distance < PROTECTION_RADIUS) {
+                moveNoButton();
+            }
+        });
+
+        // Mobile touch support
+        noBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            moveNoButton();
+        });
+
+        // Resize safety
+        window.addEventListener('resize', () => {
+            const rect = noBtn.getBoundingClientRect();
+            if (rect.right > window.innerWidth || rect.bottom > window.innerHeight) {
+                moveNoButton();
+            }
+        });
+
+        // --- Yes Button & Background FX (Unchanged) ---
+        let currentScale = 1;
+        let growTimer;
+        yesBtn.addEventListener('mouseenter', () => {
+            growTimer = setInterval(() => {
+                currentScale += 0.02;
+                yesBtn.style.transform = `scale(${currentScale})`;
+            }, 50);
+        });
+        yesBtn.addEventListener('mouseleave', () => clearInterval(growTimer));
+        yesBtn.addEventListener('click', () => {
+            successOverlay.classList.remove('hidden');
+            successOverlay.classList.add('flex');
+            startConfetti();
+        });
+
+        function createHeart() {
+            const heart = document.createElement('div');
+            heart.classList.add('floating-heart');
+            heart.innerHTML = '❤';
+            heart.style.left = Math.random() * 100 + 'vw';
+            heart.style.fontSize = Math.random() * 20 + 20 + 'px';
+            heart.style.animationDuration = Math.random() * 3 + 5 + 's';
+            bgContainer.appendChild(heart);
+            setTimeout(() => heart.remove(), 8000);
+        }
+        setInterval(createHeart, 400);
+
+        function startConfetti() {
+            for(let i=0; i<150; i++) {
+                const conf = document.createElement('div');
+                conf.style.position = 'fixed';
+                conf.style.left = '50%';
+                conf.style.top = '50%';
+                conf.style.width = '10px';
+                conf.style.height = '10px';
+                conf.style.backgroundColor = `hsl(${Math.random() * 360}, 100%, 50%)`;
+                conf.style.zIndex = '100';
+                conf.animate([
+                    { transform: 'translate(0,0) scale(1)', opacity: 1 },
+                    { transform: `translate(${Math.cos(Math.random()*Math.PI*2)*500}px, ${Math.sin(Math.random()*Math.PI*2)*500}px) scale(0)`, opacity: 0 }
+                ], { duration: 1500, delay: Math.random() * 200 });
+                document.body.appendChild(conf);
+            }
+        }
+    </script>
+</body>
+</html>
