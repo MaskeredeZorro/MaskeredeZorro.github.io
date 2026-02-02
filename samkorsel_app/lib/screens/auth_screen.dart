@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'home_screen.dart';
+import 'onboarding_screen.dart'; // <--- HUSK DENNE IMPORT
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -14,6 +15,42 @@ class _AuthScreenState extends State<AuthScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
 
+  // -- NY FUNKTION: TJEK OM PROFIL ER UDFYLDT --
+  Future<void> _checkProfileAndRedirect() async {
+    final userId = Supabase.instance.client.auth.currentUser!.id;
+    
+    try {
+      // Hent kun 'full_name' for at spare data
+      final data = await Supabase.instance.client
+          .from('profiles')
+          .select('full_name')
+          .eq('id', userId)
+          .maybeSingle(); // Brug maybeSingle så den ikke crasher hvis profilen mangler
+
+      if (!mounted) return;
+
+      // Hvis data er null ELLER navnet er tomt/null -> Gå til Onboarding
+      if (data == null || data['full_name'] == null || data['full_name'].toString().trim().isEmpty) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const OnboardingScreen())
+        );
+      } else {
+        // Hvis navn findes -> Gå til Home
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const HomeScreen())
+        );
+      }
+    } catch (e) {
+      debugPrint("Fejl ved profiltjek: $e");
+      // Hvis noget går helt galt, send dem til Onboarding for en sikkerheds skyld
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const OnboardingScreen())
+        );
+      }
+    }
+  }
+
   Future<void> _authenticate({required bool isSignUp}) async {
     setState(() => _isLoading = true);
     try {
@@ -22,7 +59,7 @@ class _AuthScreenState extends State<AuthScreen> {
         await Supabase.instance.client.auth.signUp(
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
-          data: {'full_name': 'Ny Bruger'},
+          // BEMÆRK: Vi har fjernet 'data: full_name', så den starter som tom!
         );
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Konto oprettet! Log ind nu.')));
       } else {
@@ -31,8 +68,10 @@ class _AuthScreenState extends State<AuthScreen> {
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
         );
+        
+        // BEMÆRK: I stedet for at gå direkte til Home, tjekker vi profilen først
         if (mounted) {
-          Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const HomeScreen()));
+          await _checkProfileAndRedirect();
         }
       }
     } on AuthException catch (error) {

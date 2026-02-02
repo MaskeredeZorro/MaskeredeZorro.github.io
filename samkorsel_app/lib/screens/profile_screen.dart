@@ -1,0 +1,261 @@
+import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'auth_screen.dart'; 
+import '../features/rides/chat_screen.dart';
+import 'edit_profile_screen.dart'; // <--- HUSK DENNE HVIS DU HAR LAVET DEN
+
+class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  final String _userId = Supabase.instance.client.auth.currentUser!.id;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    // BEMÆRK: Ingen _fetchMyData() her! Vi bruger Streams.
+  }
+
+  // -- LOGIK: OPDATER STATUS --
+  Future<void> _updateBookingStatus(String bookingId, String newStatus) async {
+    try {
+      await Supabase.instance.client
+          .from('bookings')
+          .update({'status': newStatus})
+          .eq('id', bookingId);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(newStatus == 'approved' ? "Godkendt!" : "Afvist"),
+          backgroundColor: newStatus == 'approved' ? Colors.green : Colors.red,
+          duration: const Duration(seconds: 1),
+        ));
+      }
+    } catch (e) {
+      debugPrint("Fejl: $e");
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Kunne ikke opdatere - Tjek RLS policies!")));
+    }
+  }
+
+  // HJÆLPERE
+  String _formatDate(String dateStr) {
+    try {
+      final date = DateTime.parse(dateStr);
+      return "${date.day}/${date.month} kl. ${date.hour}:${date.minute.toString().padLeft(2, '0')}";
+    } catch (_) { return ""; }
+  }
+
+  Color _getStatusColor(String status) {
+    if (status == 'approved') return Colors.green;
+    if (status == 'rejected') return Colors.red;
+    return Colors.orange;
+  }
+
+  String _getStatusText(String status) {
+    if (status == 'approved') return "Godkendt";
+    if (status == 'rejected') return "Afvist";
+    return "Afventer";
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Min Profil"),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [Tab(text: "Jeg kører"), Tab(text: "Jeg rejser")],
+        ),
+        actions: [
+          // REDIGER KNAP
+          IconButton(
+            icon: const Icon(Icons.edit, color: Colors.black),
+            onPressed: () async {
+               await Navigator.push(context, MaterialPageRoute(builder: (_) => const EditProfileScreen()));
+            },
+          ),
+          // LOG UD KNAP
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.red),
+            onPressed: () async {
+              await Supabase.instance.client.auth.signOut();
+              if (context.mounted) Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const AuthScreen()));
+            },
+          )
+        ],
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          // --- FANE 1: JEG KØRER (CHAUFFØR) ---
+          StreamBuilder<List<Map<String, dynamic>>>(
+            stream: Supabase.instance.client
+                .from('rides')
+                .stream(primaryKey: ['id'])
+                .eq('driver_id', _userId)
+                .order('departure_time', ascending: true),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+              final rides = snapshot.data!;
+              if (rides.isEmpty) return const Center(child: Text("Ingen ture oprettet."));
+
+              return ListView.builder(
+                padding: const EdgeInsets.all(10),
+                itemCount: rides.length,
+                itemBuilder: (context, index) {
+                  final ride = rides[index];
+
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 15),
+                    child: Column(
+                      children: [
+                        ListTile(
+                          title: Text("${ride['origin_city']} ➝ ${ride['destination_city']}", style: const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text(_formatDate(ride['departure_time'])),
+                          trailing: Text("${ride['price_dkk']} kr.", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                        ),
+                        const Divider(height: 1),
+                        
+                        // Stream 2 (Nested): Lyt LIVE på bookinger til denne tur
+                        StreamBuilder<List<Map<String, dynamic>>>(
+                          stream: Supabase.instance.client
+                              .from('bookings')
+                              .stream(primaryKey: ['id'])
+                              .eq('ride_id', ride['id']),
+                          builder: (context, bSnapshot) {
+                            if (!bSnapshot.hasData) return const SizedBox(); 
+                            final bookings = bSnapshot.data!;
+
+                            if (bookings.isEmpty) {
+                              return const Padding(padding: EdgeInsets.all(15), child: Text("Ingen passagerer endnu.", style: TextStyle(fontStyle: FontStyle.italic)));
+                            }
+
+                            return Column(
+                              children: bookings.map((booking) {
+                                return FutureBuilder<Map<String, dynamic>>(
+                                  future: Supabase.instance.client.from('profiles').select().eq('id', booking['passenger_id']).single(),
+                                  builder: (context, pSnapshot) {
+                                    final profileName = pSnapshot.data?['full_name'] ?? "Passager";
+                                    
+                                    return ListTile(
+                                      leading: const Icon(Icons.person),
+                                      title: Text(profileName),
+                                      subtitle: Text("Status: ${_getStatusText(booking['status'])}", style: TextStyle(color: _getStatusColor(booking['status']))),
+                                      trailing: booking['status'] == 'pending' 
+                                        ? Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              IconButton(icon: const Icon(Icons.check, color: Colors.green), onPressed: () => _updateBookingStatus(booking['id'], 'approved')),
+                                              IconButton(icon: const Icon(Icons.close, color: Colors.red), onPressed: () => _updateBookingStatus(booking['id'], 'rejected')),
+                                            ],
+                                          )
+                                        : Icon(booking['status'] == 'approved' ? Icons.check_circle : Icons.cancel, color: _getStatusColor(booking['status'])),
+                                    );
+                                  }
+                                );
+                              }).toList(),
+                            );
+                          },
+                        ),
+
+                        // CHAT KNAP
+                        Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              icon: const Icon(Icons.chat_bubble_outline),
+                              label: const Text("Åbn Tur-chat"),
+                              onPressed: () {
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => 
+                                  ChatScreen(rideId: ride['id'], rideTitle: "${ride['origin_city']} ➝ ${ride['destination_city']}")
+                                ));
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+
+          // --- FANE 2: JEG REJSER (PASSAGER) ---
+          StreamBuilder<List<Map<String, dynamic>>>(
+            stream: Supabase.instance.client
+                .from('bookings')
+                .stream(primaryKey: ['id'])
+                .eq('passenger_id', _userId)
+                .order('created_at', ascending: false),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+              final bookings = snapshot.data!;
+              if (bookings.isEmpty) return const Center(child: Text("Ingen ture booket."));
+
+              return ListView.builder(
+                padding: const EdgeInsets.all(10),
+                itemCount: bookings.length,
+                itemBuilder: (context, index) {
+                  final booking = bookings[index];
+
+                  return FutureBuilder<Map<String, dynamic>>(
+                    future: Supabase.instance.client
+                        .from('rides')
+                        .select('*, profiles(*)')
+                        .eq('id', booking['ride_id'])
+                        .single(),
+                    builder: (context, rSnapshot) {
+                      if (!rSnapshot.hasData) return const SizedBox();
+                      final ride = rSnapshot.data!;
+                      final driver = ride['profiles'];
+
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        child: ListTile(
+                          onTap: booking['status'] == 'approved' ? () {
+                            Navigator.push(context, MaterialPageRoute(builder: (_) => 
+                              ChatScreen(rideId: ride['id'], rideTitle: "${ride['origin_city']} ➝ ${ride['destination_city']}")
+                            ));
+                          } : null,
+                          leading: const Icon(Icons.directions_car, color: Colors.green),
+                          title: Text("${ride['origin_city']} ➝ ${ride['destination_city']}"),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(_formatDate(ride['departure_time'])),
+                              Text("Chauffør: ${driver?['full_name'] ?? 'Ukendt'}"),
+                              if (booking['status'] == 'approved')
+                                const Text("Klik for at chatte", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                          trailing: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: _getStatusColor(booking['status']).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: _getStatusColor(booking['status']))
+                            ),
+                            child: Text(_getStatusText(booking['status']), 
+                                style: TextStyle(color: _getStatusColor(booking['status']), fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
