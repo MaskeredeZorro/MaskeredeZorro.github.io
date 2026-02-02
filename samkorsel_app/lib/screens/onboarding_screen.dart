@@ -19,7 +19,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   bool _isDriver = false;
   bool _isLoading = false;
   String? _avatarUrl;
-  String? _carDetails; // Her gemmer vi "Ford Fiesta" når den er fundet
+  String? _carDetails; // Her gemmer vi nu JSON-pakken med al bil-info
 
   // -- 1. UPLOAD BILLEDE --
   Future<void> _uploadImage() async {
@@ -47,7 +47,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
   }
 
-  // -- 2. SLÅ NUMMERPLADE OP (MOTOR API) --
+  // -- 2. SLÅ NUMMERPLADE OP (GEM ALT INFO) --
   Future<void> _lookupPlate() async {
     final plate = _plateController.text.replaceAll(' ', '');
     if (plate.length < 2) return;
@@ -63,16 +63,27 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        // Vi prøver at sammensætte Mærke + Model + Variant
-        final make = data['make'] ?? '';
-        final model = data['model'] ?? '';
-        final variant = data['variant'] ?? '';
         
+        // Vi henter dataene fra API'et
+        final make = data['make'] ?? 'Bil';
+        final model = data['model'] ?? '';
+        final variant = data['variant'] ?? ''; // Fx "3.0 TDI"
+        final year = data['model_year'] ?? '';
+        final color = data['color'] ?? '';
+        final regNr = data['registration_number'] ?? plate;
+
         setState(() {
-          _carDetails = "$make $model $variant".trim();
+          // Vi pakker det hele sammen i en Map (JSON struktur)
+          Map<String, String> carInfo = {
+            'make': '$make $model',       // Det der vises med stort (fx "Audi A6")
+            'details': '$year • $color • $regNr' // Det der vises under (fx "2015 • Sort • AT21931")
+          };
+          
+          // Vi gemmer det som tekst i databasen
+          _carDetails = json.encode(carInfo);
         });
         
-        if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Bil fundet!"), backgroundColor: Colors.green));
+        if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Fandt din $make $model! 🚗"), backgroundColor: Colors.green));
       } else {
         if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Kunne ikke finde bil. Tjek nummerpladen.")));
       }
@@ -98,13 +109,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         'full_name': _nameController.text,
         'avatar_url': _avatarUrl,
         'license_plate': _isDriver ? _plateController.text : null,
-        'car_details': _isDriver ? _carDetails : null,
-        // Vi kan markere profilen som "færdig" her hvis vi havde et felt til det,
-        // men navn er nok til at tjekke.
+        'car_details': _isDriver ? _carDetails : null, // Her gemmes JSON pakken nu
       }).eq('id', userId);
 
       if (mounted) {
-        // Gå til forsiden og fjern alle tidligere skærme (så man ikke kan gå tilbage til onboarding)
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const HomeScreen()), 
           (route) => false
@@ -195,17 +203,39 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     )
                   ],
                 ),
+                
+                // VIS BIL INFO (Hvis fundet)
                 if (_carDetails != null)
                   Padding(
-                    padding: const EdgeInsets.only(top: 10),
+                    padding: const EdgeInsets.only(top: 15),
                     child: Container(
-                      padding: const EdgeInsets.all(10),
+                      padding: const EdgeInsets.all(15),
                       decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(8)),
-                      child: Row(children: [
-                        const Icon(Icons.check_circle, color: Colors.green),
-                        const SizedBox(width: 10),
-                        Expanded(child: Text("Bil fundet: $_carDetails", style: const TextStyle(fontWeight: FontWeight.bold))),
-                      ]),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.check_circle, color: Colors.green),
+                          const SizedBox(width: 15),
+                          Expanded(
+                            child: Builder(
+                              builder: (context) {
+                                // Vi pakker JSON ud for at vise det pænt her i onboarding også
+                                try {
+                                  final map = json.decode(_carDetails!);
+                                  return Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(map['make'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                      Text(map['details'], style: const TextStyle(color: Colors.black54)),
+                                    ],
+                                  );
+                                } catch (e) {
+                                  return const Text("Bil data gemt");
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   )
               ],

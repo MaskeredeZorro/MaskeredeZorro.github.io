@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:intl/intl.dart'; // Sikr dig at du har denne i pubspec.yaml
 import '../../widgets/address_search_field.dart';
 
 class CreateRideScreen extends StatefulWidget {
@@ -12,7 +13,7 @@ class CreateRideScreen extends StatefulWidget {
 }
 
 class _CreateRideScreenState extends State<CreateRideScreen> {
-  // --- Controllers & Vars ---
+  // --- Controllers & Variabler ---
   String? _origin;
   String? _destination;
   final _dateController = TextEditingController();
@@ -22,17 +23,27 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
   final _priceController = TextEditingController();
   final _commentController = TextEditingController();
   
+  // Detaljer & Switches
   bool _isFerry = false;
   bool _detourFlex = true;
-  bool _comfortGuarantee = false;
-  String _luggageSize = 'Mellem';
+  bool _comfortGuarantee = false; // Max 2 på bagsædet
+  bool _instantBooking = false;   // Lynbooking
+  String _luggageSize = 'Mellem'; // Lille, Mellem, Stor
+  
+  // Præferencer (True = Tilladt)
   bool _prefMusic = true;
   bool _prefPets = false;
   bool _prefSmoking = false;
+  bool _prefKids = true; 
 
   bool _isLoading = false;
 
-  // -- GPS Opslag --
+  // Farver til temaet (Slate & Indigo)
+  final Color _primaryColor = const Color(0xFF0F172A);
+  final Color _accentColor = const Color(0xFF6366F1);
+
+  // -- GPS Opslag (Nominatim API) --
+  // Dette konverterer adressen til koordinater for at gemme i databasen
   Future<Map<String, double>?> _getCoordinates(String address) async {
     final cleanAddress = address.split(',')[0]; 
     final url = Uri.parse('https://nominatim.openstreetmap.org/search?q=$cleanAddress&format=json&limit=1');
@@ -40,40 +51,61 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
       final response = await http.get(url, headers: {'User-Agent': 'SamkorselApp/1.0'});
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        if (data.isNotEmpty) {
-          return {'lat': double.parse(data[0]['lat']), 'lng': double.parse(data[0]['lon'])};
+        if (data is List && data.isNotEmpty) {
+          return {
+            'lat': double.parse(data[0]['lat']), 
+            'lng': double.parse(data[0]['lon'])
+          };
         }
       }
-    } catch (e) { debugPrint("GPS Fejl: $e"); }
+    } catch (e) { 
+      debugPrint("GPS Fejl: $e"); 
+    }
     return null;
   }
 
   // -- OPRET TUR LOGIK --
   Future<void> _createRide() async {
+    // 1. Validering
     if (_origin == null || _destination == null || _dateController.text.isEmpty || 
         _depTimeController.text.isEmpty || _arrTimeController.text.isEmpty || _priceController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Husk at udfylde rute, tider og pris!")));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Udfyld venligst rute, tider og pris.")));
       return;
     }
 
     setState(() => _isLoading = true);
-    final user = Supabase.instance.client.auth.currentUser;
     
-    // Byg dato-objekter
-    final depDateTime = DateTime.parse("${_dateController.text} ${_depTimeController.text}");
-    // For ankomst antager vi samme dag, medmindre tiden er mindre end afgang (så er det næste dag)
-    // Dette er en simpel logik. For avanceret logik skal man vælge dato for ankomst også.
-    var arrDateTime = DateTime.parse("${_dateController.text} ${_arrTimeController.text}");
-    if (arrDateTime.isBefore(depDateTime)) {
-      arrDateTime = arrDateTime.add(const Duration(days: 1)); // Ankomst næste dag
-    }
-
     try {
-      final profile = await Supabase.instance.client.from('profiles').select('car_details').eq('id', user!.id).single();
-      final carModel = profile['car_details'] ?? "Ukendt bil";
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) throw Exception("Du er ikke logget ind");
+
+      // 2. Dato & Tid håndtering
+      final dateStr = _dateController.text; // "2025-10-10"
+      final depTimeStr = _depTimeController.text; // "14:30"
+      final arrTimeStr = _arrTimeController.text; // "16:00"
+
+      final depDateTime = DateTime.parse("$dateStr $depTimeStr");
+      var arrDateTime = DateTime.parse("$dateStr $arrTimeStr");
+
+      // Hvis ankomst er "før" afgang (fx 23:00 -> 01:00), så antager vi det er næste dag
+      if (arrDateTime.isBefore(depDateTime)) {
+        arrDateTime = arrDateTime.add(const Duration(days: 1));
+      }
+
+      // 3. Hent bilmodel fra profil
+      final profile = await Supabase.instance.client
+          .from('profiles')
+          .select('car_details')
+          .eq('id', user.id)
+          .single();
+      
+      final carModel = profile['car_details'] ?? "Min Bil";
+
+      // 4. Find koordinater (til kortet)
       final originCoords = await _getCoordinates(_origin!);
       final destCoords = await _getCoordinates(_destination!);
 
+      // 5. Indsæt i Supabase
       await Supabase.instance.client.from('rides').insert({
         'driver_id': user.id,
         'origin_city': _origin,
@@ -85,99 +117,130 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
         'seats_available': int.parse(_seatsController.text),
         'price_dkk': int.parse(_priceController.text),
         'car_model': carModel,
+        'status': 'active',
+        // Nye felter
+        'is_ferry': _isFerry,
+        'detour_flex': _detourFlex,
+        'instant_booking': _instantBooking,
+        'luggage_size': _luggageSize,
+        'comfort_guarantee': _comfortGuarantee,
+        'pref_music': _prefMusic,
+        'pref_pets': _prefPets,
         'pref_smoking': _prefSmoking,
+        'pref_kids': _prefKids,
         'comment': _commentController.text,
       });
 
       if (mounted) {
-        Navigator.pop(context, true); 
+        Navigator.pop(context, true); // Returner success til forrige skærm
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Succes! Din tur er online 🚀"), backgroundColor: Colors.green));
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Fejl: $e")));
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // Pickers
+  // --- UI Helpers ---
   Future<void> _pickDate() async {
     final picked = await showDatePicker(context: context, firstDate: DateTime.now(), lastDate: DateTime(2030), initialDate: DateTime.now());
-    if (picked != null) setState(() => _dateController.text = picked.toIso8601String().split('T')[0]);
+    if (picked != null) setState(() => _dateController.text = DateFormat('yyyy-MM-dd').format(picked));
   }
+  
   Future<void> _pickTime(TextEditingController controller) async {
     final picked = await showTimePicker(context: context, initialTime: TimeOfDay.now());
-    if (picked != null) setState(() => controller.text = "${picked.hour.toString().padLeft(2,'0')}:${picked.minute.toString().padLeft(2,'0')}");
+    if (picked != null) {
+      // Formater til HH:mm (fx 09:05)
+      final hour = picked.hour.toString().padLeft(2, '0');
+      final minute = picked.minute.toString().padLeft(2, '0');
+      setState(() => controller.text = "$hour:$minute");
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Opret Tur"), elevation: 0, backgroundColor: Colors.white, foregroundColor: Colors.black),
       backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: Text("Opret Tur", style: TextStyle(color: _primaryColor, fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: BackButton(color: _primaryColor),
+      ),
       body: _isLoading 
-        ? const Center(child: CircularProgressIndicator(color: Color(0xFF005C4B)))
+        ? Center(child: CircularProgressIndicator(color: _accentColor))
         : ListView(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(24),
             children: [
-              // RUTE CARD
-              _buildSectionHeader("Rute"),
+              // --- SEKTION 1: RUTE ---
+              Text("Ruten", style: TextStyle(color: _primaryColor, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 15),
               AddressSearchField(label: "Hvor kører du fra?", onSelected: (val) => setState(() => _origin = val)),
               const SizedBox(height: 10),
               AddressSearchField(label: "Hvor kører du til?", onSelected: (val) => setState(() => _destination = val)),
               
               const SizedBox(height: 30),
               
-              // TIDSPLAN CARD
-              _buildSectionHeader("Tidsplan"),
-              TextField(
-                controller: _dateController, readOnly: true, onTap: _pickDate, 
-                decoration: _inputDeco("Dato for afgang", Icons.calendar_month)
-              ),
+              // --- SEKTION 2: TID ---
+              Text("Tidspunkt", style: TextStyle(color: _primaryColor, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 15),
+              _buildTextField(controller: _dateController, label: "Dato", icon: Icons.calendar_month, onTap: _pickDate),
               const SizedBox(height: 10),
               Row(children: [
-                Expanded(child: TextField(controller: _depTimeController, readOnly: true, onTap: () => _pickTime(_depTimeController), decoration: _inputDeco("Afgang", Icons.schedule))),
+                Expanded(child: _buildTextField(controller: _depTimeController, label: "Afgang", icon: Icons.schedule, onTap: () => _pickTime(_depTimeController))),
                 const SizedBox(width: 10),
-                const Icon(Icons.arrow_forward, color: Colors.grey),
-                const SizedBox(width: 10),
-                Expanded(child: TextField(controller: _arrTimeController, readOnly: true, onTap: () => _pickTime(_arrTimeController), decoration: _inputDeco("Ankomst", Icons.flag))),
+                Expanded(child: _buildTextField(controller: _arrTimeController, label: "Ankomst", icon: Icons.flag, onTap: () => _pickTime(_arrTimeController))),
               ]),
 
               const SizedBox(height: 30),
 
-              // ØKONOMI & PLADSER
-              _buildSectionHeader("Pladser & Pris"),
+              // --- SEKTION 3: ØKONOMI ---
+              Text("Pladser & Pris", style: TextStyle(color: _primaryColor, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 15),
               Row(children: [
-                Expanded(child: TextField(controller: _seatsController, keyboardType: TextInputType.number, decoration: _inputDeco("Sæder", Icons.event_seat))),
+                Expanded(child: _buildTextField(controller: _seatsController, label: "Sæder", icon: Icons.event_seat, isNumber: true)),
                 const SizedBox(width: 15),
-                Expanded(child: TextField(controller: _priceController, keyboardType: TextInputType.number, decoration: _inputDeco("Pris (kr)", Icons.attach_money))),
+                Expanded(child: _buildTextField(controller: _priceController, label: "Pris (kr)", icon: Icons.attach_money, isNumber: true)),
               ]),
 
               const SizedBox(height: 30),
               const Divider(),
+              const SizedBox(height: 10),
               
-              // EKSTRA DETALJER (Switches m.m.)
-              _buildSectionHeader("Detaljer"),
-              _buildSwitchTile("Inkluderer færge", "Er prisen inkl. billet?", _isFerry, (v) => setState(() => _isFerry = v)),
-              _buildSwitchTile("Fleksibel rute", "Max. 5 min afvigelse", _detourFlex, (v) => setState(() => _detourFlex = v)),
-              _buildSwitchTile("Komfort Garanti", "Max 2 på bagsædet", _comfortGuarantee, (v) => setState(() => _comfortGuarantee = v)),
-              
+              // --- SEKTION 4: INDSTILLINGER (Switches) ---
+              Text("Indstillinger", style: TextStyle(color: _primaryColor, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 15),
+              _buildCustomSwitch("Lynbooking", "Godkend automatisk", _instantBooking, (v) => setState(() => _instantBooking = v)),
+              _buildCustomSwitch("Færge", "Prisen er inkl. færge", _isFerry, (v) => setState(() => _isFerry = v)),
+              _buildCustomSwitch("Fleksibel", "Max 5 min. omvej", _detourFlex, (v) => setState(() => _detourFlex = v)),
+              _buildCustomSwitch("Komfort Garanti", "Max 2 på bagsædet", _comfortGuarantee, (v) => setState(() => _comfortGuarantee = v)),
+
               const SizedBox(height: 15),
               DropdownButtonFormField<String>(
                 value: _luggageSize,
-                decoration: _inputDeco("Bagageplads", Icons.luggage),
+                decoration: InputDecoration(
+                  labelText: "Bagageplads",
+                  prefixIcon: const Icon(Icons.luggage, color: Colors.grey),
+                  filled: true, fillColor: const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)
+                ),
                 items: ["Lille", "Mellem", "Stor"].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
                 onChanged: (val) => setState(() => _luggageSize = val!),
               ),
 
               const SizedBox(height: 30),
-              _buildSectionHeader("Præferencer"),
+
+              // --- SEKTION 5: HUSREGLER ---
+              Text("Husregler (Tilladt?)", style: TextStyle(color: _primaryColor, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 15),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildPrefToggle("Musik", Icons.music_note, _prefMusic, (v) => setState(() => _prefMusic = v)),
-                  _buildPrefToggle("Dyr", Icons.pets, _prefPets, (v) => setState(() => _prefPets = v)),
-                  _buildPrefToggle("Rygning", Icons.smoking_rooms, _prefSmoking, (v) => setState(() => _prefSmoking = v)),
+                  _buildPrefIcon("Musik", Icons.music_note, _prefMusic, (v) => setState(() => _prefMusic = v)),
+                  _buildPrefIcon("Dyr", Icons.pets, _prefPets, (v) => setState(() => _prefPets = v)),
+                  _buildPrefIcon("Rygning", Icons.smoking_rooms, _prefSmoking, (v) => setState(() => _prefSmoking = v)),
+                  _buildPrefIcon("Børn", Icons.child_care, _prefKids, (v) => setState(() => _prefKids = v)),
                 ],
               ),
 
@@ -185,16 +248,27 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
               TextField(
                 controller: _commentController,
                 maxLines: 3,
-                decoration: _inputDeco("Kommentar til passagerer...", Icons.chat_bubble_outline),
+                decoration: InputDecoration(
+                  labelText: "Kommentar til passagerer...",
+                  alignLabelWithHint: true,
+                  filled: true, fillColor: const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)
+                ),
               ),
 
               const SizedBox(height: 40),
+              
+              // OPRET KNAP
               SizedBox(
-                height: 55, 
+                height: 56,
                 child: ElevatedButton(
                   onPressed: _createRide, 
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF005C4B), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))), 
-                  child: const Text("OFFENTLIGGØR TUR", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold))
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _primaryColor,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    elevation: 4,
+                  ),
+                  child: const Text("OFFENTLIGGØR TUR", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white))
                 )
               ),
               const SizedBox(height: 20),
@@ -203,51 +277,73 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
     );
   }
 
-  // --- HJÆLPE METODER TIL UI ---
-  Widget _buildSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 15),
-      child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.black87)),
+  // --- Design Widgets ---
+
+  Widget _buildTextField({required TextEditingController controller, required String label, required IconData icon, bool isNumber = false, VoidCallback? onTap}) {
+    return TextField(
+      controller: controller,
+      readOnly: onTap != null,
+      onTap: onTap,
+      keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, color: Colors.grey),
+        filled: true,
+        fillColor: const Color(0xFFF8FAFC),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+      ),
     );
   }
 
-  InputDecoration _inputDeco(String label, IconData icon) {
-    return InputDecoration(
-      labelText: label,
-      prefixIcon: Icon(icon, color: Colors.grey[600]),
-      filled: true,
-      fillColor: const Color(0xFFF5F7FA),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+  Widget _buildCustomSwitch(String title, String sub, bool val, Function(bool) change) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: val ? _accentColor.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: val ? _accentColor : Colors.grey.shade200),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: _primaryColor)),
+              Text(sub, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+            ],
+          ),
+          Switch(
+            value: val, 
+            onChanged: change,
+            activeColor: _accentColor,
+          )
+        ],
+      ),
     );
   }
 
-  Widget _buildSwitchTile(String title, String sub, bool val, Function(bool) change) {
-    return SwitchListTile(
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-      subtitle: Text(sub, style: const TextStyle(color: Colors.grey)),
-      activeColor: const Color(0xFF005C4B),
-      value: val,
-      onChanged: change,
-      contentPadding: EdgeInsets.zero,
-    );
-  }
-
-  Widget _buildPrefToggle(String label, IconData icon, bool value, Function(bool) onChanged) {
+  Widget _buildPrefIcon(String label, IconData icon, bool value, Function(bool) onChanged) {
     return GestureDetector(
       onTap: () => onChanged(!value),
       child: Column(
         children: [
-          Container(
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: value ? const Color(0xFF005C4B).withOpacity(0.1) : Colors.grey[100],
+              color: value ? _accentColor : const Color(0xFFF1F5F9),
               shape: BoxShape.circle,
-              border: Border.all(color: value ? const Color(0xFF005C4B) : Colors.transparent),
             ),
-            child: Icon(icon, color: value ? const Color(0xFF005C4B) : Colors.grey),
+            child: Icon(icon, color: value ? Colors.white : Colors.grey),
           ),
           const SizedBox(height: 5),
-          Text(label, style: TextStyle(color: value ? const Color(0xFF005C4B) : Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
+          Text(label, style: TextStyle(
+            color: value ? _accentColor : Colors.grey, 
+            fontSize: 12, 
+            fontWeight: FontWeight.bold
+          )),
         ],
       ),
     );

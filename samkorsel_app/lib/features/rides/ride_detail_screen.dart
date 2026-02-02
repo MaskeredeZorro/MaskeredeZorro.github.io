@@ -1,6 +1,8 @@
+import 'dart:convert'; // <--- VIGTIGT: Denne manglede for at læse JSON
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../screens/public_profile_screen.dart'; 
+import '../../screens/public_profile_screen.dart';
+import 'package:intl/intl.dart';
 
 class RideDetailScreen extends StatefulWidget {
   final Map<String, dynamic> ride;
@@ -17,8 +19,10 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
   Map<String, dynamic>? _driverProfile;
   List<Map<String, dynamic>> _passengers = [];
 
-  // GoMore bruger en dyb grøn farve
-  final Color _goMoreGreen = const Color(0xFF005C4B);
+  // --- DESIGN TEMA (Slate & Indigo) ---
+  final Color _primaryColor = const Color(0xFF0F172A); 
+  final Color _accentColor = const Color(0xFF6366F1); 
+  final Color _bgLight = const Color(0xFFF8FAFC);
 
   @override
   void initState() {
@@ -29,20 +33,10 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
   Future<void> _fetchData() async {
     try {
       final client = Supabase.instance.client;
-      
-      // Hent chauffør info
-      final driverData = await client
-          .from('profiles')
-          .select()
-          .eq('id', widget.ride['driver_id'])
-          .single();
-      
-      // Hent passagerer
-      final bookingsData = await client
-          .from('bookings')
-          .select('*, profiles(*)') 
-          .eq('ride_id', widget.ride['id'])
-          .eq('status', 'approved');
+      // 1. Hent chauffør
+      final driverData = await client.from('profiles').select().eq('id', widget.ride['driver_id']).single();
+      // 2. Hent passagerer
+      final bookingsData = await client.from('bookings').select('*, profiles(*)').eq('ride_id', widget.ride['id']).eq('status', 'approved');
 
       if (mounted) {
         setState(() {
@@ -58,40 +52,25 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
   Future<void> _bookRide() async {
     setState(() => _isLoading = true);
     final user = Supabase.instance.client.auth.currentUser;
-
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Log ind for at booke")));
       setState(() => _isLoading = false);
       return;
     }
-
     try {
       if (widget.ride['driver_id'] == user.id) throw Exception("Du kan ikke booke din egen tur!");
-
-      // Tjek eksisterende booking
-      final existing = await Supabase.instance.client
-          .from('bookings')
-          .select()
-          .eq('ride_id', widget.ride['id'])
-          .eq('passenger_id', user.id)
-          .maybeSingle();
       
-      if (existing != null) throw Exception("Du har allerede anmodet om denne tur.");
+      final existing = await Supabase.instance.client.from('bookings').select().eq('ride_id', widget.ride['id']).eq('passenger_id', user.id).maybeSingle();
+      if (existing != null) throw Exception("Du har allerede anmodet.");
 
       await Supabase.instance.client.from('bookings').insert({
         'ride_id': widget.ride['id'],
         'passenger_id': user.id,
         'seats_booked': 1,
-        'status': 'pending',
+        'status': widget.ride['instant_booking'] == true ? 'approved' : 'pending',
       });
-
       setState(() => _hasBooked = true);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Anmodning sendt!"), backgroundColor: Colors.green)
-        );
-      }
-
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Anmodning sendt!"), backgroundColor: Colors.green));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("${e.toString().replaceAll('Exception: ', '')}"), backgroundColor: Colors.red));
     } finally {
@@ -99,240 +78,207 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
     }
   }
 
+  void _openChat() {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+    
+    Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(
+      rideId: widget.ride['id'],
+      otherUserId: widget.ride['driver_id'],
+      rideTitle: "${widget.ride['origin_city'].split(',')[0]} - ${widget.ride['destination_city'].split(',')[0]}"
+    )));
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Dato formatering
-    DateTime departureTime;
-    try { departureTime = DateTime.parse(widget.ride['departure_time']); } catch (_) { departureTime = DateTime.now(); }
-    
-    // Beregn ankomsttid (Simuleret: Vi lægger 2 timer til for demoens skyld, da vi ikke har GPS tid endnu)
-    final arrivalTime = departureTime.add(const Duration(hours: 2, minutes: 15));
-    
-    final dateStr = "${departureTime.day}/${departureTime.month}";
-    final depTimeStr = "${departureTime.hour}:${departureTime.minute.toString().padLeft(2, '0')}";
-    final arrTimeStr = "${arrivalTime.hour}:${arrivalTime.minute.toString().padLeft(2, '0')}";
-
-    // Data
-    final isFerry = widget.ride['is_ferry'] == true;
-    final totalSeats = widget.ride['seats_available'] ?? 0;
-    final luggage = widget.ride['luggage_size'] ?? "Mellem";
-    final carModel = widget.ride['car_model'] ?? "Ukendt bil";
-    final comment = widget.ride['comment'];
+    DateTime depTime = DateTime.parse(widget.ride['departure_time']);
+    DateTime arrTime = widget.ride['arrival_time'] != null 
+        ? DateTime.parse(widget.ride['arrival_time']) 
+        : depTime.add(const Duration(hours: 2));
 
     return Scaffold(
-      backgroundColor: Colors.white, // GoMore er meget hvid/ren
+      backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+        leading: Container(
+          margin: const EdgeInsets.all(8),
+          decoration: BoxDecoration(color: _bgLight, shape: BoxShape.circle),
+          child: IconButton(
+            icon: const Icon(Icons.close, color: Colors.black, size: 20),
+            onPressed: () => Navigator.pop(context),
+          ),
         ),
-        title: Text(dateStr, style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        title: Text("Tur detaljer", style: TextStyle(color: _primaryColor, fontSize: 16, fontWeight: FontWeight.bold)),
         centerTitle: true,
         actions: [
-           IconButton(icon: const Icon(Icons.share_outlined, color: Colors.black), onPressed: () {}),
+          IconButton(icon: const Icon(Icons.share, color: Colors.black), onPressed: () {}),
         ],
       ),
       body: Stack(
         children: [
-          // --- HOVED INDHOLD ---
           SingleChildScrollView(
-            padding: const EdgeInsets.only(left: 20, right: 20, top: 10, bottom: 100), // Plads til bundbaren
+            padding: const EdgeInsets.fromLTRB(24, 10, 24, 100),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                
-                // 1. DEN VERTIKALE RUTE (GoMore Style)
-                _buildTimelineStep(depTimeStr, widget.ride['origin_city'], isStart: true),
-                _buildTimelineConnector(isFerry: isFerry),
-                _buildTimelineStep(arrTimeStr, widget.ride['destination_city'], isEnd: true),
-
-                const SizedBox(height: 30),
-                const Divider(thickness: 1, color: Color(0xFFF0F0F0)),
-                const SizedBox(height: 20),
-
-                // 2. PRIS OVERBLIK (Total pris for 1 passager)
+                // PRIS I TOPPEN
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text("Samlet pris for 1 passager", style: TextStyle(color: Colors.grey, fontSize: 16)),
-                    Text("${widget.ride['price_dkk']} kr.", style: TextStyle(color: _goMoreGreen, fontWeight: FontWeight.bold, fontSize: 22)),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(color: _accentColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                      child: Text(
+                        DateFormat('d. MMM • HH:mm').format(depTime), 
+                        style: TextStyle(color: _accentColor, fontWeight: FontWeight.bold)
+                      ),
+                    ),
+                    Text("${widget.ride['price_dkk']} kr.", style: TextStyle(color: _primaryColor, fontSize: 24, fontWeight: FontWeight.w900)),
+                  ],
+                ),
+                
+                const SizedBox(height: 30),
+
+                // --- 1. TIDSLINJE ---
+                _buildTimelineRow(DateFormat('HH:mm').format(depTime), widget.ride['origin_city'], isStart: true),
+                _buildTimelineConnector(isFerry: widget.ride['is_ferry'] ?? false),
+                _buildTimelineRow(DateFormat('HH:mm').format(arrTime), widget.ride['destination_city'], isEnd: true),
+
+                const SizedBox(height: 30),
+
+                // --- 2. KOMMENTAR ---
+                if (widget.ride['comment'] != null && widget.ride['comment'].toString().isNotEmpty) ...[
+                  Text("Besked fra chaufføren", style: TextStyle(color: _primaryColor, fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: _bgLight,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade200)
+                    ),
+                    child: Text(
+                      '${widget.ride['comment']}', 
+                      style: TextStyle(fontStyle: FontStyle.normal, color: Colors.grey.shade800, fontSize: 15, height: 1.4)
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+                ],
+
+                // --- 3. DET PRAKTISKE (Vertikal Liste) ---
+                Text("Det praktiske", style: TextStyle(color: _primaryColor, fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 15),
+                Column(
+                  children: [
+                    _buildPracticalRow(Icons.luggage_outlined, "Bagage: ${widget.ride['luggage_size']}", "Plads til fx en ${widget.ride['luggage_size'].toString().toLowerCase()} kuffert eller taske."),
+                    if (widget.ride['detour_flex'] == true) 
+                      _buildPracticalRow(Icons.alt_route, "Fleksibel rute", "Chaufføren er villig til at køre en omvej på maks. 15 minutter for at samle op."),
+                    if (widget.ride['comfort_guarantee'] == true) 
+                      _buildPracticalRow(Icons.airline_seat_recline_extra, "Komfort garanti", "Chaufføren garanterer maks. 2 passagerer på bagsædet for bedre plads."),
+                    if (widget.ride['instant_booking'] == true) 
+                      _buildPracticalRow(Icons.bolt, "Lynbooking", "Din anmodning bliver godkendt med det samme uden ventetid.", iconColor: Colors.amber[700]),
                   ],
                 ),
 
-                const SizedBox(height: 20),
-                const Divider(thickness: 8, color: Color(0xFFF5F7FA)), // Tyk separator
-                const SizedBox(height: 20),
+                const SizedBox(height: 30),
 
-                // 3. CHAUFFØR PROFIL
-                InkWell(
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PublicProfileScreen(userId: widget.ride['driver_id']))),
-                  child: Row(
-                    children: [
-                      Stack(
-                        children: [
-                          CircleAvatar(
-                            radius: 30,
-                            backgroundColor: Colors.grey[200],
-                            backgroundImage: _driverProfile?['avatar_url'] != null ? NetworkImage(_driverProfile!['avatar_url']) : null,
-                            child: _driverProfile?['avatar_url'] == null ? const Icon(Icons.person, size: 30, color: Colors.grey) : null,
-                          ),
-                          if (_driverProfile?['is_verified_mitid'] == true)
-                            Positioned(
-                              bottom: 0, right: 0,
-                              child: Container(
-                                padding: const EdgeInsets.all(2),
-                                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                                child: const Icon(Icons.check_circle, color: Colors.blue, size: 20),
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(width: 15),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(_driverProfile?['full_name'] ?? "Henter...", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                            const SizedBox(height: 4),
-                            // Fake rating for nu (GoMore har stjerner)
-                            const Row(
-                              children: [
-                                Icon(Icons.star, color: Colors.amber, size: 16),
-                                Text(" 4.9/5 ", style: TextStyle(fontWeight: FontWeight.bold)),
-                                Text("• 12 bedømmelser", style: TextStyle(color: Colors.grey, fontSize: 12)),
-                              ],
-                            )
-                          ],
-                        ),
-                      ),
-                      const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-                    ],
-                  ),
-                ),
-                
-                const SizedBox(height: 20),
-                if (comment != null && comment.toString().isNotEmpty)
-                  Container(
-                    padding: const EdgeInsets.all(15),
-                    decoration: BoxDecoration(color: const Color(0xFFF5F7FA), borderRadius: BorderRadius.circular(10)),
-                    child: Text('"$comment"', style: TextStyle(color: Colors.grey[800], fontStyle: FontStyle.italic)),
-                  ),
-
-                const SizedBox(height: 20),
-                const Divider(thickness: 1, color: Color(0xFFF0F0F0)),
-                const SizedBox(height: 20),
-
-                // 4. BIL & DETALJER
-                Text("Køretøj & Komfort", style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.bold, fontSize: 14)),
+                // --- 4. HUSREGLER (2 Kolonner) ---
+                Text("Husregler", style: TextStyle(color: _primaryColor, fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 15),
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 50, height: 50,
-                      decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(8)),
-                      child: const Icon(Icons.directions_car_filled, color: Colors.black54, size: 30),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          _buildRuleItem("Musik", widget.ride['pref_music']),
+                          _buildRuleItem("Kæledyr", widget.ride['pref_pets']),
+                        ],
+                      ),
                     ),
-                    const SizedBox(width: 15),
-                    Text(carModel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                
-                // Faciliteter (Chips)
-                Wrap(
-                  spacing: 10, runSpacing: 10,
-                  children: [
-                    _buildFeature(Icons.luggage, luggage),
-                    if (widget.ride['detour_flex'] == true) _buildFeature(Icons.alt_route, "Fleksibel"),
-                    if (widget.ride['comfort_guarantee'] == true) _buildFeature(Icons.airline_seat_recline_extra, "Max 2 bag"),
-                    if (widget.ride['pref_pets'] == true) _buildFeature(Icons.pets, "Dyr OK"),
-                    if (widget.ride['pref_music'] == true) _buildFeature(Icons.music_note, "Musik OK"),
-                    if (widget.ride['pref_smoking'] == false) _buildFeature(Icons.smoke_free, "Ingen røg"),
+                    const SizedBox(width: 20),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          _buildRuleItem("Rygning", widget.ride['pref_smoking']),
+                          _buildRuleItem("Børn", widget.ride['pref_kids']),
+                        ],
+                      ),
+                    )
                   ],
                 ),
 
-                const SizedBox(height: 20),
-                const Divider(thickness: 8, color: Color(0xFFF5F7FA)),
-                const SizedBox(height: 20),
+                const SizedBox(height: 40),
 
-                // 5. PASSAGERER
-                Text("Passagerer", style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.bold, fontSize: 14)),
+                // --- 5. DRIVER CARD (Med Send Besked) ---
+                Text("Chauffør", style: TextStyle(color: _primaryColor, fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 15),
-                
-                // Visning af sæder
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.grey.shade200),
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))]
+                  ),
+                  child: _buildDriverCard(),
+                ),
+
+                const SizedBox(height: 30),
+
+                // --- 6. PASSAGERER ---
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text("Passagerer", style: TextStyle(color: _primaryColor, fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text("${widget.ride['seats_available']} pladser total", style: const TextStyle(color: Colors.grey)),
+                  ],
+                ),
+                const SizedBox(height: 15),
                 Column(
-                  children: List.generate(totalSeats, (index) {
-                    final isTaken = index < _passengers.length;
-                    
-                    if (isTaken) {
-                      // BOOKET PASSAGER
+                  children: List.generate(widget.ride['seats_available'], (index) {
+                    if (index < _passengers.length) {
                       final p = _passengers[index]['profiles'];
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: CircleAvatar(backgroundImage: p['avatar_url'] != null ? NetworkImage(p['avatar_url']) : null, child: p['avatar_url'] == null ? Text(p['full_name'][0]) : null),
-                        title: Text(p['full_name']),
-                        trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PublicProfileScreen(userId: p['id']))),
-                      );
-                    } else {
-                      // LEDIGT SÆDE ("Kunne være dig")
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Container(
-                          width: 40, height: 40,
-                          decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.grey.shade300, style: BorderStyle.solid)),
-                          child: const Icon(Icons.add, color: Colors.grey),
-                        ),
-                        title: const Text("Ledig plads", style: TextStyle(color: Colors.grey)),
-                        subtitle: const Text("Kunne være dig?", style: TextStyle(color: Color(0xFF005C4B), fontWeight: FontWeight.bold)),
-                      );
+                      return _buildPassengerRow(p, isMe: false);
                     }
+                    return _buildPassengerRow(null, isMe: true);
                   }),
+                ),
+                
+                const SizedBox(height: 30),
+                Center(
+                  child: TextButton.icon(
+                    onPressed: () {}, 
+                    icon: const Icon(Icons.flag_outlined, size: 18),
+                    label: const Text("Rapporter tur", style: TextStyle(fontWeight: FontWeight.w600)),
+                    style: TextButton.styleFrom(foregroundColor: Colors.grey),
+                  )
                 ),
               ],
             ),
           ),
-
-          // --- STICKY BOTTOM BAR (Som GoMore) ---
+          
+          // --- STICKY BOTTOM BUTTON ---
           Positioned(
-            bottom: 0, left: 0, right: 0,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, -5))],
-                border: Border(top: BorderSide(color: Colors.grey.shade200))
-              ),
-              child: SafeArea(
+            bottom: 20, left: 20, right: 20,
+            child: SizedBox(
+              height: 56,
+              child: ElevatedButton(
+                onPressed: (_isLoading || _hasBooked) ? null : _bookRide,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _primaryColor, 
+                  foregroundColor: Colors.white,
+                  elevation: 8,
+                  shadowColor: _primaryColor.withOpacity(0.4),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), 
+                ),
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Pris venstre side
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text("${widget.ride['price_dkk']} kr.", style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
-                        const Text("pr. plads", style: TextStyle(color: Colors.grey, fontSize: 12)),
-                      ],
-                    ),
-                    const SizedBox(width: 20),
-                    // Book knap højre side
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: (_isLoading || _hasBooked) ? null : _bookRide,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _hasBooked ? Colors.grey : _goMoreGreen,
-                          padding: const EdgeInsets.symmetric(vertical: 15),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                        ),
-                        child: Text(
-                          _hasBooked ? "Anmodning sendt" : "Book plads", 
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)
-                        ),
-                      ),
-                    ),
+                    if (widget.ride['instant_booking'] == true) ...[const Icon(Icons.bolt, color: Colors.amber), const SizedBox(width: 8)],
+                    Text(_hasBooked ? "Anmodning sendt ✓" : "Book plads nu", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
@@ -343,79 +289,276 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
     );
   }
 
-  // --- HJÆLPE WIDGETS TIL LAYOUT ---
-  
-  // Tidslinje punkt (Klokkeslæt + By)
-  Widget _buildTimelineStep(String time, String city, {bool isStart = false, bool isEnd = false}) {
+  // --- WIDGETS ---
+
+  // Tidslinje Række
+  Widget _buildTimelineRow(String time, String address, {bool isStart = false, bool isEnd = false}) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          width: 60,
-          child: Text(time, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        ),
+        SizedBox(width: 50, child: Text(time, style: TextStyle(color: _primaryColor, fontSize: 15, fontWeight: FontWeight.w600))),
         Column(
           children: [
             Container(
-              width: 12, height: 12,
+              width: 14, height: 14,
               decoration: BoxDecoration(
-                color: isStart || isEnd ? _goMoreGreen : Colors.white,
-                shape: BoxShape.circle,
-                border: Border.all(color: _goMoreGreen, width: 2),
+                color: isStart || isEnd ? _accentColor : Colors.white,
+                borderRadius: BorderRadius.circular(4), 
+                border: Border.all(color: _accentColor, width: 2),
               ),
             ),
           ],
         ),
         const SizedBox(width: 20),
         Expanded(
-          child: Text(city.split(',')[0], style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500)), // Fjern postnummer visuelt
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(address.split(',')[0], style: TextStyle(color: _primaryColor, fontSize: 18, fontWeight: FontWeight.bold)),
+              Text(address, style: const TextStyle(color: Colors.grey, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
+            ],
+          ),
         ),
       ],
     );
   }
 
-  // Tidslinje streg (Med evt færge ikon)
   Widget _buildTimelineConnector({bool isFerry = false}) {
-    return IntrinsicHeight(
-      child: Row(
-        children: [
-          const SizedBox(width: 60), // Samme bredde som tids-kolonnen
-          SizedBox(
-            width: 12,
-            child: Center(
-              child: Column(
-                children: [
-                  Expanded(child: Container(width: 2, color: Colors.grey[300])), // Stregen
-                  if (isFerry) ...[
-                    Container(
-                      color: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: const Icon(Icons.directions_boat, size: 16, color: Colors.blue),
-                    ),
-                    Expanded(child: Container(width: 2, color: Colors.grey[300])),
-                  ]
-                ],
+    return Padding(
+      padding: const EdgeInsets.only(left: 50),
+      child: IntrinsicHeight(
+        child: Row(
+          children: [
+            SizedBox(
+              width: 14,
+              child: Center(
+                child: Column(
+                  children: [
+                    Expanded(child: Container(width: 2, color: Colors.grey.shade200)), 
+                    if (isFerry) ...[
+                      Icon(Icons.directions_boat, size: 16, color: _accentColor),
+                      Expanded(child: Container(width: 2, color: Colors.grey.shade200)),
+                    ]
+                  ],
+                ),
               ),
             ),
+            const SizedBox(width: 20),
+            if (isFerry) 
+              const Padding(padding: EdgeInsets.symmetric(vertical: 15), child: Text("Færgeoverfart", style: TextStyle(color: Colors.blueGrey, fontWeight: FontWeight.w500)))
+            else 
+              const SizedBox(height: 35)
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Lille detalje række (til kolonnerne)
+  Widget _buildPracticalRow(IconData icon, String title, String description, {Color? iconColor}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: (iconColor ?? _primaryColor).withOpacity(0.05), borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, size: 22, color: iconColor ?? _primaryColor),
           ),
-          const SizedBox(width: 20),
-          // Her kunne man skrive "2t 15m kørsel" hvis man beregnede det
-          if (isFerry) const Padding(padding: EdgeInsets.symmetric(vertical: 10), child: Text("Inkl. Færgeoverfart", style: TextStyle(color: Colors.blue, fontSize: 12, fontWeight: FontWeight.bold)))
+          const SizedBox(width: 15),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: TextStyle(color: _primaryColor, fontWeight: FontWeight.bold, fontSize: 15)),
+                const SizedBox(height: 4),
+                Text(description, style: TextStyle(color: Colors.grey.shade600, fontSize: 13, height: 1.3)),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  // Facilitet Chip (Ikon + Tekst)
-  Widget _buildFeature(IconData icon, String text) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+  // Ny widget til "Husregler" i kolonner
+  Widget _buildRuleItem(String label, bool? allowed) {
+    bool isAllowed = allowed == true;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: isAllowed ? Colors.green.withOpacity(0.05) : Colors.red.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: isAllowed ? Colors.green.withOpacity(0.2) : Colors.red.withOpacity(0.2))
+      ),
+      child: Row(
+        children: [
+          Icon(isAllowed ? Icons.check_circle : Icons.cancel, 
+               color: isAllowed ? Colors.green : Colors.red.shade300, size: 20),
+          const SizedBox(width: 10),
+          Text(label, style: TextStyle(
+            fontSize: 13, 
+            fontWeight: FontWeight.bold,
+            color: isAllowed ? _primaryColor : Colors.grey.shade500,
+          )),
+        ],
+      ),
+    );
+  }
+
+  // Passenger Row
+  Widget _buildPassengerRow(Map<String, dynamic>? profile, {required bool isMe}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 15),
+      child: InkWell(
+        onTap: profile != null 
+          ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => PublicProfileScreen(userId: profile['id'])))
+          : null,
+        child: Row(
+          children: [
+            if (profile != null)
+              CircleAvatar(backgroundImage: profile['avatar_url'] != null ? NetworkImage(profile['avatar_url']) : null, radius: 24, child: profile['avatar_url'] == null ? Text(profile['full_name'][0]) : null)
+            else
+              Container(
+                width: 48, height: 48,
+                decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, border: Border.all(color: Colors.grey.shade300)),
+                child: const Icon(Icons.add, color: Colors.grey),
+              ),
+            
+            const SizedBox(width: 15),
+            
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  profile != null ? profile['full_name'] : "Ledig plads", 
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: _primaryColor)
+                ),
+                if (profile == null)
+                  Text("Kunne være dig?", style: TextStyle(color: _accentColor, fontSize: 12, fontWeight: FontWeight.w600))
+                else 
+                  const Text("Passager", style: TextStyle(color: Colors.grey, fontSize: 12)),
+              ],
+            ),
+            const Spacer(),
+            if (profile != null) const Icon(Icons.chevron_right, color: Colors.grey),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDriverCard() {
+    // 1. Udpak bil-info (Det kan være gammel tekst ELLER ny JSON)
+    String carMain = "Ukendt bil";
+    String carSub = "Ingen info";
+
+    final rawCarData = widget.ride['car_model']; // Det vi hentede fra databasen
+
+    if (rawCarData != null) {
+      try {
+        // Prøv at se om det er den nye JSON-pakke
+        final Map<String, dynamic> data = jsonDecode(rawCarData); 
+        carMain = data['make'] ?? "Bil";
+        carSub = data['details'] ?? "";
+      } catch (e) {
+        // Hvis det fejler, er det nok bare gammel tekst (fx "Min Bil")
+        carMain = rawCarData.toString();
+        // Vi prøver at vise nummerpladen fra profilen som fallback
+        carSub = _driverProfile?['license_plate'] ?? "";
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 18, color: Colors.grey[600]),
-        const SizedBox(width: 6),
-        Text(text, style: TextStyle(color: Colors.grey[800], fontSize: 13)),
-        const SizedBox(width: 15),
+        Row(
+          children: [
+            InkWell(
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PublicProfileScreen(userId: widget.ride['driver_id']))),
+              child: CircleAvatar(
+                radius: 28, 
+                backgroundColor: Colors.grey.shade200,
+                backgroundImage: _driverProfile?['avatar_url'] != null ? NetworkImage(_driverProfile!['avatar_url']) : null,
+                child: _driverProfile?['avatar_url'] == null ? const Icon(Icons.person, color: Colors.grey) : null
+              ),
+            ),
+            const SizedBox(width: 15),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_driverProfile?['full_name'] ?? "Chauffør", style: TextStyle(color: _primaryColor, fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  
+                  // --- BIL INFO (Hovednavn: Audi A6) ---
+                  Text(carMain, style: TextStyle(color: _accentColor, fontWeight: FontWeight.w700, fontSize: 14)),
+                  
+                  // --- BIL DETALJER (2015 • Sort • AT21931) ---
+                  if (carSub.isNotEmpty)
+                    Text(
+                      carSub, 
+                      style: TextStyle(color: Colors.grey.shade600, fontSize: 12, fontWeight: FontWeight.w500),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
+              ),
+            ),
+            
+            // Verificeret ikon
+            if (_driverProfile?['is_verified_mitid'] == true)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(6)),
+                child: const Row(
+                  children: [
+                    Icon(Icons.verified_user, size: 14, color: Colors.green),
+                    SizedBox(width: 4),
+                    Text("Verificeret", style: TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              )
+          ],
+        ),
+        
+        const SizedBox(height: 20),
+        const Divider(),
+        const SizedBox(height: 10),
+
+        // Send Besked Knap
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _openChat,
+            icon: Icon(Icons.chat_bubble_outline, size: 18, color: _primaryColor),
+            label: Text("Send besked", style: TextStyle(color: _primaryColor, fontWeight: FontWeight.bold)),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              side: BorderSide(color: Colors.grey.shade300),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+            ),
+          ),
+        )
       ],
+    );
+  }
+}
+
+// --- MINIMAL CHAT SCREEN (For at knappen virker) ---
+class ChatScreen extends StatelessWidget {
+  final String rideId;
+  final String otherUserId;
+  final String rideTitle;
+
+  const ChatScreen({super.key, required this.rideId, required this.otherUserId, required this.rideTitle});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(rideTitle), elevation: 1, foregroundColor: Colors.black, backgroundColor: Colors.white),
+      body: const Center(child: Text("Chat funktion kommer her...")),
     );
   }
 }
