@@ -1,14 +1,14 @@
 import 'dart:convert';
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:typed_data'; // Vigtig til at læse Hex-koden
+import 'dart:typed_data'; 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http; 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart'; 
 import '../features/rides/create_ride_screen.dart';
 import '../features/rides/ride_detail_screen.dart';
-import 'profile_screen.dart';
+import 'profile_screen.dart'; // Denne importerer nu din NYE profil fil
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -24,7 +24,6 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _searchOrigin;
   String? _searchDest;
   
-  // Vi gemmer GPS koordinater for søgningen
   double? _originLat;
   double? _originLng;
   double? _destLat;
@@ -84,9 +83,9 @@ class _HomeScreenState extends State<HomeScreen> {
         radius: _searchRadius,
         onClearFilters: _clearSearch,
       ),
-      const SizedBox(),
+      const SizedBox(), // Placeholder for 'Opret' knappen
       const Center(child: Text("Beskeder (Kommer snart)")),
-      const ProfileTab(), 
+      const ProfileScreen(), // <--- RETTET: Bruger nu den nye klasse fra profile_screen.dart
     ];
 
     return Scaffold(
@@ -164,43 +163,61 @@ class _SearchTabState extends State<SearchTab> {
     }
   }
 
-  // Slår automatisk koordinater op, hvis brugeren har skrevet tekst men ikke valgt fra listen
+  // --- NY LOGIK: HENT KUN BY-KOORDINATER ---
   Future<void> _handleSearch() async {
-    // 1. Tjek Fra-feltet
-    if (_selOriginLat == null && _originController.text.isNotEmpty) {
-      final coords = await _fetchCoordsForText(_originController.text);
-      if (coords != null) { _selOriginLat = coords[0]; _selOriginLng = coords[1]; }
-    }
-    // 2. Tjek Til-feltet
-    if (_selDestLat == null && _destController.text.isNotEmpty) {
-      final coords = await _fetchCoordsForText(_destController.text);
-      if (coords != null) { _selDestLat = coords[0]; _selDestLng = coords[1]; }
-    }
+    final results = await Future.wait([
+      _fetchCityCoords(_originController.text),
+      _fetchCityCoords(_destController.text),
+    ]);
+
+    final startCoords = results[0];
+    final endCoords = results[1];
+
+    print("--- SØGNING PÅ BY-NIVEAU ---");
+    print("FRA: ${_originController.text} -> ${startCoords?[0]}, ${startCoords?[1]}");
+    print("TIL: ${_destController.text} -> ${endCoords?[0]}, ${endCoords?[1]}");
 
     widget.onSearch(
       _originController.text.trim(), 
       _destController.text.trim(), 
-      _selOriginLat, _selOriginLng, 
-      _selDestLat, _selDestLng,     
+      startCoords?[0], startCoords?[1], 
+      endCoords?[0], endCoords?[1],     
       _selectedDate, 
       _currentRadius
     );
   }
 
-  // Hjælper til at slå GPS op på ren tekst (DAWA)
-  Future<List<double>?> _fetchCoordsForText(String query) async {
+  // --- DEN NYE FUNKTION (OpenStreetMap) ---
+  Future<List<double>?> _fetchCityCoords(String query) async {
+    if (query.isEmpty) return null;
+
+    String searchQuery = query;
+    RegExp zipRegExp = RegExp(r'\b\d{4}\b');
+    Match? match = zipRegExp.firstMatch(query);
+
+    if (match != null) {
+      String zip = match.group(0)!;
+      searchQuery = "$zip, Danmark";
+    } else {
+      searchQuery = "$query, Danmark";
+    }
+
     try {
-      final url = Uri.parse("https://api.dataforsyningen.dk/adresser?q=$query&per_side=1");
-      final response = await http.get(url);
+      final url = Uri.parse(
+        "https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(searchQuery)}&format=json&limit=1&countrycodes=dk"
+      );
+
+      final response = await http.get(url, headers: {'User-Agent': 'SamkorselApp/1.0'});
+
       if (response.statusCode == 200) {
         final List data = json.decode(response.body);
         if (data.isNotEmpty) {
-           double lat = data[0]['adgangsadresse']['wgs84koordinat_bredde'];
-           double lng = data[0]['adgangsadresse']['wgs84koordinat_længde'];
-           return [lat, lng];
+          return [double.parse(data[0]['lat']), double.parse(data[0]['lon'])];
         }
       }
-    } catch(e) { debugPrint("Kunne ikke slå coords op: $e"); }
+    } catch (e) {
+      debugPrint("OSM Fejl: $e");
+    }
     return null;
   }
 
@@ -220,7 +237,6 @@ class _SearchTabState extends State<SearchTab> {
     setState(() {
       if (_isDestFieldActive) {
         _destController.text = zoneName;
-        // Zoner har ikke ét punkt, så vi nulstiller coords og lader tekst-fallback (eller en fremtidig zone-logic) håndtere det
         _selDestLat = null; _selDestLng = null;
       } else {
         _originController.text = zoneName;
@@ -321,7 +337,7 @@ class _SearchTabState extends State<SearchTab> {
                       width: double.infinity, height: 56,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(backgroundColor: _primaryColor, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-                        onPressed: _handleSearch, // Her kalder vi den nye metode
+                        onPressed: _handleSearch,
                         child: const Text("Søg efter lift", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                       ),
                     )
@@ -363,82 +379,17 @@ class _CityAutocompleteFieldState extends State<_CityAutocompleteField> {
   List<Map<String, dynamic>> _suggestions = [];
   Timer? _debounce;
 
-  // DIN FULDE LISTE
   final List<String> _prioList = [
-    // --- KØBENHAVN & OMREGN ---
     "København H", "Nørreport St.", "Vesterport St.", "Østerport St.", "Nordhavn St.", "Svanemøllen St.", "Hellerup St.", 
-    "Bernstorffsvej St.", "Gentofte St.", "Vangede St.", "Dyssegård St.", "Emdrup St.", "Ryparken St.", "Bispebjerg St.", 
-    "Nørrebro St.", "Fuglebakken St.", "Grøndal St.", "Flintholm St.", "C.F. Richs Vej St.", "KB Hallen St.", "Ålholm St.", 
-    "Danshøj St.", "Vigerslev Allé St.", "København Syd St.", "Sydhavn St.", "Dybbølsbro St.", "Valby St.", "Hvidovre St.", 
-    "Rødovre St.", "Brøndbyøster St.", "Glostrup St.", "Albertslund St.", "Taastrup St.", "Høje Taastrup St.", "Vanløse St.", 
-    "Jyllingevej St.", "Islev St.", "Herlev St.", "Skovlunde St.", "Malmparken St.", "Ballerup St.", 
-    "Måløv St.", "Kildedal St.", "Veksø St.", "Stenløse St.", "Egedal St.", "Ølstykke St.", "Frederikssund St.", "Åmarken St.", 
-    "Friheden St.", "Avedøre St.", "Brøndby Strand St.", "Vallensbæk St.", "Ishøj St.", "Hundige St.", "Greve St.", 
-    "Karlslunde St.", "Solrød Strand St.", "Jersie St.", "Køge Nord St.", "Ølby St.", "Køge St.", "Kildeskov St.", 
-    "Charlottenlund St.", "Ordrup St.", "Klampenborg St.", "Jægersborg St.", "Lyngby St.", "Sorgenfri St.", "Virum St.", 
-    "Holte St.", "Birkerød St.", "Allerød St.", "Hillerød St.", "Kildebakke St.", "Buddinge St.", "Stengården St.", 
-    "Bagsværd St.", "Skovbrynet St.", "Hareskov St.", "Værløse St.", "Farum St.",
-
-    // --- SJÆLLAND, LOLLAND & FALSTER ---
-    "Hedehusene St.", "Roskilde St.", "Viby Sjælland St.", "Borup St.", "Ringsted St.", "Sorø St.", "Slagelse St.", 
-    "Korsør St.", "Lejre St.", "Hvalsø St.", "Tølløse St.", "Vipperød St.", "Holbæk St.", "Regstrup St.", "Knabstrup St.", 
-    "Mørkøv St.", "Jyderup St.", "Svebølle St.", "Kalundborg Øst St.", "Kalundborg St.", "Gadstrup St.", "Havdrup St.", 
-    "Lille Skensved St.", "Herfølge St.", "Tureby St.", "Haslev St.", "Holme-Olstrup St.", "Næstved Nord St.", 
-    "Næstved St.", "Lundby St.", "Vordingborg St.", "Nørre Alslev St.", "Eskilstrup St.", "Nykøbing F. St.", "Øster Toreby St.", 
-    "Grænge St.", "Sakskøbing St.", "Maribo St.", "Ryde St.", "Søllested St.", "Avnede St.", "Nakskov St.", "Gørlev St.", 
-    "Høng St.", "Ruds Vedby St.", "Stenlille St.", "Dianalund St.", "Ny Hagested St.", "Gislinge St.", "Sandby St.", 
-    "Svinninge St.", "Hørve St.", "Fårevejle St.", "Asnæs St.", "Grevinge St.", "Nr. Asmindrup St.", "Nykøbing Sj. St.", 
-    "Snekkersten St.", "Espergærde St.", "Humlebæk St.", "Nivå St.", "Kokkedal St.", "Rungsted Kyst St.", "Vedbæk St.", 
-    "Skodsborg St.", "Grønnehave St.", "Marienlyst St.", "Hellebæk St.", "Ålsgårde St.", "Skibstrup St.", "Saunte St.", 
-    "Karinebæk St.", "Dronningmølle St.", "Firhøj St.", "Gilleleje St.", "Gribsø St.", "Kagerup St.", "Mårum St.", 
-    "Helsinge St.", "Duemose St.", "Vejby St.", "Tisvildeleje St.",
-
-    // --- FYN ---
-    "Odense St.", "Odense Sygehus St.", "Fruens Bøge St.", "Hjallese St.", "Højby St.", "Årslev St.", "Pederstrup St.", 
-    "Ringe St.", "Rudme St.", "Kværndrup St.", "Stenstrup St.", "Stenstrup Syd St.", "Svendborg Vest St.", "Svendborg St.", 
-    "Nyborg St.", "Langeskov St.", "Marslev St.", "Middelfart St.", "Kauslunde St.", "Nørre Åby St.", "Ejby St.", 
-    "Gelsted St.", "Aarup St.", "Bred St.", "Skalbjerg St.", "Tommerup St.", "Holmstrup St.",
-
-    // --- JYLLAND ---
-    "Fredericia St.", "Taulov St.", "Kolding St.", "Lunderskov St.", "Vejen St.", "Brørup St.", "Holsted St.", 
-    "Gørding St.", "Bramming St.", "Esbjerg St.", "Vejle St.", "Hedensted St.", "Horsens St.", "Skanderborg St.", 
-    "Viby J St.", "Aarhus H", "Hinnerup St.", "Hadsten St.", "Langå St.", "Randers St.", "Hobro St.", "Arden St.", 
-    "Skørping St.", "Støvring St.", "Svenstrup St.", "Skalborg St.", "Aalborg St.", "Lindholm St.", "Brønderslev St.", 
-    "Vrå St.", "Hjørring St.", "Sindal St.", "Tolne St.", "Kvissel St.", "Frederikshavn St.", "Vojens St.", "Rødekro St.", 
-    "Tinglev St.", "Padborg St.", "Gråsten St.", "Sønderborg St.", "Varde St.", "Varde Kaserne St.", "Varde Nord St.", 
-    "Guldager St.", "Sig St.", "Tistrup St.", "Ølgod St.", "Lyne St.", "Tarm St.", "Skjern St.", "Lem St.", "Ringkøbing St.", 
-    "Heel St.", "Tim St.", "Ulfborg St.", "Vemb St.", "Bækmarksbro St.", "Lemvig St.", "Harboøre St.", "Thyborøn St.", 
-    "Struer St.", "Hvidbjerg St.", "Oddesund Nord St.", "Hurup Thy St.", "Bedsted Thy St.", "Snedsted St.", "Thisted St.", 
-    "Holstebro St.", "Aulum St.", "Vildbjerg St.", "Herning St.", "Herning Messecenter St.", "Ikast St.", "Bording St.", 
-    "Engesvang St.", "Silkeborg St.", "Svejbæk St.", "Laven St.", "Ry St.", "Alken St.", "Skive St.", "Vinderup St.", 
-    "Viborg St.", "Rødkærsbro St.", "Bjerringbro St.", "Ulstrup St.", "Give St.", "Thyregod St.", "Brande St.", 
-    "Gødstrup St.", "Troldhede St.", "Kibæk St.", "Studsgård St.",
-
-    // --- NORDJYSKE JERNBANER ---
-    "Hirtshals St.", "Emmersbæk St.", "Horne St.", "Tornby St.", "Vidstrup St.", "Vellingshøj St.", "Hjørring Øst St.", 
-    "Skagen St.", "Frederikshavn St.", "Jerup St.", "Bunken St.", "Hulsig St.", "Napstjært St.", "Rimmen St.", "Strandby St.",
-
-    // --- LETBANE (Aarhus & Odense) ---
-    "Dokk1 St.", "Skolebakken St.", "Østbanetorvet St.", "Risskov Strandpark St.", "Vestre Strandallé St.", "Torsøvej St.", 
-    "Lystrup St.", "Hovmarken St.", "Hornslet St.", "Mørke St.", "Ryomgård St.", "Kolind St.", "Trustrup St.", "Grenaa St.", 
-    "Aarhus Universitetshospital St.", "Skejby St.", "Gl. Skejby St.", "Humlehuse St.", "Lisbjerg St.", "Lisbjergskolen St.", 
-    "Nye St.", "Viby J (Letbane)", "Gunnar Clausens Vej St.", "Tranbjerg St.", "Mårslet St.", "Beder St.", "Mallling St.", "Odder St.",
-    "Tarup Center St.", "Højstrup St.", "Bolbro St.", "Vestre Stationsvej St.", "Kongensgade St.", "Albani Torv St.", 
-    "Bennediks Plads St.", "Palnatokesvej St.", "Østerbæksvej St.", "Cortex Park St.", "SDU St.", "Hospital Syd St.",
-
-    // --- METRO ---
-    "Vanløse St.", "Flintholm St.", "Lindevang St.", "Fasanvej St.", "Frederiksberg St.", "Forum St.", "Peblinge Sø St.", 
-    "Rådhuspladsen St.", "Gammel Strand St.", "Kongens Nytorv St.", "Marmorkirken St.", "Østerport St.", "Trianglen St.", 
-    "Poul Henningsens Plads St.", "Vibenshus Runddel St.", "Skjolds Plads St.", "Nørrebro St.", "Nuuks Plads St.", 
-    "Aksel Møllers Have St.", "Frederiksberg Allé St.", "Enghave Plads St.", "København H (Metro)", "Havneholmen St.", 
-    "Enghave Brygge St.", "Sluseholmen St.", "Mozarts Plads St.", "København Syd St. (Metro)", "Orientkaj St.", "Nordhavn St. (Metro)"
+    "Valby St.", "Høje Taastrup St.", "Roskilde St.", "Ringsted St.", "Sorø St.", "Slagelse St.", "Korsør St.", "Nyborg St.", 
+    "Odense St.", "Middelfart St.", "Fredericia St.", "Kolding St.", "Vejle St.", "Horsens St.", "Skanderborg St.", "Aarhus H", 
+    "Randers St.", "Hobro St.", "Aalborg St.", "Hjørring St.", "Frederikshavn St.", "Esbjerg St.", "Varde St.", "Skjern St.", 
+    "Holstebro St.", "Struer St.", "Viborg St.", "Herning St.", "Silkeborg St.", "Sønderborg St.", "Rødekro St.", "Padborg St."
   ];
 
   Future<void> _fetchSuggestions(String query) async {
     if (query.length < 2) { _removeOverlay(); return; }
-    
     List<String> prioMatches = _prioList.where((s) => s.toLowerCase().contains(query.toLowerCase())).toList();
-    
     try {
       final url = Uri.parse("https://api.dataforsyningen.dk/adresser/autocomplete?q=$query&per_side=5");
       final response = await http.get(url);
@@ -457,32 +408,6 @@ class _CityAutocompleteFieldState extends State<_CityAutocompleteField> {
     String text = selection['tekst'];
     double? lat;
     double? lng;
-
-    if (selection['data'] != null && selection['data']['href'] != null) {
-      try {
-        final detailUrl = Uri.parse(selection['data']['href']);
-        final response = await http.get(detailUrl);
-        if (response.statusCode == 200) {
-          final detailData = json.decode(response.body);
-          if (detailData['adgangsadresse'] != null) {
-            lat = detailData['adgangsadresse']['wgs84koordinat_bredde'];
-            lng = detailData['adgangsadresse']['wgs84koordinat_længde'];
-          }
-        }
-      } catch (e) { debugPrint("Fejl i koordinat opslag: $e"); }
-    } else {
-      try {
-        final url = Uri.parse("https://api.dataforsyningen.dk/adresser?q=$text&per_side=1");
-        final response = await http.get(url);
-        if (response.statusCode == 200) {
-          final List data = json.decode(response.body);
-          if (data.isNotEmpty) {
-             lat = data[0]['adgangsadresse']['wgs84koordinat_bredde'];
-             lng = data[0]['adgangsadresse']['wgs84koordinat_længde'];
-          }
-        }
-      } catch(e) { /* Ignorer */ }
-    }
     widget.onSelection(text, lat, lng);
     _removeOverlay();
   }
@@ -614,20 +539,17 @@ class _RidesTabState extends State<RidesTab> {
     });
   }
 
-  // --- MATEMATIK: Haversine formel ---
   double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
-    var p = 0.017453292519943295; // Math.PI / 180
+    var p = 0.017453292519943295; 
     var c = math.cos;
     var a = 0.5 - c((lat2 - lat1) * p)/2 + 
             c(lat1 * p) * c(lat2 * p) * (1 - c((lon2 - lon1) * p))/2;
-    return 12742 * math.asin(math.sqrt(a)); // 2 * R; R = 6371 km
+    return 12742 * math.asin(math.sqrt(a)); 
   }
 
-  // --- PARSE HEX STRING FRA DB ---
   List<double>? _parsePostGISHex(String? hex) {
     if (hex == null || hex.length < 42) return null;
     try {
-      // Byte 18-34: Longitude, Byte 34-50: Latitude
       String hexLng = hex.substring(18, 34);
       String hexLat = hex.substring(34, 50);
       return [_hexToDouble(hexLat), _hexToDouble(hexLng)];
@@ -651,53 +573,34 @@ class _RidesTabState extends State<RidesTab> {
       final startOfDay = DateTime(_displayDate.year, _displayDate.month, _displayDate.day);
       final endOfDay = startOfDay.add(const Duration(days: 1));
       
-      // Vi bruger 'origin_location::text' for at få Hex-koden (råt)
-      // Vi fjerner ALLE tekst-filtre i SQL'en for at kunne lave fuld GPS-filtrering lokalt
-      var query = Supabase.instance.client
+      final res = await Supabase.instance.client
           .from('rides')
           .select('*, profiles(*), origin_location::text, destination_location::text')
           .gte('departure_time', startOfDay.toIso8601String())
-          .lt('departure_time', endOfDay.toIso8601String());
+          .lt('departure_time', endOfDay.toIso8601String())
+          .order('departure_time', ascending: true);
 
-      final res = await query.order('departure_time', ascending: true);
       List<Map<String, dynamic>> allRides = List<Map<String, dynamic>>.from(res);
       List<Map<String, dynamic>> filteredRides = [];
 
-      bool useGps = widget.originLat != null && widget.originLng != null;
+      bool hasSearchCoords = widget.originLat != null && widget.destLat != null;
 
-      if (useGps) {
-        // --- 1. SØGNING MED GPS ---
+      if (hasSearchCoords) {
         for (var ride in allRides) {
-          // Parse Hex string
           List<double>? rideOrigin = _parsePostGISHex(ride['origin_location']);
           List<double>? rideDest = _parsePostGISHex(ride['destination_location']);
 
-          if (rideOrigin != null && rideDest != null && widget.destLat != null) {
-            double distOrigin = _calculateDistance(widget.originLat!, widget.originLng!, rideOrigin[0], rideOrigin[1]);
-            double distDest = _calculateDistance(widget.destLat!, widget.destLng!, rideDest[0], rideDest[1]);
+          if (rideOrigin != null && rideDest != null) {
+            double dStart = _calculateDistance(widget.originLat!, widget.originLng!, rideOrigin[0], rideOrigin[1]);
+            double dSlut = _calculateDistance(widget.destLat!, widget.destLng!, rideDest[0], rideDest[1]);
 
-            if (distOrigin <= widget.radius && distDest <= widget.radius) {
+            if (dStart <= widget.radius && dSlut <= widget.radius) {
               filteredRides.add(ride);
             }
-          } else {
-            // Backup: Hvis GPS data mangler, brug tekst check
-            filteredRides.add(ride); 
           }
         }
       } else {
-        // --- 2. SØGNING UDEN GPS (KUN TEKST) ---
-        if (widget.filterOrigin == null || widget.filterOrigin!.isEmpty) {
-          filteredRides = allRides;
-        } else {
-           filteredRides = allRides.where((r) {
-             String o = r['origin_city'].toString().toLowerCase();
-             String d = r['destination_city'].toString().toLowerCase();
-             String sO = widget.filterOrigin!.toLowerCase();
-             String sD = widget.filterDest?.toLowerCase() ?? "";
-             // Simpelt contains tjek
-             return o.contains(sO.split(' ')[0]) && (sD.isEmpty || d.contains(sD.split(' ')[0]));
-           }).toList();
-        }
+        filteredRides = allRides;
       }
 
       if (mounted) setState(() { _rides = filteredRides; _isLoading = false; });
@@ -722,7 +625,7 @@ class _RidesTabState extends State<RidesTab> {
       appBar: AppBar(
         title: Text(isSearching ? "Resultater (${widget.radius.round()}km)" : "Alle Lift", style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white, elevation: 0,
-        actions: [TextButton(onPressed: widget.onClearFilters, child: const Text("Nulstil", style: TextStyle(color: Colors.red)))],
+        actions: [if (isSearching) TextButton(onPressed: widget.onClearFilters, child: const Text("Nulstil", style: TextStyle(color: Colors.red)))],
       ),
       body: Column(
         children: [
@@ -730,11 +633,7 @@ class _RidesTabState extends State<RidesTab> {
             color: Colors.white, padding: const EdgeInsets.symmetric(vertical: 10),
             child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               IconButton(icon: const Icon(Icons.chevron_left), onPressed: () => _changeDate(-1)),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(20)),
-                child: Text(headerDateText, style: TextStyle(fontWeight: FontWeight.bold, color: primaryColor)),
-              ),
+              Container(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8), decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(20)), child: Text(headerDateText, style: TextStyle(fontWeight: FontWeight.bold, color: primaryColor))),
               IconButton(icon: const Icon(Icons.chevron_right), onPressed: () => _changeDate(1)),
             ]),
           ),
@@ -759,11 +658,7 @@ class _RidesTabState extends State<RidesTab> {
       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => RideDetailScreen(ride: ride))),
       child: Container(
         margin: const EdgeInsets.only(bottom: 20),
-        decoration: BoxDecoration(
-          color: Colors.white, borderRadius: BorderRadius.circular(20),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
-          border: Border.all(color: Colors.grey.shade100),
-        ),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))], border: Border.all(color: Colors.grey.shade100)),
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
@@ -810,55 +705,5 @@ class _RidesTabState extends State<RidesTab> {
         ),
       ),
     );
-  }
-}
-
-// ProfileTab er uændret...
-class ProfileTab extends StatefulWidget {
-  const ProfileTab({super.key});
-  @override
-  State<ProfileTab> createState() => _ProfileTabState();
-}
-
-class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  List<Map<String, dynamic>> _myOfferedRides = [];
-  List<Map<String, dynamic>> _myBookedRides = [];
-  bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _fetchMyActivity();
-  }
-
-  Future<void> _fetchMyActivity() async {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return;
-    setState(() => _isLoading = true);
-    try {
-      final driverRes = await Supabase.instance.client.from('rides').select('*, profiles(*)').eq('driver_id', user.id).order('departure_time', ascending: false);
-      final passengerRes = await Supabase.instance.client.from('bookings').select('*, rides(*, profiles(*))').eq('passenger_id', user.id).order('created_at', ascending: false);
-      if (mounted) setState(() { _myOfferedRides = List<Map<String, dynamic>>.from(driverRes); _myBookedRides = List<Map<String, dynamic>>.from(passengerRes); _isLoading = false; });
-    } catch (e) { debugPrint("Profil fejl: $e"); if(mounted) setState(() => _isLoading = false); }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Min Aktivitet", style: TextStyle(fontWeight: FontWeight.bold)), bottom: TabBar(controller: _tabController, tabs: const [Tab(text: "Kører selv"), Tab(text: "Passager")])),
-      body: _isLoading ? const Center(child: CircularProgressIndicator()) : TabBarView(controller: _tabController, children: [_buildList(_myOfferedRides, isDriver: true), _buildList(_myBookedRides, isDriver: false)]),
-    );
-  }
-
-  Widget _buildList(List<Map<String, dynamic>> list, {required bool isDriver}) {
-    if (list.isEmpty) return const Center(child: Text("Ingen aktivitet fundet"));
-    return ListView.builder(itemCount: list.length, itemBuilder: (context, index) {
-      final item = list[index];
-      final ride = isDriver ? item : item['rides'];
-      if (ride == null) return const SizedBox();
-      return ListTile(title: Text("${ride['origin_city'].split(',')[0]} → ${ride['destination_city'].split(',')[0]}"), subtitle: Text(DateFormat('dd/MM HH:mm').format(DateTime.parse(ride['departure_time']))), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => RideDetailScreen(ride: ride))));
-    });
   }
 }

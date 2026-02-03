@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:intl/intl.dart'; // Sikr dig at du har denne i pubspec.yaml
+import 'package:intl/intl.dart';
 import '../../widgets/address_search_field.dart';
 
 class CreateRideScreen extends StatefulWidget {
@@ -42,25 +42,48 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
   final Color _primaryColor = const Color(0xFF0F172A);
   final Color _accentColor = const Color(0xFF6366F1);
 
-  // -- GPS Opslag (Nominatim API) --
-  // Dette konverterer adressen til koordinater for at gemme i databasen
-  Future<Map<String, double>?> _getCoordinates(String address) async {
-    final cleanAddress = address.split(',')[0]; 
-    final url = Uri.parse('https://nominatim.openstreetmap.org/search?q=$cleanAddress&format=json&limit=1');
+  // --- NY GPS LOGIK (OpenStreetMap / Nominatim) ---
+  Future<Map<String, double>?> _getCityCoordinates(String query) async {
+    if (query.isEmpty) return null;
+
+    String searchQuery = query;
+
+    // 1. "Smart" Logik: Hvis vi finder et postnummer, søger vi KUN på det + Danmark
+    // Dette sikrer at vi får byens centrum og ignorerer specifikke vejnavne der kan drille
+    RegExp zipRegExp = RegExp(r'\b\d{4}\b');
+    Match? match = zipRegExp.firstMatch(query);
+
+    if (match != null) {
+      String zip = match.group(0)!;
+      searchQuery = "$zip, Danmark"; // Fx "7800, Danmark" -> Skive Centrum
+    } else {
+      searchQuery = "$query, Danmark"; // Fx "Aarhus C, Danmark"
+    }
+
     try {
-      final response = await http.get(url, headers: {'User-Agent': 'SamkorselApp/1.0'});
+      final url = Uri.parse(
+        "https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(searchQuery)}&format=json&limit=1&countrycodes=dk"
+      );
+
+      // VIGTIGT: OpenStreetMap KRÆVER en User-Agent header, ellers bliver du blokeret!
+      final response = await http.get(url, headers: {
+        'User-Agent': 'SamkorselApp/1.0' 
+      });
+
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data is List && data.isNotEmpty) {
+        final List data = json.decode(response.body);
+        if (data.isNotEmpty) {
+          // Nominatim returnerer lat/lon som strenge
           return {
-            'lat': double.parse(data[0]['lat']), 
-            'lng': double.parse(data[0]['lon'])
+            'lat': double.parse(data[0]['lat']),
+            'lng': double.parse(data[0]['lon']),
           };
         }
       }
-    } catch (e) { 
-      debugPrint("GPS Fejl: $e"); 
+    } catch (e) {
+      debugPrint("OSM Fejl: $e");
     }
+
     return null;
   }
 
@@ -80,14 +103,13 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
       if (user == null) throw Exception("Du er ikke logget ind");
 
       // 2. Dato & Tid håndtering
-      final dateStr = _dateController.text; // "2025-10-10"
-      final depTimeStr = _depTimeController.text; // "14:30"
-      final arrTimeStr = _arrTimeController.text; // "16:00"
+      final dateStr = _dateController.text;
+      final depTimeStr = _depTimeController.text;
+      final arrTimeStr = _arrTimeController.text;
 
       final depDateTime = DateTime.parse("$dateStr $depTimeStr");
       var arrDateTime = DateTime.parse("$dateStr $arrTimeStr");
 
-      // Hvis ankomst er "før" afgang (fx 23:00 -> 01:00), så antager vi det er næste dag
       if (arrDateTime.isBefore(depDateTime)) {
         arrDateTime = arrDateTime.add(const Duration(days: 1));
       }
@@ -101,17 +123,24 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
       
       final carModel = profile['car_details'] ?? "Min Bil";
 
-      // 4. Find koordinater (til kortet)
-      final originCoords = await _getCoordinates(_origin!);
-      final destCoords = await _getCoordinates(_destination!);
+      // 4. Find KORREKTE koordinater (Bruger nu OpenStreetMap)
+      final originCoords = await _getCityCoordinates(_origin!);
+      final destCoords = await _getCityCoordinates(_destination!);
+
+      if (originCoords == null || destCoords == null) {
+        throw Exception("Kunne ikke finde byens placering. Prøv at inkludere postnummer (fx '7800 Skive')");
+      }
+
+      print("Opretter tur med GPS: ${_origin} (${originCoords['lat']},${originCoords['lng']}) -> ${_destination} (${destCoords['lat']},${destCoords['lng']})");
 
       // 5. Indsæt i Supabase
       await Supabase.instance.client.from('rides').insert({
         'driver_id': user.id,
         'origin_city': _origin,
         'destination_city': _destination,
-        'origin_location': originCoords != null ? 'POINT(${originCoords['lng']} ${originCoords['lat']})' : null,
-        'destination_location': destCoords != null ? 'POINT(${destCoords['lng']} ${destCoords['lat']})' : null,
+        // PostGIS format: POINT(lng lat)
+        'origin_location': 'POINT(${originCoords['lng']} ${originCoords['lat']})',
+        'destination_location': 'POINT(${destCoords['lng']} ${destCoords['lat']})',
         'departure_time': depDateTime.toIso8601String(),
         'arrival_time': arrDateTime.toIso8601String(),
         'seats_available': int.parse(_seatsController.text),
@@ -132,7 +161,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
       });
 
       if (mounted) {
-        Navigator.pop(context, true); // Returner success til forrige skærm
+        Navigator.pop(context, true); 
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Succes! Din tur er online 🚀"), backgroundColor: Colors.green));
       }
     } catch (e) {
@@ -151,7 +180,6 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
   Future<void> _pickTime(TextEditingController controller) async {
     final picked = await showTimePicker(context: context, initialTime: TimeOfDay.now());
     if (picked != null) {
-      // Formater til HH:mm (fx 09:05)
       final hour = picked.hour.toString().padLeft(2, '0');
       final minute = picked.minute.toString().padLeft(2, '0');
       setState(() => controller.text = "$hour:$minute");

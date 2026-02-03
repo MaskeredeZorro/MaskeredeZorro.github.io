@@ -1,7 +1,8 @@
-import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart'; // Husk denne import
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -11,185 +12,401 @@ class EditProfileScreen extends StatefulWidget {
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
+  final _formKey = GlobalKey<FormState>();
+  bool _isLoading = true;
+  bool _isFetchingCar = false;
+
+  // --- CONTROLLERS ---
   final _nameController = TextEditingController();
-  bool _isLoading = false;
-  bool _isMitIdVerified = false;
-  String? _avatarUrl;
+  final _phoneController = TextEditingController();
+  final _bioController = TextEditingController();
   
-  // Hent brugerens nuværende data
+  // Bil info
+  bool _isDriver = false; 
+  final _plateController = TextEditingController();
+  final _makeController = TextEditingController();  
+  final _modelController = TextEditingController(); 
+  final _yearController = TextEditingController();  
+  final _colorController = TextEditingController(); 
+
+  String _email = "";
+  String _avatarUrl = ""; 
+
+  final Color _primaryColor = const Color(0xFF0F172A);
+
   @override
   void initState() {
     super.initState();
-    _loadProfile();
+    _loadProfileData();
   }
 
-  Future<void> _loadProfile() async {
-    setState(() => _isLoading = true);
-    final userId = Supabase.instance.client.auth.currentUser!.id;
-    final data = await Supabase.instance.client.from('profiles').select().eq('id', userId).single();
-    
-    setState(() {
-      _nameController.text = data['full_name'] ?? '';
-      _avatarUrl = data['avatar_url'];
-      _isMitIdVerified = data['is_verified_mitid'] ?? false;
-      _isLoading = false;
-    });
-  }
+  Future<void> _loadProfileData() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return;
 
-  // Simuler MitID Flow
-  Future<void> _verifyMitID() async {
-    // Her ville vi normalt åbne en WebView til Nets/MitID
-    // Vi faker det med en lille "ventetid"
-    setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 2)); // Fake ventetid
-    
-    final userId = Supabase.instance.client.auth.currentUser!.id;
-    await Supabase.instance.client.from('profiles').update({
-      'is_verified_mitid': true
-    }).eq('id', userId);
+      setState(() => _email = user.email ?? "");
 
-    setState(() {
-      _isMitIdVerified = true;
-      _isLoading = false;
-    });
+      final data = await Supabase.instance.client
+          .from('profiles')
+          .select()
+          .eq('id', user.id)
+          .single();
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("MitID Verificeret Succesfuldt!"), backgroundColor: Colors.blue));
+      _nameController.text = (data['full_name'] ?? "").toString();
+      _phoneController.text = (data['phone_number'] ?? "").toString();
+      _bioController.text = (data['bio'] ?? "").toString();
+      _avatarUrl = (data['avatar_url'] ?? "").toString();
+      
+      _isDriver = data['is_driver'] ?? (data['car_details'] != null);
+
+      if (data['car_details'] != null) {
+        dynamic carData = data['car_details'];
+        if (carData is String) {
+          try { carData = json.decode(carData); } catch (_) { carData = {}; }
+        }
+
+        if (carData is Map) {
+          if (carData.containsKey('plate') || carData.containsKey('make')) {
+            _plateController.text = (carData['plate'] ?? "").toString();
+            _makeController.text = (carData['make'] ?? "").toString();
+            _modelController.text = (carData['model'] ?? "").toString();
+            _yearController.text = (carData['year'] ?? "").toString();
+            _colorController.text = (carData['color'] ?? "").toString();
+          } 
+          else if (carData.containsKey('details')) {
+             String fullMake = (carData['make'] ?? "").toString();
+             String details = (carData['details'] ?? "").toString();
+             List<String> makeParts = fullMake.split(' ');
+             if (makeParts.isNotEmpty) {
+               _makeController.text = makeParts[0]; 
+               if (makeParts.length > 1) _modelController.text = fullMake.substring(makeParts[0].length).trim(); 
+             }
+             List<String> detailParts = details.split(' • ');
+             if (detailParts.length >= 3) {
+               _yearController.text = detailParts[0];
+               _colorController.text = detailParts[1];
+               _plateController.text = detailParts[2];
+             }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Fejl i load: $e");
+    } finally {
+      if(mounted) setState(() => _isLoading = false);
     }
   }
 
-  // Upload billede
+  // --- NY FUNKTION: UPLOAD BILLEDE ---
   Future<void> _uploadImage() async {
     final picker = ImagePicker();
-    final imageFile = await picker.pickImage(source: ImageSource.gallery);
-    
+    // Vælg billede fra galleri
+    final imageFile = await picker.pickImage(source: ImageSource.gallery, maxWidth: 600); // Max bredde sparer data
     if (imageFile == null) return;
 
     setState(() => _isLoading = true);
-    final userId = Supabase.instance.client.auth.currentUser!.id;
-    final fileExt = imageFile.path.split('.').last;
-    final fileName = '$userId.${DateTime.now().millisecondsSinceEpoch}.$fileExt';
-    
+
     try {
-      // 1. Upload til Supabase Storage
-      final bytes = await imageFile.readAsBytes(); // Læs filen som bytes (virker på web og mobil)
+      final userId = Supabase.instance.client.auth.currentUser!.id;
+      final fileExt = imageFile.path.split('.').last;
+      // Vi bruger et timestamp i filnavnet for at undgå caching problemer
+      final fileName = '$userId-profile-${DateTime.now().millisecondsSinceEpoch}.$fileExt';
+
+      final bytes = await imageFile.readAsBytes();
+      
+      // Upload til 'avatars' bucket
       await Supabase.instance.client.storage.from('avatars').uploadBinary(
-        fileName,
+        fileName, 
         bytes,
-        fileOptions: FileOptions(contentType: imageFile.mimeType),
+        fileOptions: FileOptions(contentType: imageFile.mimeType)
       );
 
-      // 2. Få den offentlige URL
+      // Hent den offentlige URL
       final imageUrl = Supabase.instance.client.storage.from('avatars').getPublicUrl(fileName);
 
-      // 3. Gem URL i profilen
-      await Supabase.instance.client.from('profiles').update({
-        'avatar_url': imageUrl
-      }).eq('id', userId);
-
-      setState(() => _avatarUrl = imageUrl);
+      setState(() {
+        _avatarUrl = imageUrl; // Opdater UI med det samme
+        _isLoading = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Billede uploadet! Husk at gemme."), backgroundColor: Colors.green));
 
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Upload fejl: $e")));
-    } finally {
+      debugPrint("Upload fejl: $e");
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Kunne ikke uploade billede: $e")));
       setState(() => _isLoading = false);
     }
   }
 
-  Future<void> _saveProfile() async {
-    setState(() => _isLoading = true);
-    final userId = Supabase.instance.client.auth.currentUser!.id;
-    
-    await Supabase.instance.client.from('profiles').update({
-      'full_name': _nameController.text,
-    }).eq('id', userId);
+  // --- MOTOR API OPSLAG ---
+  Future<void> _fetchCarFromApi() async {
+    String plate = _plateController.text.replaceAll(' ', '').trim();
+    if (plate.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Indtast nummerplade først")));
+      return;
+    }
 
-    if (mounted) {
-      Navigator.pop(context, true); // Gå tilbage og sig "Vi har opdateret!"
+    setState(() => _isFetchingCar = true);
+
+    try {
+      const String apiKey = "7dzgmx0qvnjtwwza0bkpu307k47yrjyq"; 
+      final url = Uri.parse("https://v1.motorapi.dk/vehicles/$plate");
+      
+      final response = await http.get(url, headers: {'X-Auth-Token': apiKey});
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        
+        setState(() {
+          _makeController.text = (data['make'] ?? "").toString();
+          _modelController.text = (data['model'] ?? "").toString();
+          _yearController.text = (data['model_year'] ?? "").toString();
+          _colorController.text = (data['color'] ?? "").toString();
+          if (data['registration_number'] != null) {
+             _plateController.text = data['registration_number'];
+          }
+        });
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Bil fundet!"), backgroundColor: Colors.green));
+      } else {
+        throw "Kunne ikke finde bil (Status: ${response.statusCode})";
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Fejl ved opslag: $e")));
+    } finally {
+      setState(() => _isFetchingCar = false);
+    }
+  }
+
+  Future<void> _updateProfile() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _isLoading = true);
+
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return;
+
+      dynamic carJson; 
+
+      if (_isDriver) {
+        carJson = {
+          'make': _makeController.text,
+          'model': _modelController.text,
+          'year': _yearController.text,
+          'color': _colorController.text,
+          'plate': _plateController.text,
+          'details': "${_yearController.text} • ${_colorController.text} • ${_plateController.text}",
+          'display_name': "${_makeController.text} ${_modelController.text}" 
+        };
+      }
+
+      await Supabase.instance.client.from('profiles').update({
+        'full_name': _nameController.text,
+        'phone_number': _phoneController.text,
+        'bio': _bioController.text,
+        'avatar_url': _avatarUrl, // <--- HUSK AT GEMME URL'en HER
+        'is_driver': _isDriver, 
+        'car_details': carJson, 
+        'license_plate': _isDriver ? _plateController.text : null,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', user.id);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Profil opdateret!"), backgroundColor: Colors.green));
+        Navigator.pop(context);
+      }
+
+    } catch (e) {
+      if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Fejl ved opdatering: $e"), backgroundColor: Colors.red));
+    } finally {
+      if(mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Rediger Profil")),
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text("Rediger Profil", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: const BackButton(color: Colors.black),
+      ),
       body: _isLoading 
         ? const Center(child: CircularProgressIndicator())
-        : ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              // 1. PROFIL BILLEDE
-              Center(
-                child: GestureDetector(
-                  onTap: _uploadImage,
-                  child: CircleAvatar(
-                    radius: 60,
-                    backgroundColor: Colors.grey[200],
-                    backgroundImage: _avatarUrl != null ? NetworkImage(_avatarUrl!) : null,
-                    child: _avatarUrl == null ? const Icon(Icons.camera_alt, size: 40, color: Colors.grey) : null,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              const Center(child: Text("Tryk for at ændre billede", style: TextStyle(color: Colors.grey))),
-              
-              const SizedBox(height: 30),
-
-              // 2. NAVN FELT
-              TextField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: "Fulde navn",
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.person),
-                ),
-              ),
-
-              const SizedBox(height: 30),
-
-              // 3. MITID STATUS
-              Container(
-                padding: const EdgeInsets.all(15),
-                decoration: BoxDecoration(
-                  color: _isMitIdVerified ? Colors.blue.shade50 : Colors.grey.shade50,
-                  border: Border.all(color: _isMitIdVerified ? Colors.blue : Colors.grey),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  children: [
-                    Image.network("https://www.mitid.dk/static/mitid-logo.svg", width: 40, errorBuilder: (c,e,s) => const Icon(Icons.security)),
-                    const SizedBox(width: 15),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(_isMitIdVerified ? "Identitet bekræftet" : "Ikke bekræftet", 
-                            style: const TextStyle(fontWeight: FontWeight.bold)),
-                          Text(_isMitIdVerified ? "Du er verificeret med MitID" : "Bekræft din identitet for at skabe tillid."),
-                        ],
-                      ),
+        : SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // --- 1. PROFIL BILLEDE (Nu med upload funktion) ---
+                  Center(
+                    child: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 50,
+                          backgroundColor: Colors.grey[200],
+                          backgroundImage: _avatarUrl.isNotEmpty ? NetworkImage(_avatarUrl) : null,
+                          child: _avatarUrl.isEmpty ? const Icon(Icons.person, size: 50, color: Colors.grey) : null,
+                        ),
+                        Positioned(
+                          bottom: 0, right: 0,
+                          child: CircleAvatar(
+                            radius: 18, backgroundColor: _primaryColor,
+                            child: IconButton(
+                              padding: EdgeInsets.zero,
+                              icon: const Icon(Icons.camera_alt, size: 18, color: Colors.white),
+                              onPressed: _uploadImage, // <--- Kalder upload funktionen her
+                            ),
+                          ),
+                        )
+                      ],
                     ),
-                    if (!_isMitIdVerified)
-                      TextButton(onPressed: _verifyMitID, child: const Text("BEKRÆFT"))
-                    else
-                      const Icon(Icons.check_circle, color: Colors.blue),
+                  ),
+                  
+                  const SizedBox(height: 30),
+                  const Text("Personlige oplysninger", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 15),
+
+                  _buildTextField("Fulde navn", _nameController, Icons.person),
+                  const SizedBox(height: 15),
+                  
+                  TextFormField(
+                    initialValue: _email,
+                    readOnly: true,
+                    decoration: InputDecoration(
+                      labelText: "Email (Login)",
+                      prefixIcon: const Icon(Icons.email, color: Colors.grey),
+                      filled: true, fillColor: Colors.grey[200],
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+                  
+                  _buildTextField("Telefonnummer", _phoneController, Icons.phone, isNumber: true),
+                  
+                  const SizedBox(height: 30),
+                  const Text("Om dig", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 15),
+                  
+                  TextFormField(
+                    controller: _bioController,
+                    maxLines: 4,
+                    decoration: InputDecoration(
+                      labelText: "Fortæl lidt om dig selv...",
+                      alignLabelWithHint: true,
+                      filled: true, fillColor: const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    ),
+                  ),
+
+                  const SizedBox(height: 30),
+                  const Divider(),
+                  const SizedBox(height: 20),
+
+                  // --- BIL SEKTION ---
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text("Er du chauffør?", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      Switch(
+                        value: _isDriver, 
+                        onChanged: (val) => setState(() => _isDriver = val),
+                        activeColor: const Color(0xFF6366F1),
+                      ),
+                    ],
+                  ),
+                  const Text("Slå til for at tilføje din bil og tilbyde lift.", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  
+                  if (_isDriver) ...[
+                    const SizedBox(height: 20),
+                    
+                    // Nummerplade + Hent knap
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildTextField("Nummerplade", _plateController, Icons.confirmation_number, 
+                            textCapitalization: TextCapitalization.characters), 
+                        ),
+                        const SizedBox(width: 10),
+                        SizedBox(
+                          height: 55,
+                          child: ElevatedButton.icon(
+                            onPressed: _isFetchingCar ? null : _fetchCarFromApi,
+                            icon: _isFetchingCar 
+                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              : const Icon(Icons.search, size: 18),
+                            label: const Text("Hent"),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.black,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+                            ),
+                          ),
+                        )
+                      ],
+                    ),
+                    const SizedBox(height: 15),
+
+                    // Bil detaljer
+                    Row(
+                      children: [
+                        Expanded(child: _buildTextField("Mærke (fx Audi)", _makeController, Icons.directions_car)),
+                        const SizedBox(width: 10),
+                        Expanded(child: _buildTextField("Model (fx Q3)", _modelController, Icons.category)),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(child: _buildTextField("Årgang", _yearController, Icons.calendar_today, isNumber: true)),
+                        const SizedBox(width: 10),
+                        Expanded(child: _buildTextField("Farve", _colorController, Icons.color_lens)),
+                      ],
+                    ),
                   ],
-                ),
+
+                  const SizedBox(height: 40),
+                  
+                  SizedBox(
+                    width: double.infinity,
+                    height: 55,
+                    child: ElevatedButton(
+                      onPressed: _updateProfile,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _primaryColor,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text("GEM ÆNDRINGER", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+                ],
               ),
-
-              const SizedBox(height: 40),
-
-              // 4. GEM KNAP
-              SizedBox(
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _saveProfile,
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white),
-                  child: const Text("GEM PROFIL"),
-                ),
-              )
-            ],
+            ),
           ),
+    );
+  }
+
+  Widget _buildTextField(String label, TextEditingController controller, IconData icon, {bool isNumber = false, TextCapitalization textCapitalization = TextCapitalization.none}) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+      textCapitalization: textCapitalization,
+      validator: (val) {
+        if (_isDriver && val != null && val.isEmpty) return "Påkrævet"; 
+        return null;
+      },
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, color: Colors.grey),
+        filled: true,
+        fillColor: const Color(0xFFF8FAFC),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+      ),
     );
   }
 }
