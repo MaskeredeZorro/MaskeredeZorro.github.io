@@ -1,7 +1,6 @@
-package com.example.hoppon // (Eller hvad din pakke hedder)
+package com.example.samkorsel_app // <--- Tjek at dette matcher din mappe-struktur
 
-import io.flutter.embedding.android.FlutterFragmentActivity // <--- VIGTIG IMPORT
+import io.flutter.embedding.android.FlutterFragmentActivity
 
-// Ændr fra FlutterActivity til FlutterFragmentActivity herunder:
 class MainActivity: FlutterFragmentActivity() {
 }
