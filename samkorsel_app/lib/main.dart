@@ -16,7 +16,8 @@ Future<void> main() async {
 
   // 2. Start Stripe (Opsætning til betalinger)
   // Dette er din TEST-nøgle. Når du går live, skal denne skiftes til live-nøglen.
-  Stripe.publishableKey = 'pk_test_51SwiSUCS6EieS5Fq5zouPoLfLf6TjaeFhXOrLOk6emC9cOVmtSdhl5KU5ovj09jTDwC1BnmxNVfwHwtdkejemQPj00cgzFXKvO';
+  Stripe.publishableKey =
+      'pk_live_51SwiSBFmUbPR9jrfajSYkLkqqtvJCjZi6eDpqbnoK4PKuW4sYOB3iWKKQiPEArVigFGv4iL1XKkGb3bjbgYj1zsO005TsJBugS';
   await Stripe.instance.applySettings();
 
   runApp(const SamkorselApp());
