@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'tax_info_screen.dart';
+import 'package:intl/intl.dart';
 
 class PaymentsScreen extends StatefulWidget {
   const PaymentsScreen({super.key});
@@ -75,40 +76,28 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
       );
 
       if (res.status == 200) {
-        // Opdater wallet i databasen (sæt saldo til 0 visuelt med det samme)
+        // Opdater profiles i databasen (sæt saldo til 0)
         await Supabase.instance.client
-            .from('wallets')
+            .from('profiles')
             .update({'balance': 0})
-            .eq('user_id', user.id);
+            .eq('id', user.id);
 
-        // Gem i historik (Valgfrit, men god skik)
-        try {
-          final walletRes = await Supabase.instance.client
-              .from('wallets')
-              .select('id')
-              .eq('user_id', user.id)
-              .single();
-
-          await Supabase.instance.client.from('transactions').insert({
-            'wallet_id': walletRes['id'],
-            'amount': -_balance,
-            'type': 'payout',
-            'description': 'Udbetaling til bankkonto',
-          });
-        } catch (e) {
-          debugPrint(
-            "Kunne ikke gemme transaktion, men udbetaling er sendt: $e",
-          );
-        }
+        // Gem udbetalingen i historikken (transactions)
+        await Supabase.instance.client.from('transactions').insert({
+          'user_id': user.id,
+          'amount': _balance, // Vi gemmer beløbet
+          'type': 'payout',
+          'description': 'Udbetaling til bankkonto',
+        });
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text("Pengene er på vej til din bankkonto! 💸"),
+              content: Text("Pengene er på vej! 💸"),
               backgroundColor: Colors.green,
             ),
           );
-          _fetchWalletData(); // Opdater UI
+          _fetchWalletData();
         }
       } else {
         throw "Udbetaling fejlede på serveren. Status: ${res.status}";
@@ -281,6 +270,48 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                             (_) => _fetchWalletData(),
                           ), // Opdater data når man kommer tilbage
                     ),
+                    // --- HER STARTER HISTORIK-SEGMENTET ---
+                    const SizedBox(height: 30),
+                    const Text(
+                      "Historik",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+
+                    StreamBuilder<List<Map<String, dynamic>>>(
+                      stream: Supabase.instance.client
+                          .from('transactions')
+                          .stream(primaryKey: ['id'])
+                          .eq(
+                            'user_id',
+                            Supabase.instance.client.auth.currentUser!.id,
+                          )
+                          .order('created_at', ascending: false),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) return const SizedBox();
+                        final transactions = snapshot.data!;
+
+                        if (transactions.isEmpty) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 20),
+                            child: Text(
+                              "Ingen historik endnu.",
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          );
+                        }
+
+                        return Column(
+                          children: transactions
+                              .map((tx) => _buildTransactionItem(tx))
+                              .toList(),
+                        );
+                      },
+                    ),
+                    // --- HER SLUTTER HISTORIK-SEGMENTET ---
                   ],
                 ),
               ),
@@ -318,6 +349,60 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
         ),
         trailing: const Icon(Icons.chevron_right, color: Colors.grey),
         onTap: onTap,
+      ),
+    );
+  }
+
+  Widget _buildTransactionItem(Map<String, dynamic> tx) {
+    final bool isEarnings = tx['type'] == 'ride_earnings';
+    final DateTime date = DateTime.parse(tx['created_at']).toLocal();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: isEarnings
+                ? Colors.green.withOpacity(0.1)
+                : Colors.blue.withOpacity(0.1),
+            child: Icon(
+              isEarnings
+                  ? Icons.add_circle_outline
+                  : Icons.account_balance_wallet_outlined,
+              color: isEarnings ? Colors.green : Colors.blue,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  tx['description'] ?? "Transaktion",
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  "${date.day}/${date.month}/${date.year} kl. ${date.hour}:${date.minute.toString().padLeft(2, '0')}",
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            "${isEarnings ? '+' : ''}${tx['amount']} kr.",
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: isEarnings ? Colors.green[700] : Colors.black,
+              fontSize: 16,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -224,14 +224,17 @@ class _ProfileScreenState extends State<ProfileScreen>
                     if (!snapshot.hasData)
                       return const Center(child: CircularProgressIndicator());
                     final rides = snapshot.data!;
-                    if (rides.isEmpty)
+                    final activeRides = rides
+                        .where((ride) => ride['status'] != 'completed')
+                        .toList();
+                    if (activeRides.isEmpty)
                       return const Center(child: Text("Ingen ture oprettet."));
 
                     return ListView.builder(
                       padding: const EdgeInsets.all(10),
-                      itemCount: rides.length,
+                      itemCount: activeRides.length,
                       itemBuilder: (context, index) {
-                        final ride = rides[index];
+                        final ride = activeRides[index];
 
                         return Card(
                           margin: const EdgeInsets.only(bottom: 15),

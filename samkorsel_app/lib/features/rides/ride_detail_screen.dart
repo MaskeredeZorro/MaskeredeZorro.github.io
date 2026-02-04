@@ -60,6 +60,8 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
     }
   }
 
+  // --- BOOKING LOGIK (Mock + Stripe + Profiles opdatering) ---
+
   Future<void> _bookRide() async {
     setState(() => _isLoading = true);
     final user = Supabase.instance.client.auth.currentUser;
@@ -88,104 +90,91 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
       if (existing != null)
         throw Exception("Du har allerede anmodet om plads.");
 
-      // 3. START BETALING: Kald Edge Function
       final double price = (widget.ride['price_dkk'] as num).toDouble();
+      final bool isInstant = widget.ride['instant_booking'] == true;
 
+      // 3. KALD EDGE FUNCTION (Nu live!)
       final res = await Supabase.instance.client.functions.invoke(
         'payment-sheet',
-        body: {'amount': price, 'currency': 'dkk'},
+        body: {
+          'amount': price,
+          'currency': 'dkk',
+          'instant_booking':
+              isInstant, // Sender info om det er lyn eller anmodning
+        },
       );
 
-      if (res.status != 200)
-        throw Exception("Kunne ikke kontakte betalings-serveren");
+      if (res.status != 200) throw Exception("Kunne ikke oprette betaling");
 
       final data = res.data;
+      final String paymentId =
+          data['paymentIntentId']; // Vi gemmer ID'et til senere brug
 
-      // 4. Initialiser Stripe Sheet
+      // 4. Initialiser Stripe Payment Sheet
       await Stripe.instance.initPaymentSheet(
         paymentSheetParameters: SetupPaymentSheetParameters(
           paymentIntentClientSecret: data['paymentIntent'],
           merchantDisplayName: 'HoppOn',
-          applePay: const PaymentSheetApplePay(merchantCountryCode: 'DK'),
-          googlePay: const PaymentSheetGooglePay(merchantCountryCode: 'DK'),
+          // --- SÅDAN FJERNER DU LINK (FORSØG) ---
+          // Stripe styrer ofte Link centralt, men dette hjælper:
+          allowsDelayedPaymentMethods: false,
+          appearance: const PaymentSheetAppearance(
+            colors: PaymentSheetAppearanceColors(
+              primary: Color(0xFF0F172A), // Din primære farve
+            ),
+          ),
+
+          // VIGTIGT OM APPLE PAY:
+          // Sæt denne til null, indtil du har oprettet et Merchant ID hos Apple.
+          // Hvis du sætter den til true uden ID, crasher appen på iPhone.
+          billingDetails: const BillingDetails(
+            address: Address(
+              country: 'DK', // Sætter dropdown til Danmark
+              city: null,
+              line1: null,
+              line2: null,
+              postalCode: null,
+              state: null,
+            ),
+          ),
+
+          applePay: null,
+
+          googlePay: const PaymentSheetGooglePay(
+            merchantCountryCode: 'DK',
+            testEnv:
+                false, // LIVE MODE (Sæt til true hvis du bruger Stripe Test Keys)
+          ),
         ),
       );
 
-      // 5. Vis betalingsvinduet
+      // 5. Vis betalingsvinduet (Nu skal brugeren indtaste kort!)
       await Stripe.instance.presentPaymentSheet();
 
-      // --- HVIS VI KOMMER HERTIL, ER BETALINGEN GODKENDT ---
-
-      // 6. Opret bookingen i Supabase
-      await Supabase.instance.client.from('bookings').insert({
-        'ride_id': widget.ride['id'],
-        'passenger_id': user.id,
-        'seats_booked': 1,
-        'status': 'approved',
-      });
-
-      // 7. Håndter Chaufførens penge
-      final driverId = widget.ride['driver_id'];
-
-      // Upsert wallet for driver
-      await Supabase.instance.client.from('wallets').upsert({
-        'user_id': driverId,
-      }, onConflict: 'user_id');
-
-      // Hent wallet ID
-      final walletRes = await Supabase.instance.client
-          .from('wallets')
-          .select('id, balance')
-          .eq('user_id', driverId)
-          .single();
-
-      final walletId = walletRes['id'];
-      final double currentBalance = (walletRes['balance'] as num).toDouble();
-      final double earnings = price - 9.0; // Gebyr på 9 kr
-
-      // Opdater saldo
-      await Supabase.instance.client
-          .from('wallets')
-          .update({'balance': currentBalance + earnings})
-          .eq('id', walletId);
-
-      // Log transaktionen
-      await Supabase.instance.client.from('transactions').insert({
-        'wallet_id': walletId,
-        'amount': earnings,
-        'type': 'booking_payment',
-        'description':
-            'Tur: ${widget.ride['origin_city']} -> ${widget.ride['destination_city']}',
-      });
-
-      setState(() => _hasBooked = true);
-      if (mounted)
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Betaling godkendt! God tur 🚗"),
-            backgroundColor: Colors.green,
-          ),
-        );
+      // 6. Hvis vi kommer her til, er betalingen godkendt/reserveret -> Gem i DB
+      await _completeBookingInSupabase(user.id, paymentId);
     } on StripeException catch (e) {
       if (e.error.code == FailureCode.Canceled) {
-        if (mounted)
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text("Betaling annulleret"),
               backgroundColor: Colors.orange,
             ),
           );
+        }
       } else {
-        if (mounted)
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text("Stripe Fejl: ${e.error.localizedMessage}"),
               backgroundColor: Colors.red,
             ),
           );
+        }
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -194,8 +183,44 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
             backgroundColor: Colors.red,
           ),
         );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // --- HJÆLPEFUNKTION: Gemmer booking og Payment ID ---
+  Future<void> _completeBookingInSupabase(
+    String userId,
+    String paymentId,
+  ) async {
+    final bool isInstant = widget.ride['instant_booking'] == true;
+    final String initialStatus = isInstant ? 'approved' : 'pending';
+
+    // Vi gemmer bookingen sammen med Payment ID
+    // HUSK: Tjek at du har 'stripe_payment_id' kolonnen i 'bookings' tabellen!
+    await Supabase.instance.client.from('bookings').insert({
+      'ride_id': widget.ride['id'],
+      'passenger_id': userId,
+      'seats_booked': 1,
+      'status': initialStatus,
+      'stripe_payment_id': paymentId,
+    });
+
+    setState(() => _hasBooked = true);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isInstant
+                ? "Betaling gennemført! Din plads er booket ✅"
+                : "Anmodning sendt! Beløbet er reserveret på dit kort 🔒",
+          ),
+          backgroundColor: isInstant ? Colors.green : Colors.orange,
+          duration: const Duration(seconds: 4),
+        ),
+      );
     }
   }
 
