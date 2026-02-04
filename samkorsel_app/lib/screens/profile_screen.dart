@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
-import 'auth_screen.dart'; 
+import 'auth_screen.dart';
 import '../features/rides/chat_screen.dart';
-import 'edit_profile_screen.dart'; 
+import 'edit_profile_screen.dart';
 import 'payments_screen.dart'; // HUSK AT OPRETTE DENNE FIL NEDENFOR
 
 class ProfileScreen extends StatefulWidget {
@@ -13,7 +13,8 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProviderStateMixin {
+class _ProfileScreenState extends State<ProfileScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final String _userId = Supabase.instance.client.auth.currentUser!.id;
   final Color _primaryColor = const Color(0xFF0F172A);
@@ -31,26 +32,92 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           .from('bookings')
           .update({'status': newStatus})
           .eq('id', bookingId);
-      
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(newStatus == 'approved' ? "Godkendt!" : "Afvist"),
-          backgroundColor: newStatus == 'approved' ? Colors.green : Colors.red,
-          duration: const Duration(seconds: 1),
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(newStatus == 'approved' ? "Godkendt!" : "Afvist"),
+            backgroundColor: newStatus == 'approved'
+                ? Colors.green
+                : Colors.red,
+            duration: const Duration(seconds: 1),
+          ),
+        );
       }
     } catch (e) {
       debugPrint("Fejl: $e");
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Kunne ikke opdatere - Tjek RLS policies!")));
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Kunne ikke opdatere - Tjek RLS policies!"),
+          ),
+        );
+    }
+  }
+
+  Future<void> _completeTrip(String rideId) async {
+    try {
+      // Vis loading
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      // Hent det aktuelle token manuelt for at være 100% sikker
+      final String? jwt =
+          Supabase.instance.client.auth.currentSession?.accessToken;
+
+      if (jwt == null)
+        throw "Ingen gyldig session fundet. Log venligst ind igen.";
+
+      final session = Supabase.instance.client.auth.currentSession;
+      print("Mit JWT: ${session?.accessToken}");
+
+      // Kald Edge Function med eksplicit header for at undgå SDK-mismatch
+      final response = await Supabase.instance.client.functions.invoke(
+        'complete-trip',
+        body: {'trip_id': rideId},
+        headers: {'Authorization': 'Bearer $jwt'},
+      );
+
+      if (mounted) Navigator.pop(context); // Fjern loading
+
+      if (response.status == 200) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Turen er afsluttet og pengene er overført! 💸"),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        // Håndter fejlbeskeder fra din Edge Function
+        final errorMsg = response.data['error'] ?? "Kunne ikke afregne turen.";
+        throw errorMsg;
+      }
+    } catch (e) {
+      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Fejl: $e"), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
   // HJÆLPERE
   String _formatDate(String dateStr) {
     try {
-      final date = DateTime.parse(dateStr);
-      return "${date.day}/${date.month} kl. ${date.hour}:${date.minute.toString().padLeft(2, '0')}";
-    } catch (_) { return ""; }
+      // Tilføj .toLocal() for at konvertere fra UTC til Dansk tid
+      final date = DateTime.parse(dateStr).toLocal();
+
+      // Vi bruger DateFormat for at få det pænere (f.eks. 04/02 i stedet for 4/2)
+      return "${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')} kl. ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}";
+    } catch (_) {
+      return "";
+    }
   }
 
   Color _getStatusColor(String status) {
@@ -70,7 +137,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text("Min Profil", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          "Min Profil",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.white,
         elevation: 0,
         actions: [
@@ -78,9 +148,12 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             icon: const Icon(Icons.logout, color: Colors.red),
             onPressed: () async {
               await Supabase.instance.client.auth.signOut();
-              if (context.mounted) Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const AuthScreen()));
+              if (context.mounted)
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (_) => const AuthScreen()),
+                );
             },
-          )
+          ),
         ],
       ),
       body: Column(
@@ -91,17 +164,31 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             child: Column(
               children: [
                 _buildMenuOption(
-                  icon: Icons.person_outline, 
-                  title: "Personlige oplysninger", 
+                  icon: Icons.person_outline,
+                  title: "Personlige oplysninger",
                   subtitle: "Navn, bil, telefonnummer",
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EditProfileScreen())),
+                  // RETTELSE: Vi bruger 'await' og setState for at opdatere siden når man kommer tilbage
+                  onTap: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const EditProfileScreen(),
+                      ),
+                    );
+                    setState(
+                      () {},
+                    ); // Tvinger profil-siden til at opdatere, hvis f.eks. billedet er ændret
+                  },
                 ),
                 const SizedBox(height: 8),
                 _buildMenuOption(
-                  icon: Icons.account_balance_wallet_outlined, 
-                  title: "Betalinger & Skat", 
+                  icon: Icons.account_balance_wallet_outlined,
+                  title: "Betalinger & Skat",
                   subtitle: "Udbetaling, saldo og skatteinfo",
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PaymentsScreen())),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const PaymentsScreen()),
+                  ),
                 ),
               ],
             ),
@@ -115,7 +202,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             labelColor: _primaryColor,
             unselectedLabelColor: Colors.grey,
             indicatorColor: _primaryColor,
-            tabs: const [Tab(text: "Jeg kører"), Tab(text: "Jeg rejser")],
+            tabs: const [
+              Tab(text: "Jeg kører"),
+              Tab(text: "Jeg rejser"),
+            ],
           ),
 
           // --- 3. DINE EKSISTERENDE LISTER ---
@@ -131,9 +221,11 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                       .eq('driver_id', _userId)
                       .order('departure_time', ascending: true),
                   builder: (context, snapshot) {
-                    if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                    if (!snapshot.hasData)
+                      return const Center(child: CircularProgressIndicator());
                     final rides = snapshot.data!;
-                    if (rides.isEmpty) return const Center(child: Text("Ingen ture oprettet."));
+                    if (rides.isEmpty)
+                      return const Center(child: Text("Ingen ture oprettet."));
 
                     return ListView.builder(
                       padding: const EdgeInsets.all(10),
@@ -146,12 +238,25 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                           child: Column(
                             children: [
                               ListTile(
-                                title: Text("${ride['origin_city']} ➝ ${ride['destination_city']}", style: const TextStyle(fontWeight: FontWeight.bold)),
-                                subtitle: Text(_formatDate(ride['departure_time'])),
-                                trailing: Text("${ride['price_dkk']} kr.", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                                title: Text(
+                                  "${ride['origin_city']} ➝ ${ride['destination_city']}",
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  _formatDate(ride['departure_time']),
+                                ),
+                                trailing: Text(
+                                  "${ride['price_dkk']} kr.",
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green,
+                                  ),
+                                ),
                               ),
                               const Divider(height: 1),
-                              
+
                               // Stream 2 (Nested): Lyt LIVE på bookinger til denne tur
                               StreamBuilder<List<Map<String, dynamic>>>(
                                 stream: Supabase.instance.client
@@ -159,42 +264,96 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                                     .stream(primaryKey: ['id'])
                                     .eq('ride_id', ride['id']),
                                 builder: (context, bSnapshot) {
-                                  if (!bSnapshot.hasData) return const SizedBox(); 
+                                  if (!bSnapshot.hasData)
+                                    return const SizedBox();
                                   final bookings = bSnapshot.data!;
 
                                   if (bookings.isEmpty) {
-                                    return const Padding(padding: EdgeInsets.all(15), child: Text("Ingen passagerer endnu.", style: TextStyle(fontStyle: FontStyle.italic)));
+                                    return const Padding(
+                                      padding: EdgeInsets.all(15),
+                                      child: Text(
+                                        "Ingen passagerer endnu.",
+                                        style: TextStyle(
+                                          fontStyle: FontStyle.italic,
+                                        ),
+                                      ),
+                                    );
                                   }
 
                                   return Column(
                                     children: bookings.map((booking) {
-                                      return FutureBuilder<Map<String, dynamic>>(
-                                        future: Supabase.instance.client.from('profiles').select().eq('id', booking['passenger_id']).single(),
+                                      return FutureBuilder<
+                                        Map<String, dynamic>
+                                      >(
+                                        future: Supabase.instance.client
+                                            .from('profiles')
+                                            .select()
+                                            .eq('id', booking['passenger_id'])
+                                            .single(),
                                         builder: (context, pSnapshot) {
-                                          final profileName = pSnapshot.data?['full_name'] ?? "Passager";
-                                          
+                                          final profileName =
+                                              pSnapshot.data?['full_name'] ??
+                                              "Passager";
+
                                           return ListTile(
                                             leading: const Icon(Icons.person),
                                             title: Text(profileName),
-                                            subtitle: Text("Status: ${_getStatusText(booking['status'])}", style: TextStyle(color: _getStatusColor(booking['status']))),
-                                            trailing: booking['status'] == 'pending' 
-                                              ? Row(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    IconButton(icon: const Icon(Icons.check, color: Colors.green), onPressed: () => _updateBookingStatus(booking['id'], 'approved')),
-                                                    IconButton(icon: const Icon(Icons.close, color: Colors.red), onPressed: () => _updateBookingStatus(booking['id'], 'rejected')),
-                                                  ],
-                                                )
-                                              : Icon(booking['status'] == 'approved' ? Icons.check_circle : Icons.cancel, color: _getStatusColor(booking['status'])),
+                                            subtitle: Text(
+                                              "Status: ${_getStatusText(booking['status'])}",
+                                              style: TextStyle(
+                                                color: _getStatusColor(
+                                                  booking['status'],
+                                                ),
+                                              ),
+                                            ),
+                                            trailing:
+                                                booking['status'] == 'pending'
+                                                ? Row(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      IconButton(
+                                                        icon: const Icon(
+                                                          Icons.check,
+                                                          color: Colors.green,
+                                                        ),
+                                                        onPressed: () =>
+                                                            _updateBookingStatus(
+                                                              booking['id'],
+                                                              'approved',
+                                                            ),
+                                                      ),
+                                                      IconButton(
+                                                        icon: const Icon(
+                                                          Icons.close,
+                                                          color: Colors.red,
+                                                        ),
+                                                        onPressed: () =>
+                                                            _updateBookingStatus(
+                                                              booking['id'],
+                                                              'rejected',
+                                                            ),
+                                                      ),
+                                                    ],
+                                                  )
+                                                : Icon(
+                                                    booking['status'] ==
+                                                            'approved'
+                                                        ? Icons.check_circle
+                                                        : Icons.cancel,
+                                                    color: _getStatusColor(
+                                                      booking['status'],
+                                                    ),
+                                                  ),
                                           );
-                                        }
+                                        },
                                       );
                                     }).toList(),
                                   );
                                 },
                               ),
 
-                              // CHAT KNAP
+                              // DIN EKSISTERENDE CHAT KNAP
                               Padding(
                                 padding: const EdgeInsets.all(8.0),
                                 child: SizedBox(
@@ -203,16 +362,72 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                                     icon: const Icon(Icons.chat_bubble_outline),
                                     label: const Text("Åbn Tur-chat"),
                                     onPressed: () {
-                                      Navigator.push(context, MaterialPageRoute(builder: (_) => 
-                                        ChatScreen(rideId: ride['id'], rideTitle: "${ride['origin_city']} ➝ ${ride['destination_city']}")
-                                      ));
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => ChatScreen(
+                                            rideId: ride['id'],
+                                            rideTitle:
+                                                "${ride['origin_city']} ➝ ${ride['destination_city']}",
+                                          ),
+                                        ),
+                                      );
                                     },
                                   ),
                                 ),
                               ),
-                            ],
+
+                              // <--- INDSÆT DENNE NYE BLOK HERFRA --->
+                              Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: SizedBox(
+                                  width: double.infinity,
+                                  child: Builder(
+                                    builder: (context) {
+                                      final DateTime arrivalTime =
+                                          DateTime.parse(
+                                            ride['arrival_time'],
+                                          ).toLocal();
+                                      final bool isTimePassed = DateTime.now()
+                                          .isAfter(arrivalTime);
+                                      final bool isCompleted =
+                                          ride['status'] == 'completed';
+
+                                      return ElevatedButton.icon(
+                                        icon: Icon(
+                                          isCompleted
+                                              ? Icons.verified
+                                              : Icons.flag_circle,
+                                        ),
+                                        label: Text(
+                                          isCompleted
+                                              ? "Turen er afregnet"
+                                              : (isTimePassed
+                                                    ? "Afslut tur & modtag betaling"
+                                                    : "Turen er ikke slut endnu"),
+                                        ),
+                                        onPressed:
+                                            (isTimePassed && !isCompleted)
+                                            ? () => _completeTrip(ride['id'])
+                                            : null,
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: isCompleted
+                                              ? Colors.blueGrey
+                                              : Colors.green,
+                                          foregroundColor: Colors.white,
+                                          disabledBackgroundColor:
+                                              Colors.grey[200],
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ),
+
+                              // <--- HERTIL --->
+                            ], // Lukker Column inde i Card
                           ),
-                        );
+                        ); // Lukker Card
                       },
                     );
                   },
@@ -226,9 +441,11 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                       .eq('passenger_id', _userId)
                       .order('created_at', ascending: false),
                   builder: (context, snapshot) {
-                    if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                    if (!snapshot.hasData)
+                      return const Center(child: CircularProgressIndicator());
                     final bookings = snapshot.data!;
-                    if (bookings.isEmpty) return const Center(child: Text("Ingen ture booket."));
+                    if (bookings.isEmpty)
+                      return const Center(child: Text("Ingen ture booket."));
 
                     return ListView.builder(
                       padding: const EdgeInsets.all(10),
@@ -250,31 +467,65 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                             return Card(
                               margin: const EdgeInsets.only(bottom: 10),
                               child: ListTile(
-                                onTap: booking['status'] == 'approved' ? () {
-                                  Navigator.push(context, MaterialPageRoute(builder: (_) => 
-                                    ChatScreen(rideId: ride['id'], rideTitle: "${ride['origin_city']} ➝ ${ride['destination_city']}")
-                                  ));
-                                } : null,
-                                leading: const Icon(Icons.directions_car, color: Colors.green),
-                                title: Text("${ride['origin_city']} ➝ ${ride['destination_city']}"),
+                                onTap: booking['status'] == 'approved'
+                                    ? () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => ChatScreen(
+                                              rideId: ride['id'],
+                                              rideTitle:
+                                                  "${ride['origin_city']} ➝ ${ride['destination_city']}",
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                    : null,
+                                leading: const Icon(
+                                  Icons.directions_car,
+                                  color: Colors.green,
+                                ),
+                                title: Text(
+                                  "${ride['origin_city']} ➝ ${ride['destination_city']}",
+                                ),
                                 subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(_formatDate(ride['departure_time'])),
-                                    Text("Chauffør: ${driver?['full_name'] ?? 'Ukendt'}"),
+                                    Text(
+                                      "Chauffør: ${driver?['full_name'] ?? 'Ukendt'}",
+                                    ),
                                     if (booking['status'] == 'approved')
-                                      const Text("Klik for at chatte", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                                      const Text(
+                                        "Klik for at chatte",
+                                        style: TextStyle(
+                                          color: Colors.green,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                   ],
                                 ),
                                 trailing: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: _getStatusColor(booking['status']).withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: _getStatusColor(booking['status']))
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
                                   ),
-                                  child: Text(_getStatusText(booking['status']), 
-                                      style: TextStyle(color: _getStatusColor(booking['status']), fontWeight: FontWeight.bold)),
+                                  decoration: BoxDecoration(
+                                    color: _getStatusColor(
+                                      booking['status'],
+                                    ).withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: _getStatusColor(booking['status']),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    _getStatusText(booking['status']),
+                                    style: TextStyle(
+                                      color: _getStatusColor(booking['status']),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                                 ),
                               ),
                             );
@@ -286,20 +537,38 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                 ),
               ],
             ),
-          )
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildMenuOption({required IconData icon, required String title, required String subtitle, required VoidCallback onTap}) {
+  Widget _buildMenuOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
     return ListTile(
-      leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(8)), child: Icon(icon, color: _primaryColor)),
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, color: _primaryColor),
+      ),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-      subtitle: Text(subtitle, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+      ),
       trailing: const Icon(Icons.chevron_right, color: Colors.grey),
       onTap: onTap,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
     );
   }
 }

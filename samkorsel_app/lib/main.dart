@@ -1,23 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter_stripe/flutter_stripe.dart'; // <--- VIGTIGT: Stripe import
+import 'package:flutter_stripe/flutter_stripe.dart';
 import 'core/constants.dart';
-import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/auth/welcome_screen.dart'; // <--- NY IMPORT
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 1. Start Supabase
   await Supabase.initialize(
     url: AppConstants.supabaseUrl,
     anonKey: AppConstants.supabaseAnonKey,
   );
 
-  // 2. Start Stripe (Opsætning til betalinger)
-  // Dette er din TEST-nøgle. Når du går live, skal denne skiftes til live-nøglen.
   Stripe.publishableKey =
-      'pk_live_51SwiSBFmUbPR9jrfajSYkLkqqtvJCjZi6eDpqbnoK4PKuW4sYOB3iWKKQiPEArVigFGv4iL1XKkGb3bjbgYj1zsO005TsJBugS';
+      'pk_live_51SxARZEva3C2iRHuROjwB4fDAvUrCibEKXeoNA8VvWzZf7QwpCnUylfwXvBiB54nS2ptotVjp8t3idyKrXWi8JiX00Tp3wlQ4I';
   await Stripe.instance.applySettings();
 
   runApp(const SamkorselApp());
@@ -29,16 +26,44 @@ class SamkorselApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'HoppOn', // Opdateret navn
+      title: 'HoppOn',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        primarySwatch: Colors.indigo, // Opdateret til at matche HoppOn temaet
-        useMaterial3: true,
+        primaryColor: const Color(0xFF0F172A), // Slate
         scaffoldBackgroundColor: Colors.white,
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF6366F1), // Indigo
+          primary: const Color(0xFF0F172A),
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          foregroundColor: Colors.black,
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF0F172A),
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 16),
+          ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: const Color(0xFFF8FAFC),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          contentPadding: const EdgeInsets.all(16),
+        ),
       ),
-      // Tjek om bruger er logget ind
+      // Tjek login status
       home: Supabase.instance.client.auth.currentUser == null
-          ? const AuthScreen()
+          ? const WelcomeScreen()
           : const HomeScreen(),
     );
   }

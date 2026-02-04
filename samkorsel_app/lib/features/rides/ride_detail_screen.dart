@@ -218,9 +218,10 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    DateTime depTime = DateTime.parse(widget.ride['departure_time']);
+    // .toLocal() sørger for at konvertere UTC fra DB til dansk tid
+    DateTime depTime = DateTime.parse(widget.ride['departure_time']).toLocal();
     DateTime arrTime = widget.ride['arrival_time'] != null
-        ? DateTime.parse(widget.ride['arrival_time'])
+        ? DateTime.parse(widget.ride['arrival_time']).toLocal()
         : depTime.add(const Duration(hours: 2));
 
     return Scaffold(

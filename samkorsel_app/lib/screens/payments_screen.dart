@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'tax_info_screen.dart';
 
 class PaymentsScreen extends StatefulWidget {
@@ -12,9 +11,8 @@ class PaymentsScreen extends StatefulWidget {
 
 class _PaymentsScreenState extends State<PaymentsScreen> {
   bool _isLoading = true;
-  bool _hasStripeAccount = false;
+  bool _isStripeReady = false; // Styrer om vi må udbetale
   double _balance = 0.00;
-  String? _stripeAccountId;
 
   @override
   void initState() {
@@ -22,33 +20,33 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
     _fetchWalletData();
   }
 
+  // --- HENT DATA (Opdateret til at tjekke user_stripe_data) ---
   Future<void> _fetchWalletData() async {
     try {
-      final userId = Supabase.instance.client.auth.currentUser!.id;
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) return;
 
-      // 1. Tjek om profil har Stripe ID
-      final profile = await Supabase.instance.client
-          .from('profiles')
-          .select('stripe_account_id, charges_enabled')
-          .eq('id', userId)
-          .single();
+      // 1. Tjek om brugeren har færdiggjort Stripe onboarding (Skatteoplysninger)
+      final stripeData = await Supabase.instance.client
+          .from('user_stripe_data')
+          .select('onboarding_completed')
+          .eq('user_id', userId)
+          .maybeSingle();
 
-      _stripeAccountId = profile['stripe_account_id'];
-      bool chargesEnabled = profile['charges_enabled'] ?? false;
+      // Hvis vi finder en række, og onboarding_completed er true -> Så er vi klar!
+      bool isReady =
+          stripeData != null && stripeData['onboarding_completed'] == true;
 
       // 2. Hent saldo fra din interne wallet tabel
-      // Vi bruger 'maybeSingle' i tilfælde af at wallet ikke er oprettet endnu
       final wallet = await Supabase.instance.client
-          .from('wallets')
+          .from('profiles')
           .select('balance')
-          .eq('user_id', userId)
+          .eq('id', userId)
           .maybeSingle();
 
       if (mounted) {
         setState(() {
-          _hasStripeAccount =
-              _stripeAccountId != null &&
-              chargesEnabled; // Skal være true for at udbetale
+          _isStripeReady = isReady;
           _balance = wallet != null
               ? (wallet['balance'] as num).toDouble()
               : 0.00;
@@ -57,58 +55,6 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
       }
     } catch (e) {
       debugPrint("Fejl i wallet fetch: $e");
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  // --- OPRET STRIPE KONTO ---
-  Future<void> _connectStripe() async {
-    setState(() => _isLoading = true);
-    try {
-      final user = Supabase.instance.client.auth.currentUser!;
-
-      // Kald 'connect-account' funktionen i skyen
-      final res = await Supabase.instance.client.functions.invoke(
-        'connect-account',
-        body: {'user_id': user.id, 'email': user.email},
-      );
-
-      if (res.status == 200) {
-        final data = res.data;
-        final url = Uri.parse(data['url']);
-        final accId = data['stripe_account_id'];
-
-        // Gem Stripe ID i profilen hvis vi ikke har det
-        if (_stripeAccountId == null) {
-          await Supabase.instance.client
-              .from('profiles')
-              .update({'stripe_account_id': accId})
-              .eq('id', user.id);
-        }
-
-        // --- RETTELSE: Brug inAppWebView for seamless oplevelse ---
-        if (await canLaunchUrl(url)) {
-          await launchUrl(
-            url,
-            mode: LaunchMode.inAppWebView, // Holder brugeren i appen
-            webViewConfiguration: const WebViewConfiguration(
-              enableJavaScript: true,
-              enableDomStorage: true,
-            ),
-          );
-
-          // Når brugeren lukker vinduet, opdaterer vi data for at se om de blev færdige
-          await _fetchWalletData();
-        }
-      } else {
-        throw "Kunne ikke forbinde til Stripe serveren.";
-      }
-    } catch (e) {
-      if (mounted)
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Fejl: $e")));
-    } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -122,50 +68,57 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
       final user = Supabase.instance.client.auth.currentUser!;
 
       // Kald 'payout' funktionen i skyen
+      // (Forudsætter at du har oprettet denne Edge Function - hvis ikke, så sig til!)
       final res = await Supabase.instance.client.functions.invoke(
         'payout',
         body: {'user_id': user.id, 'amount': _balance},
       );
 
       if (res.status == 200) {
-        // Opdater wallet i databasen (sæt saldo til 0)
+        // Opdater wallet i databasen (sæt saldo til 0 visuelt med det samme)
         await Supabase.instance.client
             .from('wallets')
             .update({'balance': 0})
             .eq('user_id', user.id);
 
-        // Gem i historik
-        final walletRes = await Supabase.instance.client
-            .from('wallets')
-            .select('id')
-            .eq('user_id', user.id)
-            .single();
-        final walletId = walletRes['id'];
+        // Gem i historik (Valgfrit, men god skik)
+        try {
+          final walletRes = await Supabase.instance.client
+              .from('wallets')
+              .select('id')
+              .eq('user_id', user.id)
+              .single();
 
-        await Supabase.instance.client.from('transactions').insert({
-          'wallet_id': walletId,
-          'amount': -_balance,
-          'type': 'payout',
-          'description': 'Udbetaling til bankkonto',
-        });
+          await Supabase.instance.client.from('transactions').insert({
+            'wallet_id': walletRes['id'],
+            'amount': -_balance,
+            'type': 'payout',
+            'description': 'Udbetaling til bankkonto',
+          });
+        } catch (e) {
+          debugPrint(
+            "Kunne ikke gemme transaktion, men udbetaling er sendt: $e",
+          );
+        }
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text("Pengene er på vej! 💸"),
+              content: Text("Pengene er på vej til din bankkonto! 💸"),
               backgroundColor: Colors.green,
             ),
           );
           _fetchWalletData(); // Opdater UI
         }
       } else {
-        throw "Udbetaling fejlede på serveren.";
+        throw "Udbetaling fejlede på serveren. Status: ${res.status}";
       }
     } catch (e) {
+      debugPrint("Udbetalingsfejl: $e");
       if (mounted)
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text("Udbetalingsfejl: $e")));
+        ).showSnackBar(SnackBar(content: Text("Kunne ikke udbetale: $e")));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -183,112 +136,153 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // --- SALDO KORT ---
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF0F172A), Color(0xFF334155)],
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.blueGrey.withOpacity(0.2),
-                          blurRadius: 10,
-                          offset: const Offset(0, 5),
+          : RefreshIndicator(
+              onRefresh: _fetchWalletData,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // --- SALDO KORT ---
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF0F172A), Color(0xFF334155)],
                         ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          "Tilgængelig saldo",
-                          style: TextStyle(color: Colors.white70, fontSize: 14),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          "${_balance.toStringAsFixed(2)} kr.",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.blueGrey.withOpacity(0.2),
+                            blurRadius: 10,
+                            offset: const Offset(0, 5),
                           ),
-                        ),
-                        const SizedBox(height: 20),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Tilgængelig saldo",
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            "${_balance.toStringAsFixed(2)} kr.",
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
 
-                        if (_hasStripeAccount)
+                          // --- UDBETAL KNAP ---
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
-                              onPressed: _balance > 0 ? _payoutFunds : null,
+                              // Knappen er KUN aktiv hvis saldo > 0 OG Stripe er klar
+                              onPressed: (_balance > 0 && _isStripeReady)
+                                  ? _payoutFunds
+                                  : null,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.white,
+                                disabledBackgroundColor:
+                                    Colors.white24, // Grå når inaktiv
                                 foregroundColor: Colors.black,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
                               ),
-                              child: const Text("Udbetal"),
-                            ),
-                          )
-                        else
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              onPressed: _connectStripe,
-                              icon: const Icon(Icons.account_balance),
-                              label: const Text("Opret Pung (Nødvendig)"),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(
-                                  0xFF6366F1,
-                                ), // Indigo
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                              child: Text(
+                                _isStripeReady ? "Udbetal" : "Udbetaling låst",
+                                style: TextStyle(
+                                  color: (_balance > 0 && _isStripeReady)
+                                      ? Colors.black
+                                      : Colors.white54,
                                 ),
                               ),
                             ),
                           ),
-                      ],
-                    ),
-                  ),
 
-                  const SizedBox(height: 30),
-                  const Text(
-                    "Indstillinger",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 10),
-
-                  _buildSettingsTile(
-                    context,
-                    "Skatteoplysninger (DAC7)",
-                    "Påkrævet for udbetaling",
-                    Icons.account_balance,
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const TaxInfoScreen()),
-                    ),
-                  ),
-                  _buildSettingsTile(
-                    context,
-                    "Betalingsmetoder",
-                    "Kort og MobilePay",
-                    Icons.credit_card,
-                    () => ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text("Administreres via betaling."),
+                          // --- ADVARSEL HVIS IKKE KLAR ---
+                          if (!_isStripeReady)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 10),
+                              child: InkWell(
+                                onTap: () {
+                                  // Send brugeren til skatte-siden
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => const TaxInfoScreen(),
+                                    ),
+                                  ).then(
+                                    (_) => _fetchWalletData(),
+                                  ); // Opdater når de kommer tilbage
+                                },
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: const [
+                                    Icon(
+                                      Icons.info_outline,
+                                      color: Colors.orangeAccent,
+                                      size: 16,
+                                    ),
+                                    SizedBox(width: 5),
+                                    Text(
+                                      "Mangler skatteoplysninger",
+                                      style: TextStyle(
+                                        color: Colors.orangeAccent,
+                                        fontSize: 12,
+                                        decoration: TextDecoration.underline,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
-                  ),
-                ],
+
+                    const SizedBox(height: 30),
+                    const Text(
+                      "Indstillinger",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+
+                    _buildSettingsTile(
+                      context,
+                      "Skatteoplysninger (DAC7)",
+                      _isStripeReady
+                          ? "Oplysninger godkendt ✅"
+                          : "Påkrævet for udbetaling ⚠️",
+                      Icons.account_balance,
+                      () =>
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const TaxInfoScreen(),
+                            ),
+                          ).then(
+                            (_) => _fetchWalletData(),
+                          ), // Opdater data når man kommer tilbage
+                    ),
+                  ],
+                ),
               ),
             ),
     );
