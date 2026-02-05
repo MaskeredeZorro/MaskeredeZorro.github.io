@@ -1,8 +1,13 @@
 import 'dart:convert';
+import 'dart:math'; // VIGTIGT: Til Random()
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+
+// HUSK AT TJEKKE AT STIERNE PASSER TIL DINE FILER
+import '../../services/sms_service.dart';
+import '../screens/verification_screen.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -20,6 +25,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _bioController = TextEditingController();
+
+  // Variabel til at huske det oprindelige nummer for at tjekke for ændringer
+  String _originalPhone = "";
 
   // Bil info
   bool _isDriver = false;
@@ -53,25 +61,26 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           .eq('id', user.id)
           .single();
 
-      // Opdater controllers inde i setState for at sikre UI opdatering
       setState(() {
         _nameController.text = (data['full_name'] ?? "").toString();
-        _phoneController.text = (data['phone_number'] ?? "").toString();
+
+        // Vi gemmer både i controlleren og i _originalPhone
+        String phoneFromDb = (data['phone_number'] ?? "").toString();
+        _phoneController.text = phoneFromDb;
+        _originalPhone = phoneFromDb;
+
         _bioController.text = (data['bio'] ?? "").toString();
         _avatarUrl = (data['avatar_url'] ?? "").toString();
 
         // ROBUST TJEK: Er brugeren chauffør?
-        // Vi tjekker både 'is_driver' feltet OG om der findes bil-data
         bool isDriverFlag = data['is_driver'] as bool? ?? false;
         bool hasCarDetails = data['car_details'] != null;
 
         _isDriver = isDriverFlag || hasCarDetails;
 
-        // Udfyld bil-felter hvis de findes
         if (data['car_details'] != null) {
           dynamic carData = data['car_details'];
 
-          // Håndter hvis Supabase sender det som en JSON string
           if (carData is String) {
             try {
               carData = json.decode(carData);
@@ -81,26 +90,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           }
 
           if (carData is Map) {
-            // Prøv at hente felterne direkte
             if (carData['plate'] != null || carData['make'] != null) {
               _plateController.text = (carData['plate'] ?? "").toString();
               _makeController.text = (carData['make'] ?? "").toString();
               _modelController.text = (carData['model'] ?? "").toString();
               _yearController.text = (carData['year'] ?? "").toString();
               _colorController.text = (carData['color'] ?? "").toString();
-            }
-            // Fallback: Hvis det er gemt i det gamle 'details' format
-            else if (carData['details'] != null) {
+            } else if (carData['details'] != null) {
               String fullMake = (carData['make'] ?? "").toString();
               String details = (carData['details'] ?? "").toString();
 
               List<String> makeParts = fullMake.split(' ');
               if (makeParts.isNotEmpty) {
                 _makeController.text = makeParts[0];
-                if (makeParts.length > 1)
+                if (makeParts.length > 1) {
                   _modelController.text = fullMake
                       .substring(makeParts[0].length)
                       .trim();
+                }
               }
 
               List<String> detailParts = details.split(' • ');
@@ -220,6 +227,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
+  // --- OPDATERING AF PROFIL (MED SIKKERT NUMMERSKIFTE) ---
   Future<void> _updateProfile() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
@@ -229,8 +237,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (user == null) return;
 
       dynamic carJson;
-
-      // Byg kun carJson hvis man er chauffør
       if (_isDriver) {
         carJson = {
           'make': _makeController.text,
@@ -243,34 +249,87 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           'display_name': "${_makeController.text} ${_modelController.text}",
         };
       } else {
-        carJson = null; // Slet bil hvis man slår chauffør fra
+        carJson = null;
+      }
+
+      // TJEK OM NUMMERET ER ÆNDRET
+      final String newPhone = _phoneController.text.trim();
+      final bool hasPhoneChanged = newPhone != _originalPhone;
+
+      // 1. Opdater alt det basale først (navn, bio, bil, etc.)
+      // Vi opdaterer IKKE phone_number her, hvis det er ændret.
+      final Map<String, dynamic> updates = {
+        'full_name': _nameController.text,
+        'bio': _bioController.text,
+        'avatar_url': _avatarUrl,
+        'is_driver': _isDriver,
+        'car_details': carJson,
+        'license_plate': _isDriver ? _plateController.text : null,
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+
+      // Hvis nummeret IKKE er ændret, gemmer vi det bare som normalt for en sikkerheds skyld
+      if (!hasPhoneChanged) {
+        updates['phone_number'] = newPhone;
+      } else {
+        // Hvis nummeret ER ændret, sætter vi status til 'ikke verificeret' i databasen midlertidigt,
+        // ELLER vi venter med at gemme nummeret til VerificationScreen.
+        // Strategi her: Vi gemmer IKKE det nye nummer i 'profiles' endnu.
+        // Det sker først i VerificationScreen efter succes.
       }
 
       await Supabase.instance.client
           .from('profiles')
-          .update({
-            'full_name': _nameController.text,
-            'phone_number': _phoneController.text,
-            'bio': _bioController.text,
-            'avatar_url': _avatarUrl,
-            'is_driver': _isDriver,
-            'car_details': carJson,
-            'license_plate': _isDriver ? _plateController.text : null,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
+          .update(updates)
           .eq('id', user.id);
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Profil opdateret!"),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.pop(
-          context,
-          true,
-        ); // Send 'true' tilbage for at fortælle at vi skal opdatere
+      // 2. Håndter Nummerskifte Logik
+      if (hasPhoneChanged) {
+        // Generer kode
+        final String code = (Random().nextInt(900000) + 100000).toString();
+
+        // Gem kode i DB
+        await Supabase.instance.client.from('sms_verifications').insert({
+          'user_id': user.id,
+          'code': code,
+          'expires_at': DateTime.now()
+              .add(const Duration(minutes: 10))
+              .toIso8601String(),
+        });
+
+        // Send SMS til det NYE nummer
+        final smsService = SmsService();
+        await smsService.sendVerificationCode(newPhone, code);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Profil gemt! Bekræft venligst dit nye nummer."),
+            ),
+          );
+
+          // Send til VerificationScreen med det NYE nummer
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => VerificationScreen(
+                phoneNumber: newPhone,
+                email: _email, // <--- Brug _email variablen fra din state
+              ),
+            ),
+          );
+        }
+      } else {
+        // Hvis intet nummer-skifte, er vi færdige
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Profil opdateret!"),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pop(context, true);
+        }
       }
     } catch (e) {
       if (mounted)
@@ -440,8 +499,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
                     if (_isDriver) ...[
                       const SizedBox(height: 20),
-
-                      // Nummerplade + Hent knap
                       Row(
                         children: [
                           Expanded(
@@ -482,8 +539,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         ],
                       ),
                       const SizedBox(height: 15),
-
-                      // Bil detaljer
                       Row(
                         children: [
                           Expanded(
@@ -569,7 +624,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       keyboardType: isNumber ? TextInputType.number : TextInputType.text,
       textCapitalization: textCapitalization,
       validator: (val) {
-        if (_isDriver && val != null && val.isEmpty) return "Påkrævet";
+        if (_isDriver &&
+            val != null &&
+            val.isEmpty &&
+            !label.contains("Telefon"))
+          return "Påkrævet";
         return null;
       },
       decoration: InputDecoration(

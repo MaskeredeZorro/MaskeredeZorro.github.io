@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
-import '../home_screen.dart';
+
+// Importér din verification screen
+import '/screens/verification_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -22,14 +23,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
 
-  // Billede
-  String? _avatarUrl;
-  bool _isUploadingImage = false;
-
   // Chauffør Del
   bool _isDriver = false;
   final _plateCtrl = TextEditingController();
-  // Bil data (gemmes skjult)
   final _makeCtrl = TextEditingController();
   final _modelCtrl = TextEditingController();
   final _yearCtrl = TextEditingController();
@@ -76,55 +72,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
     }
   }
 
-  // --- 2. UPLOAD BILLEDE (FØR OPRETTELSE) ---
-  Future<void> _pickAndUploadImage() async {
-    final picker = ImagePicker();
-    final imageFile = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 600,
-    );
-    if (imageFile == null) return;
-
-    setState(() => _isUploadingImage = true);
-    try {
-      // Vi har ikke user_id endnu, så vi bruger et midlertidigt unikt navn.
-      // Bedre løsning: Upload efter Auth. Men for UX gør vi det her,
-      // eller vi venter med selve uploadet til submit.
-      // HER UPLOADER VI EFTER SIGNUP i _submit for at have user ID.
-      // Så her gemmer vi bare filen midlertidigt i memory?
-      // Nej, Supabase Storage kræver ofte Auth.
-      // WORKAROUND: Vi opretter brugeren først? Nej.
-
-      // LØSNING: Vi gemmer billedet lokalt i variablen og uploader det,
-      // NÅR vi har fået et user_id fra signUp().
-      // (For simplicitetens skyld i dette eksempel uploader vi til en 'public' mappe
-      // eller venter til step 3. Vi gemmer bare stien her og uploader i step 3).
-
-      // NB: For at gøre det let nu: Vi uploader IKKE her, men vi viser bare at man har valgt et.
-      // Men ImagePicker returnerer en XFile. Vi skal bruge Auth til Storage.
-      // Så vi venter med upload til _signUp metoden.
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Billede valgt. Det gemmes når du opretter kontoen."),
-        ),
-      );
-      // Vi gemmer referencen til filen her, men min kode struktur nedenfor
-      // kalder en upload funktion. Lad os tilpasse _signUp til at tage billedet.
-
-      // TILPASNING: For at gøre det nemt, beder vi brugeren uploade EFTER oprettelse på EditProfile,
-      // ELLER vi accepterer at man skal være logget ind for at uploade.
-      // Vi kører oprettelsen først i _signUp, og så uploader vi billedet til sidst.
-    } catch (e) {
-      // fejl
-    } finally {
-      setState(() => _isUploadingImage = false);
-    }
-  }
-
-  // --- 3. OPRET BRUGER & GEM DATA ---
+  // --- 2. OPRET BRUGER & NAVIGER ---
   Future<void> _signUp() async {
     if (!_formKey.currentState!.validate()) return;
+
     if (_isDriver && _makeCtrl.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Husk at hente din bil via nummerpladen")),
@@ -135,16 +86,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // A. OPRET I AUTH
-      final authRes = await Supabase.instance.client.auth.signUp(
-        email: _emailCtrl.text.trim(),
-        password: _passCtrl.text.trim(),
-      );
-
-      final user = authRes.user;
-      if (user == null) throw "Kunne ikke oprette bruger";
-
-      // B. BYG BIL JSON
+      // FORBERED DATA
       dynamic carJson;
       if (_isDriver) {
         carJson = {
@@ -159,49 +101,50 @@ class _SignUpScreenState extends State<SignUpScreen> {
         };
       }
 
-      // C. OPDATER PROFIL (Den oprettes automatisk via trigger, så vi laver update)
-      // Vi venter lige 500ms for at være sikker på triggeren har kørt
-      await Future.delayed(const Duration(milliseconds: 500));
+      // OPRET I AUTH
+      await Supabase.instance.client.auth.signUp(
+        email: _emailCtrl.text.trim(),
+        password: _passCtrl.text.trim(),
+        emailRedirectTo: 'io.supabase.flutterquickstart://login-callback',
+        data: {
+          'full_name': _nameCtrl.text.trim(),
+          'phone_number': _phoneCtrl.text.trim(),
+          'is_driver': _isDriver,
+          'license_plate': _isDriver ? _plateCtrl.text : null,
+          'car_details': carJson,
+        },
+      );
 
-      await Supabase.instance.client
-          .from('profiles')
-          .update({
-            'full_name': _nameCtrl.text.trim(),
-            'phone_number': _phoneCtrl.text.trim(),
-            'is_driver': _isDriver,
-            'license_plate': _isDriver ? _plateCtrl.text : null,
-            'car_details': carJson,
-            // 'avatar_url': ... (Hvis du vil implementere billede upload, skal det ske her efter Auth)
-          })
-          .eq('id', user.id);
-
+      // NAVIGER STRAKS
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Konto oprettet! Velkommen 🎉"),
-            backgroundColor: Colors.green,
-          ),
-        );
-        // Gå til Home
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          MaterialPageRoute(
+            builder: (_) => VerificationScreen(
+              phoneNumber: _phoneCtrl.text.trim(),
+              email: _emailCtrl.text.trim(),
+              password: _passCtrl.text
+                  .trim(), // <--- VIGTIGT: Vi sender koden med!
+            ),
+          ),
           (route) => false,
         );
       }
     } on AuthException catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(e.message), backgroundColor: Colors.red),
         );
+      }
     } catch (e) {
       debugPrint("Fejl: $e");
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text("Der skete en fejl"),
             backgroundColor: Colors.red,
           ),
         );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -224,7 +167,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
               ),
               const SizedBox(height: 30),
 
-              // --- FELTER ---
               TextFormField(
                 controller: _nameCtrl,
                 decoration: const InputDecoration(
@@ -268,7 +210,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
               const SizedBox(height: 30),
               const Divider(),
 
-              // --- CHAUFFØR TOGGLE ---
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text(
@@ -291,13 +232,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     border: Border.all(color: Colors.grey.shade300),
                   ),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        "Indtast nummerplade",
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                      const SizedBox(height: 5),
                       Row(
                         children: [
                           Expanded(
@@ -314,13 +249,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           const SizedBox(width: 10),
                           ElevatedButton(
                             onPressed: _isFetchingCar ? null : _fetchCar,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.black,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 16,
-                              ),
-                            ),
                             child: _isFetchingCar
                                 ? const SizedBox(
                                     height: 20,
@@ -331,13 +259,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                     ),
                                   )
                                 : const Icon(Icons.search),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.black,
+                              padding: const EdgeInsets.all(16),
+                            ),
                           ),
                         ],
                       ),
                       if (_makeCtrl.text.isNotEmpty) ...[
                         const SizedBox(height: 10),
                         Text(
-                          "✅ ${_makeCtrl.text} ${_modelCtrl.text} (${_yearCtrl.text})",
+                          "✅ ${_makeCtrl.text} ${_modelCtrl.text}",
                           style: const TextStyle(
                             color: Colors.green,
                             fontWeight: FontWeight.bold,

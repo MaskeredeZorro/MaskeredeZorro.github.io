@@ -1,10 +1,14 @@
+import 'dart:convert'; // Til JSON parsing af Mapbox data
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http; // Til API kald mod Mapbox
+import 'package:samkorsel_app/screens/auth/signup_screen.dart';
+import 'package:samkorsel_app/screens/auth/welcome_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'auth_screen.dart';
 import '../features/rides/chat_screen.dart';
 import 'edit_profile_screen.dart';
-import 'payments_screen.dart'; // HUSK AT OPRETTE DENNE FIL NEDENFOR
+import 'payments_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -19,10 +23,104 @@ class _ProfileScreenState extends State<ProfileScreen>
   final String _userId = Supabase.instance.client.auth.currentUser!.id;
   final Color _primaryColor = const Color(0xFF0F172A);
 
+  // Din Mapbox Token
+  final String _mapboxToken =
+      "pk.eyJ1IjoiaG9wcG9uIiwiYSI6ImNtbDk0bDN3cTBiM3MzZnFzdThhOXRuZG4ifQ.9LP9GFe5zEvMjwhPtf6l0w";
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+  }
+
+  // -- LOGIK: BEREGN OG FORDEL CO2 --
+  Future<void> _calculateAndDistributeCO2(String rideId) async {
+    try {
+      final client = Supabase.instance.client;
+
+      // 1. Hent tur-info inklusiv koordinater konverteret fra PostGIS Hex til Lat/Lng
+      // Vi bruger st_x (lng) og st_y (lat) direkte i SQL forespørgslen
+      final rideData = await client
+          .from('rides')
+          .select(
+            'driver_id, is_ferry, st_x(origin_location) as start_lng, st_y(origin_location) as start_lat, st_x(destination_location) as end_lng, st_y(destination_location) as end_lat',
+          )
+          .eq('id', rideId)
+          .single();
+
+      // 2. Hent passagerer (kun godkendte)
+      final passengers = await client
+          .from('bookings')
+          .select('passenger_id')
+          .eq('ride_id', rideId)
+          .eq('status', 'approved');
+
+      if (passengers.isEmpty) {
+        debugPrint("Ingen passagerer - ingen CO2 besparelse at fordele.");
+        return;
+      }
+
+      // 3. Beregn rute via Mapbox
+      final double startLat = rideData['start_lat'];
+      final double startLng = rideData['start_lng'];
+      final double endLat = rideData['end_lat'];
+      final double endLng = rideData['end_lng'];
+      final bool isFerry = rideData['is_ferry'] ?? false;
+
+      // Hvis is_ferry er FALSE, så ekskluder færger.
+      // Hvis is_ferry er TRUE, så tillad standard rute (Mapbox vælger selv).
+      final String excludeParam = isFerry ? '' : '&exclude=ferry';
+
+      final url = Uri.parse(
+        'https://api.mapbox.com/directions/v5/mapbox/driving/$startLng,$startLat;$endLng,$endLat?access_token=$_mapboxToken$excludeParam',
+      );
+
+      final mapResponse = await http.get(url);
+
+      if (mapResponse.statusCode != 200) {
+        debugPrint("Mapbox API Fejl: ${mapResponse.body}");
+        return; // Afbryd CO2 beregning, men lad betaling fortsætte
+      }
+
+      final mapData = json.decode(mapResponse.body);
+      final routes = mapData['routes'] as List;
+      if (routes.isEmpty) return;
+
+      // Distance i meter -> omregn til km
+      final double distanceKm = (routes[0]['distance'] as num) / 1000.0;
+
+      // 4. Beregn besparelse
+      // Logik: Hver passager sparer 1 bil.
+      // 1 bil = 0.16 kg CO2 pr km.
+      // Total sparet = Antal passagerer * (km * 0.16)
+      final int passengerCount = passengers.length;
+      final double co2PerCar = distanceKm * 0.16;
+      final double totalSaved = co2PerCar * passengerCount;
+
+      // Fordeling: Ligeligt mellem chauffør og passagerer (passengerCount + 1 chauffør)
+      final double sharePerPerson = totalSaved / (passengerCount + 1);
+
+      debugPrint(
+        "Rute: $distanceKm km. Total sparet: $totalSaved kg. Pr. person: $sharePerPerson kg.",
+      );
+
+      // 5. Opdater Chauffør (Brug RPC funktion 'increment_co2')
+      await client.rpc(
+        'increment_co2',
+        params: {'user_id': rideData['driver_id'], 'amount': sharePerPerson},
+      );
+
+      // 6. Opdater Passagerer
+      for (var p in passengers) {
+        await client.rpc(
+          'increment_co2',
+          params: {'user_id': p['passenger_id'], 'amount': sharePerPerson},
+        );
+      }
+    } catch (e) {
+      debugPrint("Kritisk fejl i CO2 beregning: $e");
+      // Vi kaster ikke exception videre, da vi ikke vil blokere selve betalingen/afslutningen af turen
+    }
   }
 
   // -- LOGIK: OPDATER STATUS --
@@ -46,12 +144,13 @@ class _ProfileScreenState extends State<ProfileScreen>
       }
     } catch (e) {
       debugPrint("Fejl: $e");
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text("Kunne ikke opdatere - Tjek RLS policies!"),
           ),
         );
+      }
     }
   }
 
@@ -64,12 +163,18 @@ class _ProfileScreenState extends State<ProfileScreen>
         builder: (context) => const Center(child: CircularProgressIndicator()),
       );
 
+      // --- TRIN 1: BEREGN OG FORDEL CO2 (Før betaling/lukning) ---
+      // Vi venter på at denne bliver færdig, før vi lukker turen
+      await _calculateAndDistributeCO2(rideId);
+
+      // --- TRIN 2: BETALING & LUK TUR ---
       // Hent det aktuelle token manuelt for at være 100% sikker
       final String? jwt =
           Supabase.instance.client.auth.currentSession?.accessToken;
 
-      if (jwt == null)
+      if (jwt == null) {
         throw "Ingen gyldig session fundet. Log venligst ind igen.";
+      }
 
       final session = Supabase.instance.client.auth.currentSession;
       print("Mit JWT: ${session?.accessToken}");
@@ -87,7 +192,9 @@ class _ProfileScreenState extends State<ProfileScreen>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text("Turen er afsluttet og pengene er overført! 💸"),
+              content: Text(
+                "Turen er afsluttet, CO2 er fordelt og pengene er overført! 💸🌿",
+              ),
               backgroundColor: Colors.green,
             ),
           );
@@ -148,10 +255,12 @@ class _ProfileScreenState extends State<ProfileScreen>
             icon: const Icon(Icons.logout, color: Colors.red),
             onPressed: () async {
               await Supabase.instance.client.auth.signOut();
-              if (context.mounted)
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(builder: (_) => const AuthScreen()),
+              if (context.mounted) {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+                  (route) => false,
                 );
+              }
             },
           ),
         ],
@@ -221,14 +330,16 @@ class _ProfileScreenState extends State<ProfileScreen>
                       .eq('driver_id', _userId)
                       .order('departure_time', ascending: true),
                   builder: (context, snapshot) {
-                    if (!snapshot.hasData)
+                    if (!snapshot.hasData) {
                       return const Center(child: CircularProgressIndicator());
+                    }
                     final rides = snapshot.data!;
                     final activeRides = rides
                         .where((ride) => ride['status'] != 'completed')
                         .toList();
-                    if (activeRides.isEmpty)
+                    if (activeRides.isEmpty) {
                       return const Center(child: Text("Ingen ture oprettet."));
+                    }
 
                     return ListView.builder(
                       padding: const EdgeInsets.all(10),
@@ -267,8 +378,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                                     .stream(primaryKey: ['id'])
                                     .eq('ride_id', ride['id']),
                                 builder: (context, bSnapshot) {
-                                  if (!bSnapshot.hasData)
+                                  if (!bSnapshot.hasData) {
                                     return const SizedBox();
+                                  }
                                   final bookings = bSnapshot.data!;
 
                                   if (bookings.isEmpty) {
@@ -444,11 +556,13 @@ class _ProfileScreenState extends State<ProfileScreen>
                       .eq('passenger_id', _userId)
                       .order('created_at', ascending: false),
                   builder: (context, snapshot) {
-                    if (!snapshot.hasData)
+                    if (!snapshot.hasData) {
                       return const Center(child: CircularProgressIndicator());
+                    }
                     final bookings = snapshot.data!;
-                    if (bookings.isEmpty)
+                    if (bookings.isEmpty) {
                       return const Center(child: Text("Ingen ture booket."));
+                    }
 
                     return ListView.builder(
                       padding: const EdgeInsets.all(10),

@@ -20,6 +20,8 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
   bool _isLoading = false;
   bool _hasBooked = false;
   Map<String, dynamic>? _driverProfile;
+  Map<String, dynamic>?
+  _currentUserProfile; // NY: Gemmer den aktuelle brugerprofil
   List<Map<String, dynamic>> _passengers = [];
 
   // --- DESIGN TEMA (Slate & Indigo) ---
@@ -36,12 +38,23 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
   Future<void> _fetchData() async {
     try {
       final client = Supabase.instance.client;
+      final user = client.auth.currentUser;
       // 1. Hent chauffør
       final driverData = await client
           .from('profiles')
           .select()
           .eq('id', widget.ride['driver_id'])
           .single();
+
+      // 2. Hent din egen profil (NY KODE)
+      Map<String, dynamic>? myProfile;
+      if (user != null) {
+        myProfile = await client
+            .from('profiles')
+            .select()
+            .eq('id', user.id)
+            .single();
+      }
       // 2. Hent passagerer
       final bookingsData = await client
           .from('bookings')
@@ -52,6 +65,8 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
       if (mounted) {
         setState(() {
           _driverProfile = driverData;
+          _currentUserProfile =
+              myProfile; // Gem den aktuelle brugerprofil i state
           _passengers = List<Map<String, dynamic>>.from(bookingsData);
         });
       }
@@ -248,6 +263,15 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
     DateTime arrTime = widget.ride['arrival_time'] != null
         ? DateTime.parse(widget.ride['arrival_time']).toLocal()
         : depTime.add(const Duration(hours: 2));
+    // Beregn om brugeren er klar til at booke (skal bruges til knappen i bunden)
+    final bool isDriver = _currentUserProfile?['is_driver'] == true;
+
+    // 2. Hent nummerpladen sikkert (hvis den er null, bliver den til "")
+    final String plate =
+        _currentUserProfile?['license_plate']?.toString() ?? "";
+
+    // 3. Den samlede status: Er chauffør-flaget true OG er der tekst i nummerpladen?
+    final bool isDriverReady = isDriver && plate.trim().isNotEmpty;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -525,6 +549,7 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
           ),
 
           // --- STICKY BOTTOM BUTTON ---
+          // --- STICKY BOTTOM BUTTON ---
           Positioned(
             bottom: 20,
             left: 20,
@@ -532,11 +557,28 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
             child: SizedBox(
               height: 56,
               child: ElevatedButton(
-                onPressed: (_isLoading || _hasBooked) ? null : _bookRide,
+                // 1. Logik for tryk: Hvis ikke klar, vis SnackBar. Ellers kør _bookRide.
+                onPressed: (_isLoading || _hasBooked)
+                    ? null
+                    : (!isDriverReady
+                          ? () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    "Tilføj nummerplade under Profil",
+                                  ),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          : _bookRide),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _primaryColor,
+                  // 2. Skift farve baseret på om brugeren er klar
+                  backgroundColor: isDriverReady
+                      ? _primaryColor
+                      : Colors.grey.shade400,
                   foregroundColor: Colors.white,
-                  elevation: 8,
+                  elevation: isDriverReady ? 8 : 0,
                   shadowColor: _primaryColor.withOpacity(0.4),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -545,12 +587,18 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    if (widget.ride['instant_booking'] == true) ...[
+                    // Vis kun lyn-ikonet hvis knappen faktisk er aktiv
+                    if (widget.ride['instant_booking'] == true &&
+                        isDriverReady) ...[
                       const Icon(Icons.bolt, color: Colors.amber),
                       const SizedBox(width: 8),
                     ],
                     Text(
-                      _hasBooked ? "Anmodning sendt ✓" : "Book plads nu",
+                      _hasBooked
+                          ? "Anmodning sendt ✓"
+                          : (isDriverReady
+                                ? "Book plads nu"
+                                : "Nummerplade påkrævet"),
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -765,17 +813,38 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
     Map<String, dynamic>? profile, {
     required bool isMe,
   }) {
+    // Tjek om den nuværende bruger er klar (har både is_driver sat og en udfyldt nummerplade)
+    // Vi tilføjer "?? false" til sidst for at sikre, at værdien altid er en rigtig bool
+    // 1. Hent nummerpladen sikkert (hvis den er null, bliver den til en tom tekst "")
+    final String plate =
+        _currentUserProfile?['license_plate']?.toString() ?? "";
+
+    // 2. Definer isDriverReady som en ren bool
+    final bool isDriverReady =
+        (_currentUserProfile?['is_driver'] == true && plate.trim().isNotEmpty);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 15),
       child: InkWell(
-        onTap: profile != null
-            ? () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => PublicProfileScreen(userId: profile['id']),
-                ),
-              )
-            : null,
+        onTap: () {
+          if (profile != null) {
+            // Hvis der sidder en passager, gå til deres profil
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => PublicProfileScreen(userId: profile['id']),
+              ),
+            );
+          } else if (!isDriverReady) {
+            // Hvis sædet er ledigt, men brugeren mangler nummerplade
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("Tilføj nummerplade under Profil"),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        },
         child: Row(
           children: [
             if (profile != null)
@@ -789,19 +858,25 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
                     : null,
               )
             else
+              // Ledigt sæde ikon - bliver gråt hvis ikke klar
               Container(
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: isDriverReady ? Colors.white : Colors.grey.shade100,
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.grey.shade300),
+                  border: Border.all(
+                    color: isDriverReady
+                        ? Colors.grey.shade300
+                        : Colors.grey.shade200,
+                  ),
                 ),
-                child: const Icon(Icons.add, color: Colors.grey),
+                child: Icon(
+                  Icons.add,
+                  color: isDriverReady ? Colors.grey : Colors.grey.shade400,
+                ),
               ),
-
             const SizedBox(width: 15),
-
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -810,14 +885,17 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
-                    color: _primaryColor,
+                    // Tekst bliver grå hvis man ikke kan booke
+                    color: (profile == null && !isDriverReady)
+                        ? Colors.grey
+                        : _primaryColor,
                   ),
                 ),
                 if (profile == null)
                   Text(
-                    "Kunne være dig?",
+                    isDriverReady ? "Kunne være dig?" : "Nummerplade påkrævet",
                     style: TextStyle(
-                      color: _accentColor,
+                      color: isDriverReady ? _accentColor : Colors.grey,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),

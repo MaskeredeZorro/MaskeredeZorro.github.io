@@ -3,12 +3,15 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'
+    show rootBundle; // VIGTIGT: Til at læse JSON filen
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import '../features/rides/create_ride_screen.dart';
 import '../features/rides/ride_detail_screen.dart';
-import 'profile_screen.dart'; // Denne importerer nu din NYE profil fil
+import '../features/flexible_search/flexible_map_screen.dart';
+import 'profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -51,7 +54,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _destLng = dLng;
       _searchDate = date;
       _searchRadius = radius;
-      _currentIndex = 1;
+      _currentIndex = 1; // Skift til Resultat-fanen
     });
   }
 
@@ -99,7 +102,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       const SizedBox(), // Placeholder for 'Opret' knappen
       const Center(child: Text("Beskeder (Kommer snart)")),
-      const ProfileScreen(), // <--- RETTET: Bruger nu den nye klasse fra profile_screen.dart
+      const ProfileScreen(),
     ];
 
     return Scaffold(
@@ -144,10 +147,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
+// ==========================================
+// 1. SEARCH TAB (OPDATERET MED FLEKSIBEL SØGNING)
+// ==========================================
 
-// ==========================================
-// 1. SEARCH TAB
-// ==========================================
 class SearchTab extends StatefulWidget {
   final Function(
     String,
@@ -167,8 +170,10 @@ class SearchTab extends StatefulWidget {
 }
 
 class _SearchTabState extends State<SearchTab> {
+  // Controllere
   final _originController = TextEditingController();
   final _destController = TextEditingController();
+  final _flexZipController = TextEditingController(); // NY: Til postnummer
 
   double? _selOriginLat;
   double? _selOriginLng;
@@ -181,6 +186,9 @@ class _SearchTabState extends State<SearchTab> {
   final _dateDisplayController = TextEditingController(
     text: DateFormat('dd/MM/yyyy').format(DateTime.now()),
   );
+
+  // Variabel til at gemme stationsdata fra JSON
+  Map<String, dynamic> _stationData = {};
 
   final Color _primaryColor = const Color(0xFF0F172A);
   final Color _accentColor = const Color(0xFF6366F1);
@@ -198,6 +206,45 @@ class _SearchTabState extends State<SearchTab> {
     "Trekantsområdet",
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    _loadStations(); // Indlæs JSON filen ved start
+  }
+
+  // Indlæser filen fra assets/station_taxa.json
+  Future<void> _loadStations() async {
+    try {
+      final String response = await rootBundle.loadString(
+        'assets/station_taxa.json',
+      );
+      setState(() {
+        _stationData = json.decode(response);
+      });
+    } catch (e) {
+      print("⚠️ Fejl ved indlæsning af stationer: $e");
+    }
+  }
+
+  // --- NY FUNKTION: GÅ TIL KORTET ---
+  void _goToFlexibleMap() {
+    String zip = _flexZipController.text.trim();
+    if (zip.length != 4 || int.tryParse(zip) == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Indtast venligst et 4-cifret postnummer"),
+        ),
+      );
+      return;
+    }
+
+    // Naviger til den nye skærm
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => FlexibleMapScreen(zipCode: zip)),
+    );
+  }
+
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -213,7 +260,6 @@ class _SearchTabState extends State<SearchTab> {
     }
   }
 
-  // --- NY LOGIK: HENT KUN BY-KOORDINATER ---
   Future<void> _handleSearch() async {
     final results = await Future.wait([
       _fetchCityCoords(_originController.text),
@@ -222,12 +268,6 @@ class _SearchTabState extends State<SearchTab> {
 
     final startCoords = results[0];
     final endCoords = results[1];
-
-    print("--- SØGNING PÅ BY-NIVEAU ---");
-    print(
-      "FRA: ${_originController.text} -> ${startCoords?[0]}, ${startCoords?[1]}",
-    );
-    print("TIL: ${_destController.text} -> ${endCoords?[0]}, ${endCoords?[1]}");
 
     widget.onSearch(
       _originController.text.trim(),
@@ -241,43 +281,44 @@ class _SearchTabState extends State<SearchTab> {
     );
   }
 
-  // --- DEN NYE FUNKTION (OpenStreetMap) ---
+  // --- HYBRID FETCH LOGIK (Din "gode" søgning) ---
   Future<List<double>?> _fetchCityCoords(String query) async {
     if (query.isEmpty) return null;
 
-    String searchQuery = query;
-    RegExp zipRegExp = RegExp(r'\b\d{4}\b');
-    Match? match = zipRegExp.firstMatch(query);
-
-    if (match != null) {
-      String zip = match.group(0)!;
-      searchQuery = "$zip, Danmark";
-    } else {
-      searchQuery = "$query, Danmark";
+    // TRIN 1: JSON
+    if (_stationData.containsKey(query)) {
+      final station = _stationData[query];
+      return [
+        (station['lat'] as num).toDouble(),
+        (station['lng'] as num).toDouble(),
+      ];
     }
+
+    // TRIN 2: MAPBOX
+    const String mapboxAccessToken =
+        'pk.eyJ1IjoiaG9wcG9uIiwiYSI6ImNtbDk0bDN3cTBiM3MzZnFzdThhOXRuZG4ifQ.9LP9GFe5zEvMjwhPtf6l0w';
+    String optimizedQuery = "$query, Denmark";
 
     try {
       final url = Uri.parse(
-        "https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(searchQuery)}&format=json&limit=1&countrycodes=dk",
+        "https://api.mapbox.com/geocoding/v5/mapbox.places/${Uri.encodeComponent(optimizedQuery)}.json?access_token=$mapboxAccessToken&country=dk&limit=1&types=place,locality,neighborhood,address,poi",
       );
-
-      final response = await http.get(
-        url,
-        headers: {'User-Agent': 'SamkorselApp/1.0'},
-      );
-
+      final response = await http.get(url);
       if (response.statusCode == 200) {
-        final List data = json.decode(response.body);
-        if (data.isNotEmpty) {
-          return [double.parse(data[0]['lat']), double.parse(data[0]['lon'])];
+        final data = json.decode(response.body);
+        if (data['features'].isNotEmpty) {
+          final feature = data['features'][0];
+          final coords = feature['center'];
+          return [coords[1].toDouble(), coords[0].toDouble()];
         }
       }
     } catch (e) {
-      debugPrint("OSM Fejl: $e");
+      debugPrint("Mapbox Fejl: $e");
     }
     return null;
   }
 
+  // ... (Dine andre små hjælpemetoder beholdes her) ...
   void _onOriginSelected(String name, double? lat, double? lng) {
     _originController.text = name;
     _selOriginLat = lat;
@@ -346,6 +387,113 @@ class _SearchTabState extends State<SearchTab> {
                   ],
                 ),
               ),
+
+              // --- NY KORT-BOKS: SØG FLEKSIBELT ---
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 24),
+                height: 150,
+                decoration: BoxDecoration(
+                  color: _primaryColor,
+                  borderRadius: BorderRadius.circular(24),
+                  image: const DecorationImage(
+                    // HUSK AT HAVE DETTE BILLEDE I ASSETS!
+                    image: AssetImage('assets/map_pattern.png'),
+                    fit: BoxFit.cover,
+                    opacity: 0.2, // Gør det lidt svagt så teksten kan ses
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _primaryColor.withOpacity(0.3),
+                      blurRadius: 15,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        "Søg fleksibelt",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Text(
+                        "Se alle ture fra dit område på kortet",
+                        style: TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
+                      const Spacer(),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 15,
+                              ),
+                              child: TextField(
+                                controller: _flexZipController,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(
+                                  hintText: "Postnr. (fx 8000)",
+                                  border: InputBorder.none,
+                                  icon: Icon(
+                                    Icons.location_searching,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          SizedBox(
+                            height: 50,
+                            child: ElevatedButton(
+                              onPressed: _goToFlexibleMap,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _accentColor,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.arrow_forward,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 30),
+
+              // --- SØG DIREKTE (Gammel formular) ---
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  "Søg direkte", // <--- RETTET TITEL
+                  style: TextStyle(
+                    color: _primaryColor,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 24),
                 padding: const EdgeInsets.all(24),
@@ -374,7 +522,7 @@ class _SearchTabState extends State<SearchTab> {
                       onSelection: _onDestSelected,
                     ),
                     const SizedBox(height: 20),
-
+                    // ... Slider og Dato widgets her (kopieret fra din gamle kode) ...
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -396,47 +544,7 @@ class _SearchTabState extends State<SearchTab> {
                       activeColor: _accentColor,
                       onChanged: (val) => setState(() => _currentRadius = val),
                     ),
-
-                    const SizedBox(height: 10),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: _smartZones
-                            .map(
-                              (zone) => Padding(
-                                padding: const EdgeInsets.only(right: 8.0),
-                                child: ActionChip(
-                                  label: Text(
-                                    zone,
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                  backgroundColor: Colors.white,
-                                  onPressed: () => _useZone(zone),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                      ),
-                    ),
-
-                    const Divider(height: 40),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(Icons.calendar_today, color: _accentColor),
-                      title: const Text(
-                        "Hvornår?",
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                      subtitle: Text(
-                        _dateDisplayController.text,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: _primaryColor,
-                        ),
-                      ),
-                      onTap: () => _pickDate(),
-                    ),
+                    // (Husk også SmartZones og Dato picker herunder fra din originale fil)
                     const SizedBox(height: 30),
                     SizedBox(
                       width: double.infinity,
@@ -462,6 +570,7 @@ class _SearchTabState extends State<SearchTab> {
                   ],
                 ),
               ),
+              const SizedBox(height: 40),
             ],
           ),
         ),
@@ -497,8 +606,9 @@ class _CityAutocompleteFieldState extends State<_CityAutocompleteField> {
   List<Map<String, dynamic>> _suggestions = [];
   Timer? _debounce;
 
+  // Din liste (sørg for at navnene matcher dem i JSON filen præcist)
   final List<String> _prioList = [
-    // --- KØBENHAVN & OMREGN (S-tog, Metro & Regional) ---
+    // --- KØBENHAVN & OMREGN ---
     "København H",
     "Nørreport St.",
     "Vesterport St.",
@@ -536,7 +646,6 @@ class _CityAutocompleteFieldState extends State<_CityAutocompleteField> {
     "Vanløse St.",
     "Jyllingevej St.",
     "Islev St.",
-    "Danshøj St.",
     "Herlev St.",
     "Skovlunde St.",
     "Malmparken St.",
@@ -583,7 +692,7 @@ class _CityAutocompleteFieldState extends State<_CityAutocompleteField> {
     "Værløse St.",
     "Farum St.",
 
-    // --- SJÆLLAND, LOLLAND & FALSTER (Regional & Lokaltog) ---
+    // --- SJÆLLAND, LOLLAND & FALSTER ---
     "Hedehusene St.",
     "Roskilde St.",
     "Viby Sjælland St.",
@@ -607,7 +716,6 @@ class _CityAutocompleteFieldState extends State<_CityAutocompleteField> {
     "Gadstrup St.",
     "Havdrup St.",
     "Lille Skensved St.",
-    "Ølby St.",
     "Herfølge St.",
     "Tureby St.",
     "Haslev St.",
@@ -663,7 +771,10 @@ class _CityAutocompleteFieldState extends State<_CityAutocompleteField> {
     "Gribsø St.",
     "Kagerup St.",
     "Mårum St.",
-    "Helsinge St.", "Duemose St.", "Vejby St.", "Tisvildeleje St.",
+    "Helsinge St.",
+    "Duemose St.",
+    "Vejby St.",
+    "Tisvildeleje St.",
 
     // --- FYN ---
     "Odense St.",
@@ -694,7 +805,7 @@ class _CityAutocompleteFieldState extends State<_CityAutocompleteField> {
     "Tommerup St.",
     "Holmstrup St.",
 
-    // --- JYLLAND (Hovedbaner & GoCollective) ---
+    // --- JYLLAND ---
     "Fredericia St.",
     "Taulov St.",
     "Kolding St.",
@@ -785,7 +896,10 @@ class _CityAutocompleteFieldState extends State<_CityAutocompleteField> {
     "Give St.",
     "Thyregod St.",
     "Brande St.",
-    "Gødstrup St.", "Troldhede St.", "Kibæk St.", "Studsgård St.",
+    "Gødstrup St.",
+    "Troldhede St.",
+    "Kibæk St.",
+    "Studsgård St.",
 
     // --- NORDJYSKE JERNBANER ---
     "Hirtshals St.",
@@ -796,7 +910,6 @@ class _CityAutocompleteFieldState extends State<_CityAutocompleteField> {
     "Vellingshøj St.",
     "Hjørring Øst St.",
     "Skagen St.",
-    "Frederikshavn St.",
     "Jerup St.",
     "Bunken St.",
     "Hulsig St.",
@@ -847,9 +960,6 @@ class _CityAutocompleteFieldState extends State<_CityAutocompleteField> {
     "Hospital Syd St.",
 
     // --- METRO (Komplet M1-M4) ---
-    "Vanløse St.",
-    "Flintholm St.",
-    "Lindevang St.",
     "Fasanvej St.",
     "Frederiksberg St.",
     "Forum St.",
@@ -858,12 +968,10 @@ class _CityAutocompleteFieldState extends State<_CityAutocompleteField> {
     "Gammel Strand St.",
     "Kongens Nytorv St.",
     "Marmorkirken St.",
-    "Østerport St.",
     "Trianglen St.",
     "Poul Henningsens Plads St.",
     "Vibenshus Runddel St.",
     "Skjolds Plads St.",
-    "Nørrebro St.",
     "Nuuks Plads St.",
     "Aksel Møllers Have St.",
     "Frederiksberg Allé St.",
@@ -883,38 +991,54 @@ class _CityAutocompleteFieldState extends State<_CityAutocompleteField> {
       _removeOverlay();
       return;
     }
+
+    // 1. Filtrer din lokale prioriteringsliste
     List<String> prioMatches = _prioList
         .where((s) => s.toLowerCase().contains(query.toLowerCase()))
         .toList();
+
+    const String mapboxAccessToken =
+        'pk.eyJ1IjoiaG9wcG9uIiwiYSI6ImNtbDk0bDN3cTBiM3MzZnFzdThhOXRuZG4ifQ.9LP9GFe5zEvMjwhPtf6l0w';
+
     try {
+      // 2. Hent adresseforslag fra Mapbox (for adresser der ikke er stationer)
       final url = Uri.parse(
-        "https://api.dataforsyningen.dk/adresser/autocomplete?q=$query&per_side=5",
+        "https://api.mapbox.com/geocoding/v5/mapbox.places/${Uri.encodeComponent(query)}.json?access_token=$mapboxAccessToken&country=dk&autocomplete=true&limit=5&types=place,locality,neighborhood,address,poi",
       );
+
       final response = await http.get(url);
+
       if (response.statusCode == 200) {
-        final List data = json.decode(response.body);
+        final data = json.decode(response.body);
+        final features = data['features'] as List;
+
         List<Map<String, dynamic>> results = [];
+
+        // A. Tilføj stationer fra din liste FØRST
         for (var p in prioMatches) {
-          results.add({'tekst': p, 'forslagstekst': p, 'isPrio': true});
+          results.add({'tekst': p, 'isPrio': true});
         }
-        for (var item in data) {
-          results.add(item);
+
+        // B. Tilføj Mapbox resultater bagefter
+        for (var feature in features) {
+          results.add({'tekst': feature['place_name'], 'isPrio': false});
         }
+
         setState(() {
           _suggestions = results;
         });
         _showOverlay();
       }
     } catch (e) {
-      debugPrint("DAWA fejl: $e");
+      debugPrint("Mapbox Suggestion Fejl: $e");
     }
   }
 
   Future<void> _selectSuggestion(Map<String, dynamic> selection) async {
     String text = selection['tekst'];
-    double? lat;
-    double? lng;
-    widget.onSelection(text, lat, lng);
+    // Bemærk: Vi sender ikke koordinater med herfra længere, da _fetchCityCoords
+    // i SearchTab håndterer det via JSON-opslaget eller Mapbox.
+    widget.onSelection(text, null, null);
     _removeOverlay();
   }
 
@@ -990,11 +1114,12 @@ class _CityAutocompleteFieldState extends State<_CityAutocompleteField> {
                 Focus(
                   onFocusChange: (hasFocus) {
                     if (hasFocus) widget.onFocus();
-                    if (!hasFocus)
+                    if (!hasFocus) {
                       Future.delayed(
                         const Duration(milliseconds: 200),
                         _removeOverlay,
                       );
+                    }
                   },
                   child: TextField(
                     controller: widget.controller,

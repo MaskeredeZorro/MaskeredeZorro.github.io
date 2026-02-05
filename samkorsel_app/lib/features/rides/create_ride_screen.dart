@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'
+    show rootBundle; // VIGTIGT: Til at læse JSON filen
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
@@ -38,51 +40,82 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
 
   bool _isLoading = false;
 
+  // Variabel til at gemme stationsdata
+  Map<String, dynamic> _stationData = {};
+
   // Farver til temaet (Slate & Indigo)
   final Color _primaryColor = const Color(0xFF0F172A);
   final Color _accentColor = const Color(0xFF6366F1);
 
-  // --- NY GPS LOGIK (OpenStreetMap / Nominatim) ---
+  @override
+  void initState() {
+    super.initState();
+    _loadStations(); // Indlæs stationsfilen når skærmen åbner
+  }
+
+  // Funktion til at indlæse JSON filen
+  Future<void> _loadStations() async {
+    try {
+      final String response = await rootBundle.loadString(
+        'assets/station_taxa.json',
+      );
+      setState(() {
+        _stationData = json.decode(response);
+      });
+      print(
+        "✅ CreateRide: Indlæste ${_stationData.length} stationer fra filen.",
+      );
+    } catch (e) {
+      print("⚠️ CreateRide: Kunne ikke indlæse stationer: $e");
+    }
+  }
+
+  // --- NY HYBRID GPS LOGIK (JSON -> Mapbox) ---
   Future<Map<String, double>?> _getCityCoordinates(String query) async {
     if (query.isEmpty) return null;
 
-    String searchQuery = query;
+    // TRIN 1: TJEK DIN LOKALE FIL (Prioritet #1)
+    if (_stationData.containsKey(query)) {
+      final station = _stationData[query];
+      print("🎯 FAST STATION FUNDET (CreateRide): '$query'");
 
-    // 1. "Smart" Logik: Hvis vi finder et postnummer, søger vi KUN på det + Danmark
-    // Dette sikrer at vi får byens centrum og ignorerer specifikke vejnavne der kan drille
-    RegExp zipRegExp = RegExp(r'\b\d{4}\b');
-    Match? match = zipRegExp.firstMatch(query);
-
-    if (match != null) {
-      String zip = match.group(0)!;
-      searchQuery = "$zip, Danmark"; // Fx "7800, Danmark" -> Skive Centrum
-    } else {
-      searchQuery = "$query, Danmark"; // Fx "Aarhus C, Danmark"
+      return {
+        'lat': (station['lat'] as num).toDouble(),
+        'lng': (station['lng'] as num).toDouble(),
+      };
     }
+
+    // TRIN 2: SPØRG MAPBOX (Fallback)
+    String optimizedQuery = "$query, Denmark";
+
+    debugPrint("Søger hos Mapbox efter: '$optimizedQuery'");
+
+    const String mapboxAccessToken =
+        'pk.eyJ1IjoiaG9wcG9uIiwiYSI6ImNtbDk0bDN3cTBiM3MzZnFzdThhOXRuZG4ifQ.9LP9GFe5zEvMjwhPtf6l0w';
 
     try {
       final url = Uri.parse(
-        "https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(searchQuery)}&format=json&limit=1&countrycodes=dk",
+        "https://api.mapbox.com/geocoding/v5/mapbox.places/${Uri.encodeComponent(optimizedQuery)}.json?access_token=$mapboxAccessToken&country=dk&limit=1&types=place,locality,neighborhood,address,poi",
       );
 
-      // VIGTIGT: OpenStreetMap KRÆVER en User-Agent header, ellers bliver du blokeret!
-      final response = await http.get(
-        url,
-        headers: {'User-Agent': 'SamkorselApp/1.0'},
-      );
+      final response = await http.get(url);
 
       if (response.statusCode == 200) {
-        final List data = json.decode(response.body);
-        if (data.isNotEmpty) {
-          // Nominatim returnerer lat/lon som strenge
+        final data = json.decode(response.body);
+        if (data['features'].isNotEmpty) {
+          final center =
+              data['features'][0]['center']; // Mapbox giver [Lng, Lat]
+
+          debugPrint("Mapbox fandt: ${data['features'][0]['place_name']}");
+
           return {
-            'lat': double.parse(data[0]['lat']),
-            'lng': double.parse(data[0]['lon']),
+            'lat': center[1].toDouble(), // Index 1 er Latitude
+            'lng': center[0].toDouble(), // Index 0 er Longitude
           };
         }
       }
     } catch (e) {
-      debugPrint("OSM Fejl: $e");
+      debugPrint("Mapbox Fejl: $e");
     }
 
     return null;
@@ -109,12 +142,11 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) throw Exception("Du er ikke logget ind");
 
-      // 2. Dato & Tid håndtering (Den rigtige måde)
+      // 2. Dato & Tid håndtering
       final dateParts = _dateController.text.split('-'); // [2026, 02, 04]
       final depParts = _depTimeController.text.split(':'); // [22, 27]
       final arrParts = _arrTimeController.text.split(':'); // [23, 27]
 
-      // Vi bygger DateTime objekterne direkte som LOCAL tid
       DateTime depDateTime = DateTime(
         int.parse(dateParts[0]),
         int.parse(dateParts[1]),
@@ -135,9 +167,6 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
         arrDateTime = arrDateTime.add(const Duration(days: 1));
       }
 
-      // VIGTIGT: Nu vil .toIso8601String() automatisk inkludere +01:00 eller +02:00
-      print("NU SENDES KORREKT TID: ${arrDateTime.toIso8601String()}");
-
       // 3. Hent bilmodel fra profil
       final profile = await Supabase.instance.client
           .from('profiles')
@@ -147,18 +176,18 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
 
       final carModel = profile['car_details'] ?? "Min Bil";
 
-      // 4. Find KORREKTE koordinater (Bruger nu OpenStreetMap)
+      // 4. Find KORREKTE koordinater (Hybrid: JSON eller Mapbox)
       final originCoords = await _getCityCoordinates(_origin!);
       final destCoords = await _getCityCoordinates(_destination!);
 
       if (originCoords == null || destCoords == null) {
         throw Exception(
-          "Kunne ikke finde byens placering. Prøv at inkludere postnummer (fx '7800 Skive')",
+          "Kunne ikke finde byens placering. Prøv at være mere specifik (fx 'Vejnavn, By')",
         );
       }
 
       print(
-        "Opretter tur med GPS: ${_origin} (${originCoords['lat']},${originCoords['lng']}) -> ${_destination} (${destCoords['lat']},${destCoords['lng']})",
+        "Opretter tur: ${_origin} (${originCoords['lat']},${originCoords['lng']}) -> ${_destination} (${destCoords['lat']},${destCoords['lng']})",
       );
 
       // 5. Indsæt i Supabase
@@ -166,7 +195,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
         'driver_id': user.id,
         'origin_city': _origin,
         'destination_city': _destination,
-        // PostGIS format: POINT(lng lat)
+        // PostGIS format: POINT(lng lat) - Supabase kræver RÆKKEFØLGEN POINT(LNG LAT)
         'origin_location':
             'POINT(${originCoords['lng']} ${originCoords['lat']})',
         'destination_location':
