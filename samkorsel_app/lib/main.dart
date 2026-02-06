@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'core/constants.dart';
 import 'screens/home_screen.dart';
 import 'screens/auth/welcome_screen.dart';
@@ -9,6 +10,8 @@ import 'screens/onboarding_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await initializeDateFormatting('da_DK', null);
 
   await Supabase.initialize(
     url: AppConstants.supabaseUrl,
@@ -30,6 +33,7 @@ class SamkorselApp extends StatelessWidget {
     return MaterialApp(
       title: 'HoppOn',
       debugShowCheckedModeBanner: false,
+      locale: const Locale('da', 'DK'),
       theme: ThemeData(
         primaryColor: const Color(0xFF0F172A),
         scaffoldBackgroundColor: Colors.white,

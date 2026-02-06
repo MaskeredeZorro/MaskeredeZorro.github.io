@@ -28,6 +28,125 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
   final Color _accentColor = const Color(0xFF6366F1);
   final Color _bgLight = const Color(0xFFF8FAFC);
 
+  final TextEditingController _messageController = TextEditingController();
+  bool _isSending = false;
+
+  @override
+  void dispose() {
+    _messageController.dispose(); // Husk denne!
+    super.dispose();
+  }
+
+  // 1. Vis dialogboksen
+  void _showMessageDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Text(
+                "Skriv til ${_driverProfile?['full_name'] ?? 'Chaufføren'}",
+              ),
+              content: TextField(
+                controller: _messageController,
+                autofocus: true,
+                maxLines: 4,
+                decoration: InputDecoration(
+                  hintText: "Hej, jeg har et spørgsmål om...",
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  contentPadding: const EdgeInsets.all(16),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text(
+                    "Annuller",
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onPressed: _isSending
+                      ? null
+                      : () async {
+                          setState(() => _isSending = true);
+                          await _sendMessage();
+                          setState(() => _isSending = false);
+                        },
+                  child: _isSending
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text(
+                          "Send",
+                          style: TextStyle(color: Colors.white),
+                        ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // 2. Send beskeden til Supabase
+  Future<void> _sendMessage() async {
+    final text = _messageController.text.trim();
+    if (text.isEmpty) return;
+
+    final myId = Supabase.instance.client.auth.currentUser?.id;
+    if (myId == null) return;
+
+    try {
+      await Supabase.instance.client.from('messages').insert({
+        'content': text,
+        'sender_id': myId,
+        'receiver_id': widget.ride['driver_id'], // Vi sender til chaufføren
+        'ride_id': widget.ride['id'], // (Valgfrit) Link til turen
+        'created_at': DateTime.now().toIso8601String(),
+      });
+
+      if (mounted) {
+        Navigator.pop(context); // Luk dialog
+        _messageController.clear(); // Tøm feltet
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Besked sendt!"),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint("Fejl: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Kunne ikke sende"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -415,7 +534,7 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
                       _buildPracticalRow(
                         Icons.alt_route,
                         "Fleksibel rute",
-                        "Chaufføren er villig til at køre en omvej på maks. 15 minutter for at samle op.",
+                        "Chaufføren er villig til at køre en omvej på maks. 5 minutter for at samle op.",
                       ),
                     if (widget.ride['comfort_guarantee'] == true)
                       _buildPracticalRow(
@@ -429,6 +548,14 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
                         "Lynbooking",
                         "Din anmodning bliver godkendt med det samme uden ventetid.",
                         iconColor: Colors.amber[700],
+                      ),
+                    // --- NYT: LADIES ONLY VISNING ---
+                    if (widget.ride['ladies_only'] == true)
+                      _buildPracticalRow(
+                        Icons.female, // Ikonet
+                        "Ladies Only", // Overskriften
+                        "Denne tur tilbydes kun til kvinder.", // Beskrivelsen
+                        iconColor: Colors.pinkAccent, // Gør den lyserød/pink
                       ),
                   ],
                 ),
@@ -985,7 +1112,7 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
-            onPressed: _openChat,
+            onPressed: _showMessageDialog,
             icon: Icon(
               Icons.chat_bubble_outline,
               size: 18,

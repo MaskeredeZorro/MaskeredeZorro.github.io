@@ -12,6 +12,7 @@ import '../features/rides/create_ride_screen.dart';
 import '../features/rides/ride_detail_screen.dart';
 import '../features/flexible_search/flexible_map_screen.dart';
 import 'profile_screen.dart';
+import '/screens/messages_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -101,7 +102,7 @@ class _HomeScreenState extends State<HomeScreen> {
         onClearFilters: _clearSearch,
       ),
       const SizedBox(), // Placeholder for 'Opret' knappen
-      const Center(child: Text("Beskeder (Kommer snart)")),
+      const MessagesScreen(), // <--- Nu kalder den din nye fil
       const ProfileScreen(),
     ];
 
@@ -433,6 +434,8 @@ class _SearchTabState extends State<SearchTab> {
                           Expanded(
                             child: Container(
                               height: 50,
+                              alignment: Alignment
+                                  .center, // Hjælper med at centrere selve TextField i Containeren
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(12),
@@ -443,12 +446,25 @@ class _SearchTabState extends State<SearchTab> {
                               child: TextField(
                                 controller: _flexZipController,
                                 keyboardType: TextInputType.number,
+                                textAlignVertical: TextAlignVertical
+                                    .center, // <--- VIGTIGT: Centrerer teksten lodret
                                 decoration: const InputDecoration(
+                                  isCollapsed:
+                                      true, // Fjerner unødvendig standard-højde
+                                  contentPadding:
+                                      EdgeInsets.zero, // Fjerner intern padding
                                   hintText: "Postnr. (fx 8000)",
                                   border: InputBorder.none,
-                                  icon: Icon(
+                                  // Jeg har ændret 'icon' til 'prefixIcon' for bedre centrering
+                                  prefixIcon: Icon(
                                     Icons.location_searching,
                                     color: Colors.grey,
+                                  ),
+                                  // Hvis du vil have ikonet tættere på kanten eller teksten,
+                                  // kan du justere constraints:
+                                  prefixIconConstraints: BoxConstraints(
+                                    minWidth: 30,
+                                    minHeight: 20,
                                   ),
                                 ),
                               ),
