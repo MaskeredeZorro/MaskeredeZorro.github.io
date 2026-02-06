@@ -432,6 +432,54 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
   // --- UI BYGGEKLODSER ---
 
   @override
+  // --- NY WIDGET TIL HUSREGLER KNAPPER ---
+  Widget _buildRuleButton(String label, bool isAllowed, VoidCallback onTap) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          decoration: BoxDecoration(
+            // Grøn baggrund hvis true, Rød baggrund hvis false
+            color: isAllowed
+                ? Colors.green.withOpacity(0.1)
+                : Colors.red.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              // Grøn kant hvis true, Rød kant hvis false
+              color: isAllowed
+                  ? Colors.green.withOpacity(0.3)
+                  : Colors.red.withOpacity(0.3),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center, // Centrer indholdet
+            children: [
+              Icon(
+                isAllowed ? Icons.check_circle : Icons.cancel,
+                color: isAllowed ? Colors.green : Colors.red.shade300,
+                size: 22,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  // Mørk tekst hvis tilladt, grå tekst hvis forbudt (som på billedet)
+                  color: isAllowed
+                      ? const Color(0xFF0F172A)
+                      : Colors.grey.shade600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
@@ -606,6 +654,48 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
                   customColor: Colors.pinkAccent,
                 ),
 
+                // --- ERSTAT DE GAMLE SWITCHES MED DETTE ---
+                const SizedBox(height: 30),
+                const Divider(),
+                _buildSectionTitle("Husregler"),
+                const SizedBox(height: 15),
+
+                // Række 1: Musik & Rygning
+                Row(
+                  children: [
+                    _buildRuleButton(
+                      "Musik",
+                      _prefMusic,
+                      () => setState(() => _prefMusic = !_prefMusic),
+                    ),
+                    const SizedBox(width: 15), // Mellemrum
+                    _buildRuleButton(
+                      "Rygning",
+                      _prefSmoking,
+                      () => setState(() => _prefSmoking = !_prefSmoking),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 15), // Mellemrum mellem rækkerne
+                // Række 2: Kæledyr & Børn
+                Row(
+                  children: [
+                    _buildRuleButton(
+                      "Kæledyr",
+                      _prefPets,
+                      () => setState(() => _prefPets = !_prefPets),
+                    ),
+                    const SizedBox(width: 15), // Mellemrum
+                    _buildRuleButton(
+                      "Børn",
+                      _prefKids,
+                      () => setState(() => _prefKids = !_prefKids),
+                    ),
+                  ],
+                ),
+
+                // --- SLUT PÅ HUSREGLER SEKTION ---
                 const SizedBox(height: 30),
 
                 // --- KOMMENTARFELT ---

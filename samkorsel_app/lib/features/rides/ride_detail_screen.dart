@@ -22,7 +22,7 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
   Map<String, dynamic>? _driverProfile;
   Map<String, dynamic>? _currentUserProfile; // Gemmer den aktuelle brugerprofil
   List<Map<String, dynamic>> _passengers = [];
-
+  int _selectedSeats = 1;
   // --- DESIGN TEMA (Slate & Indigo) ---
   final Color _primaryColor = const Color(0xFF0F172A);
   final Color _accentColor = const Color(0xFF6366F1);
@@ -218,6 +218,9 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
 
   // --- BOOKING LOGIK (Mock + Stripe + Profiles opdatering) ---
 
+  // --- BOOKING LOGIK (Opdateret med antal pladser) ---
+
+  // --- BOOKING LOGIK (Rettet Address fejl) ---
   Future<void> _bookRide() async {
     setState(() => _isLoading = true);
     final user = Supabase.instance.client.auth.currentUser;
@@ -236,31 +239,32 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
         throw Exception("Du kan ikke booke din egen tur!");
       }
 
-      // 2. Tjek: Har man allerede booket? (Ekstra sikkerhed)
+      // 2. Tjek: Har man allerede booket?
       if (_hasBooked) {
         throw Exception("Du har allerede anmodet om plads.");
       }
 
-      final double price = (widget.ride['price_dkk'] as num).toDouble();
+      // 3. Beregn total pris (Pris * Antal pladser)
+      final double singlePrice = (widget.ride['price_dkk'] as num).toDouble();
+      final double totalPrice = singlePrice * _selectedSeats;
       final bool isInstant = widget.ride['instant_booking'] == true;
 
-      // 3. KALD EDGE FUNCTION (Nu live!)
+      // 4. KALD EDGE FUNCTION (Med total pris)
       final res = await Supabase.instance.client.functions.invoke(
         'payment-sheet',
         body: {
-          'amount': price,
+          'amount': totalPrice, // Vi sender totalbeløbet
           'currency': 'dkk',
-          'instant_booking':
-              isInstant, // Sender info om det er lyn eller anmodning
+          'instant_booking': isInstant,
         },
       );
 
       if (res.status != 200) throw Exception("Kunne ikke oprette betaling");
 
       final data = res.data;
-      final String paymentId =
-          data['paymentIntentId']; // <-- VI GEMMER DETTE ID
-      // 4. Initialiser Stripe Payment Sheet
+      final String paymentId = data['paymentIntentId'];
+
+      // 5. Initialiser Stripe Payment Sheet
       await Stripe.instance.initPaymentSheet(
         paymentSheetParameters: SetupPaymentSheetParameters(
           paymentIntentClientSecret: data['paymentIntent'],
@@ -269,32 +273,28 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
           appearance: const PaymentSheetAppearance(
             colors: PaymentSheetAppearanceColors(primary: Color(0xFF0F172A)),
           ),
+          // --- RETTELSE HER: Alle felter skal defineres (selvom de er null) ---
           billingDetails: const BillingDetails(
             address: Address(
               country: 'DK',
-              city: null,
-              line1: null,
-              line2: null,
-              postalCode: null,
-              state: null,
+              city: null, // Påkrævet parameter
+              line1: null, // Påkrævet parameter
+              line2: null, // Påkrævet parameter
+              postalCode: null, // Påkrævet parameter
+              state: null, // Påkrævet parameter
             ),
           ),
-          applePay: null, // Sæt til null indtil Merchant ID er sat op hos Apple
           googlePay: const PaymentSheetGooglePay(
             merchantCountryCode: 'DK',
-            testEnv: false, // Sæt til true hvis du bruger Stripe Test Keys
+            testEnv: false,
           ),
         ),
       );
 
-      // 5. Vis betalingsvinduet
+      // 6. Vis betalingsvinduet
       await Stripe.instance.presentPaymentSheet();
 
-      await _completeBookingInSupabase(
-        user.id,
-        paymentId,
-      ); // <--- VI SENDER ID VIDERE
-      // 6. Hvis vi kommer her til, er betalingen godkendt/reserveret -> Gem i DB
+      // 7. Gem i database
       await _completeBookingInSupabase(user.id, paymentId);
     } on StripeException catch (e) {
       if (e.error.code == FailureCode.Canceled) {
@@ -332,7 +332,7 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
     }
   }
 
-  // --- HJÆLPEFUNKTION: Gemmer booking og Payment ID ---
+  // --- HJÆLPEFUNKTION: Gemmer booking med antal pladser ---
   Future<void> _completeBookingInSupabase(
     String userId,
     String paymentId,
@@ -340,11 +340,11 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
     final bool isInstant = widget.ride['instant_booking'] == true;
     final String initialStatus = isInstant ? 'approved' : 'pending';
 
-    // Gem bookingen
+    // Gem bookingen med det valgte antal pladser
     await Supabase.instance.client.from('bookings').insert({
       'ride_id': widget.ride['id'],
       'passenger_id': userId,
-      'seats_booked': 1,
+      'seats_booked': _selectedSeats, // <--- Her gemmer vi antallet
       'status': initialStatus,
       'stripe_payment_id': paymentId,
     });
@@ -356,8 +356,8 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
         SnackBar(
           content: Text(
             isInstant
-                ? "Betaling gennemført! Din plads er booket ✅"
-                : "Anmodning sendt! Beløbet er reserveret på dit kort 🔒",
+                ? "Betaling gennemført! $_selectedSeats plads(er) er booket ✅"
+                : "Anmodning sendt for $_selectedSeats plads(er)! 🔒",
           ),
           backgroundColor: isInstant ? Colors.green : Colors.orange,
           duration: const Duration(seconds: 4),
@@ -680,53 +680,164 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
           ),
 
           // --- STICKY BOTTOM BUTTON ---
+          // --- STICKY BOTTOM BAR ---
           Positioned(
             bottom: 20,
             left: 20,
             right: 20,
-            child: SizedBox(
-              height: 56,
-              child: ElevatedButton(
-                // RETTELSE: Vi tjekker kun om man booker sin egen tur, ellers er knappen aktiv.
-                onPressed: (_isLoading || _hasBooked || isMyOwnRide)
-                    ? null
-                    : _bookRide,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _primaryColor,
-                  foregroundColor: Colors.white,
-                  elevation: 8,
-                  shadowColor: _primaryColor.withOpacity(0.4),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  disabledBackgroundColor: Colors.grey.shade300,
-                ),
-                child: _isLoading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          if (widget.ride['instant_booking'] == true &&
-                              !_hasBooked) ...[
-                            const Icon(Icons.bolt, color: Colors.amber),
-                            const SizedBox(width: 8),
-                          ],
-                          Text(
-                            _hasBooked
-                                ? "Booket ✓"
-                                : (isMyOwnRide
-                                      ? "Din egen tur"
-                                      : (widget.ride['instant_booking'] == true
-                                            ? "Book straks"
-                                            : "Anmod om plads")),
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+            child: Builder(
+              builder: (context) {
+                // Beregn ledige pladser
+                final int totalCapacity = widget.ride['seats_available'] ?? 0;
+                final int takenSeats = _passengers.length;
+                final int remainingSeats = totalCapacity - takenSeats;
+
+                // Er book-knappen aktiv?
+                final bool canBook =
+                    !_isLoading &&
+                    !_hasBooked &&
+                    !isMyOwnRide &&
+                    remainingSeats > 0;
+
+                return SizedBox(
+                  height: 56,
+                  child: Row(
+                    children: [
+                      // 1. BOOK KNAP (75% bredde)
+                      Expanded(
+                        flex: 75,
+                        child: ElevatedButton(
+                          onPressed: canBook ? _bookRide : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _primaryColor,
+                            foregroundColor: Colors.white,
+                            elevation: 8,
+                            shadowColor: _primaryColor.withOpacity(0.4),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            disabledBackgroundColor: Colors.grey.shade300,
+                          ),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    if (widget.ride['instant_booking'] ==
+                                            true &&
+                                        !_hasBooked) ...[
+                                      const Icon(
+                                        Icons.bolt,
+                                        color: Colors.amber,
+                                      ),
+                                      const SizedBox(width: 8),
+                                    ],
+                                    Text(
+                                      _hasBooked
+                                          ? "Booket ✓"
+                                          : (isMyOwnRide
+                                                ? "Din egen tur"
+                                                : (remainingSeats <= 0
+                                                      ? "Udsolgt"
+                                                      : (widget.ride['instant_booking'] ==
+                                                                true
+                                                            ? "Book straks"
+                                                            : "Anmod om plads"))),
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                        ),
+                      ),
+
+                      const SizedBox(width: 12),
+
+                      // 2. ANTAL VÆLGER (25% bredde)
+                      // Vises kun hvis man faktisk kan booke
+                      if (canBook)
+                        Expanded(
+                          flex: 25,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.grey.shade300),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                // Minus Knap
+                                InkWell(
+                                  onTap: () {
+                                    if (_selectedSeats > 1) {
+                                      setState(() => _selectedSeats--);
+                                    }
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: Icon(
+                                      Icons.remove,
+                                      size: 18,
+                                      color: _selectedSeats > 1
+                                          ? Colors.black
+                                          : Colors.grey,
+                                    ),
+                                  ),
+                                ),
+
+                                // Tallet
+                                Text(
+                                  "$_selectedSeats",
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: _primaryColor,
+                                  ),
+                                ),
+
+                                // Plus Knap
+                                InkWell(
+                                  onTap: () {
+                                    if (_selectedSeats < remainingSeats) {
+                                      setState(() => _selectedSeats++);
+                                    }
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: Icon(
+                                      Icons.add,
+                                      size: 18,
+                                      color: _selectedSeats < remainingSeats
+                                          ? Colors.black
+                                          : Colors.grey,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
-              ),
+                        ),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
         ],

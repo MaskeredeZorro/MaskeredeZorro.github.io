@@ -150,15 +150,25 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   // ------------------------------------------------------------------------
-  // LOGIK: UPDATE BOOKING STATUS (Nu med Stripe integration)
+  // LOGIK: UPDATE BOOKING STATUS (Med Stripe + Navn i besked)
   // ------------------------------------------------------------------------
-  Future<void> _updateBookingStatus(String bookingId, String newStatus) async {
+  Future<void> _updateBookingStatus(
+    String bookingId,
+    String newStatus,
+    String passengerName, // <--- Vigtig: Vi tager navnet med ind her
+  ) async {
+    debugPrint("--- STARTER STATUS OPDATERING ---");
+    debugPrint("Booking ID: $bookingId");
+    debugPrint("Handling: $newStatus for $passengerName");
+
     try {
       // 1. Opdater status i databasen først
       await Supabase.instance.client
           .from('bookings')
           .update({'status': newStatus})
           .eq('id', bookingId);
+
+      debugPrint("Trin 1: Database status opdateret OK.");
 
       // 2. Hent Stripe ID'et for denne specifikke booking
       final bookingData = await Supabase.instance.client
@@ -168,44 +178,57 @@ class _ProfileScreenState extends State<ProfileScreen>
           .maybeSingle();
 
       final String? stripeId = bookingData?['stripe_payment_id'];
+      debugPrint("Trin 2 Resultat: Fundet Stripe ID: $stripeId");
 
-      // 3. Hvis der er et Stripe ID, kalder vi din nye Edge Function
+      // 3. Hvis der er et Stripe ID, kalder vi Edge Functionen (Capture eller Cancel)
       if (stripeId != null && stripeId.isNotEmpty) {
-        // Vi kalder 'settle-payment' som du lige har oprettet
-        await Supabase.instance.client.functions.invoke(
+        debugPrint("Trin 3: Kalder Edge Function 'settle-payment'...");
+
+        final response = await Supabase.instance.client.functions.invoke(
           'settle-payment',
           body: {
             'paymentIntentId': stripeId,
             'action': newStatus == 'approved' ? 'capture' : 'cancel',
           },
         );
-        debugPrint("Stripe handling udført: $newStatus for $stripeId");
+
+        // Tjek om funktionen sendte en fejl retur
+        if (response.status != 200) {
+          throw "Edge Function svarede med fejl ${response.status}: ${response.data}";
+        }
+        debugPrint("Trin 3 Resultat: Betaling håndteret via Stripe.");
+      } else {
+        debugPrint(
+          "ADVARSEL: Springer Stripe over, da stripe_payment_id er tomt.",
+        );
       }
 
+      // 4. Opdater UI og vis besked
       if (mounted) {
-        setState(() {}); // Opdater UI så listen genindlæses
+        setState(() {}); // Genindlæs skærmen for at opdatere listen
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               newStatus == 'approved'
-                  ? "Godkendt! Betalingen er reserveret."
-                  : "Afvist. Pengene er frigivet til passageren.",
+                  ? "Du har godkendt $passengerName ✅"
+                  : "Du har afvist $passengerName ❌",
             ),
             backgroundColor: newStatus == 'approved'
                 ? Colors.green
                 : Colors.orange,
-            duration: const Duration(seconds: 2),
+            duration: const Duration(seconds: 3),
           ),
         );
       }
     } catch (e) {
-      debugPrint("Fejl ved status/betaling opdatering: $e");
+      debugPrint("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+      debugPrint("FEJL I _updateBookingStatus: $e");
+      debugPrint("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Der skete en fejl med betalingen."),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text("Fejl: $e"), backgroundColor: Colors.red),
         );
       }
     }
@@ -214,24 +237,65 @@ class _ProfileScreenState extends State<ProfileScreen>
   // ------------------------------------------------------------------------
   // LOGIK: AFSLUT TUR & BETALING
   // ------------------------------------------------------------------------
+  // ------------------------------------------------------------------------
+  // LOGIK: AFSLUT TUR (Håndterer både med og uden passagerer)
+  // ------------------------------------------------------------------------
   Future<void> _completeTrip(String rideId) async {
     try {
-      // Vis loading
+      // 1. Vis loading
       showDialog(
         context: context,
         barrierDismissible: false,
         builder: (context) => const Center(child: CircularProgressIndicator()),
       );
 
-      // 1. Beregn CO2
+      final client = Supabase.instance.client;
+
+      // 2. TJEK OM DER ER GODKENDTE PASSAGERER
+      // Vi henter bookinger, der er 'approved' for denne tur
+      final bookings = await client
+          .from('bookings')
+          .select('id')
+          .eq('ride_id', rideId)
+          .eq('status', 'approved');
+
+      final int passengerCount = (bookings as List).length;
+
+      // --- SCENARIE A: INGEN PASSAGERER (0 kr.) ---
+      if (passengerCount == 0) {
+        debugPrint("Ingen passagerer. Afslutter tur lokalt uden betaling.");
+
+        // Vi opdaterer bare status i databasen direkte
+        await client
+            .from('rides')
+            .update({'status': 'completed'})
+            .eq('id', rideId);
+
+        if (mounted) {
+          Navigator.pop(context); // Fjern loading
+          setState(() {}); // Opdater UI
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Turen er afsluttet (Ingen passagerer)."),
+              backgroundColor: Colors.grey,
+            ),
+          );
+        }
+        return; // STOP HER - Vi skal ikke kalde Edge Functionen
+      }
+
+      // --- SCENARIE B: DER ER PASSAGERER (Betaling skal køre) ---
+      debugPrint("Fandt $passengerCount passagerer. Starter betalingsflow.");
+
+      // a. Beregn CO2 (Kun relevant hvis der var passagerer)
       await _calculateAndDistributeCO2(rideId);
 
-      // 2. Betaling & Luk tur (Edge Function)
-      final String? jwt =
-          Supabase.instance.client.auth.currentSession?.accessToken;
+      // b. Kald Edge Function for at flytte penge og opdatere saldo
+      final String? jwt = client.auth.currentSession?.accessToken;
       if (jwt == null) throw "Ingen session. Log ind igen.";
 
-      final response = await Supabase.instance.client.functions.invoke(
+      final response = await client.functions.invoke(
         'complete-trip',
         body: {'trip_id': rideId},
         headers: {'Authorization': 'Bearer $jwt'},
@@ -241,22 +305,25 @@ class _ProfileScreenState extends State<ProfileScreen>
 
       if (response.status == 200) {
         if (mounted) {
+          setState(() {}); // Opdater UI
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text(
-                "Turen er afsluttet, CO2 fordelt og betaling gennemført! 🌿",
-              ),
+              content: Text("Turen er afsluttet, og betalingen er bogført! 💸"),
               backgroundColor: Colors.green,
             ),
           );
         }
       } else {
+        // Hvis Edge funktionen stadig fejler
         final errorMsg = response.data['error'] ?? "Kunne ikke afregne turen.";
         throw errorMsg;
       }
     } catch (e) {
-      if (mounted) Navigator.pop(context);
+      debugPrint("Fejl i _completeTrip: $e");
       if (mounted) {
+        // Sikr at loading-spinner forsvinder hvis den stadig er der
+        if (Navigator.canPop(context)) Navigator.pop(context);
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Fejl: $e"), backgroundColor: Colors.red),
         );
@@ -759,92 +826,140 @@ class _ProfileScreenState extends State<ProfileScreen>
                   .stream(primaryKey: ['id'])
                   .eq('ride_id', ride['id']),
               builder: (context, bSnapshot) {
-                if (!bSnapshot.hasData || bSnapshot.data!.isEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(
-                      "Ingen bookinger endnu",
-                      style: TextStyle(
-                        color: Colors.grey[400],
-                        fontStyle: FontStyle.italic,
+                // Vi håndterer ventetid pænt, men viser tomme sæder med det samme hvis data mangler
+                final bookings = bSnapshot.data ?? [];
+
+                // 1. Hent total kapacitet (standard til 3 hvis null)
+                final int totalCapacity = ride['seats_available'] ?? 3;
+
+                // 2. Opret en liste til at holde alle widgets (både bookede og tomme)
+                List<Widget> seatWidgets = [];
+
+                // 3. Fyld listen med de faktiske bookinger
+                for (var booking in bookings) {
+                  // Hvor mange sæder fylder denne booking?
+                  int seatsBooked = booking['seats_booked'] ?? 1;
+
+                  for (int i = 0; i < seatsBooked; i++) {
+                    // Tilføj en widget for HVERT sæde denne person har booket
+                    seatWidgets.add(
+                      FutureBuilder<Map<String, dynamic>>(
+                        future: Supabase.instance.client
+                            .from('profiles')
+                            .select()
+                            .eq('id', booking['passenger_id'])
+                            .single(),
+                        builder: (context, pSnapshot) {
+                          final name =
+                              pSnapshot.data?['full_name'] ?? "Henter...";
+
+                          // Vis (1/2) hvis det er flersædes-booking
+                          final displayName = seatsBooked > 1
+                              ? "$name (${i + 1}/$seatsBooked)"
+                              : name;
+
+                          return ListTile(
+                            dense: true,
+                            leading: const CircleAvatar(
+                              radius: 14,
+                              backgroundColor: Colors.blueAccent,
+                              child: Icon(
+                                Icons.person,
+                                size: 16,
+                                color: Colors.white,
+                              ),
+                            ),
+                            title: Text(displayName),
+                            trailing: booking['status'] == 'pending'
+                                ? Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.check,
+                                          color: Colors.green,
+                                        ),
+                                        onPressed: () => _updateBookingStatus(
+                                          booking['id'],
+                                          'approved',
+                                          name,
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.close,
+                                          color: Colors.red,
+                                        ),
+                                        onPressed: () => _updateBookingStatus(
+                                          booking['id'],
+                                          'rejected',
+                                          name,
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: _getStatusColor(
+                                        booking['status'],
+                                      ).withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      _getStatusText(booking['status']),
+                                      style: TextStyle(
+                                        color: _getStatusColor(
+                                          booking['status'],
+                                        ),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                          );
+                        },
+                      ),
+                    );
+                  }
+                }
+
+                // 4. Fyld resten op med "Ingen passager" indtil vi rammer kapaciteten
+                while (seatWidgets.length < totalCapacity) {
+                  seatWidgets.add(
+                    ListTile(
+                      dense: true,
+                      leading: CircleAvatar(
+                        radius: 14,
+                        backgroundColor: Colors.grey[200],
+                        child: Icon(
+                          Icons.event_seat,
+                          size: 16,
+                          color: Colors.grey[400],
+                        ),
+                      ),
+                      title: Text(
+                        "Ledigt sæde",
+                        style: TextStyle(
+                          color: Colors.grey[400],
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                      trailing: Icon(
+                        Icons.add_circle_outline,
+                        size: 18,
+                        color: Colors.grey[300],
                       ),
                     ),
                   );
                 }
 
-                final bookings = bSnapshot.data!;
-                return Column(
-                  children: bookings.map((booking) {
-                    return FutureBuilder<Map<String, dynamic>>(
-                      future: Supabase.instance.client
-                          .from('profiles')
-                          .select()
-                          .eq('id', booking['passenger_id'])
-                          .single(),
-                      builder: (context, pSnapshot) {
-                        final name = pSnapshot.data?['full_name'] ?? "Passager";
-                        return ListTile(
-                          dense: true,
-                          leading: const Icon(
-                            Icons.person,
-                            size: 20,
-                            color: Colors.grey,
-                          ),
-                          title: Text(name),
-                          trailing: booking['status'] == 'pending'
-                              ? Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.check,
-                                        color: Colors.green,
-                                      ),
-                                      onPressed: () => _updateBookingStatus(
-                                        booking['id'],
-                                        'approved',
-                                      ),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.close,
-                                        color: Colors.red,
-                                      ),
-                                      onPressed: () => _updateBookingStatus(
-                                        booking['id'],
-                                        'rejected',
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              : Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: _getStatusColor(
-                                      booking['status'],
-                                    ).withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    _getStatusText(booking['status']),
-                                    style: TextStyle(
-                                      color: _getStatusColor(booking['status']),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                        );
-                      },
-                    );
-                  }).toList(),
-                );
+                return Column(children: seatWidgets);
               },
             ),
-
             const SizedBox(height: 10),
 
             // 3. ACTIONS (Kontakt + Afslut)
