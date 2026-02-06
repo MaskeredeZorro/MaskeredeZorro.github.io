@@ -259,8 +259,7 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
 
       final data = res.data;
       final String paymentId =
-          data['paymentIntentId']; // Vi gemmer ID'et til senere brug
-
+          data['paymentIntentId']; // <-- VI GEMMER DETTE ID
       // 4. Initialiser Stripe Payment Sheet
       await Stripe.instance.initPaymentSheet(
         paymentSheetParameters: SetupPaymentSheetParameters(
@@ -291,6 +290,10 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
       // 5. Vis betalingsvinduet
       await Stripe.instance.presentPaymentSheet();
 
+      await _completeBookingInSupabase(
+        user.id,
+        paymentId,
+      ); // <--- VI SENDER ID VIDERE
       // 6. Hvis vi kommer her til, er betalingen godkendt/reserveret -> Gem i DB
       await _completeBookingInSupabase(user.id, paymentId);
     } on StripeException catch (e) {

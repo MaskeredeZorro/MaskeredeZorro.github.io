@@ -40,15 +40,14 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
   // --- Globale Rute Variabler ---
   String? _origin;
   String? _destination;
+
   // Listen af byer vi stopper i (uden tider)
   final List<WaypointDefinition> _waypoints = [];
 
   // Listen af faktiske ture (Datoer og specifikke tider)
   final List<RideInstance> _rideInstances = [];
 
-  // Controllers til "Enkelt tur" (hvis gentag er slukket)
-  // Vi bruger bare den første plads i _rideInstances til enkelt-tur også, for at gøre logikken ens.
-
+  // Controllers
   final _seatsController = TextEditingController(text: "3");
   final _priceController = TextEditingController();
   final _commentController = TextEditingController();
@@ -136,9 +135,6 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
       // Ryd op i tiderne for alle instances
       for (var ride in _rideInstances) {
         ride.waypointTimes.remove(index);
-        // Vi burde også re-indexere mappet hvis vi sletter midt i,
-        // men for simpelthedens skyld antager vi sletning bagfra eller genopbygger logikken.
-        // Enklest: Reset waypoint times for that index.
       }
     });
   }
@@ -156,7 +152,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
     }
   }
 
-  // --- OPRET TUR LOGIK ---
+  // --- OPRET TUR LOGIK (MED KOMBINATORIK) ---
   Future<void> _createRide() async {
     if (_origin == null ||
         _destination == null ||
@@ -179,7 +175,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) throw Exception("Log ind først.");
 
-      // 1. Hent bilmodel & Geo-kordinater (Kun én gang pr. rute)
+      // 1. Hent bilmodel & Geo-kordinater til ALLE punkter først
       final profile = await Supabase.instance.client
           .from('profiles')
           .select('car_details')
@@ -193,82 +189,130 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
       if (originCoords == null || destCoords == null)
         throw Exception("Kunne ikke finde start/slut koordinater.");
 
-      // Hent koordinater for alle waypoint-byer
+      // Hent koordinater for waypoints og gem dem i waypoints listen
       for (var wp in _waypoints) {
         wp.coords = await _getCityCoordinates(wp.city!);
         if (wp.coords == null)
           throw Exception("Kunne ikke finde koordinater for ${wp.city}");
       }
 
-      // 2. Loop gennem hver instans og opret turen
-      // Hvis "Gentag" er slukket, tager vi kun den første instans (index 0)
+      // 2. Loop gennem hver dato (Instance)
       final instancesToCreate = _isRecurring
           ? _rideInstances
           : [_rideInstances.first];
 
       for (var instance in instancesToCreate) {
-        // Byg waypoint JSON listen specifikt for denne dato
-        List<Map<String, dynamic>> waypointsJson = [];
+        // 3. BYG RUTEN TIL KOMBINATORIK
+        // Vi laver en midlertidig liste over alle stop på denne tur med deres specifikke tider
+        List<Map<String, dynamic>> routePoints = [];
 
+        // Startpunkt
+        routePoints.add({
+          'city': _origin,
+          'coords': originCoords,
+          'time': instance.depTime,
+          'type': 'origin',
+        });
+
+        // Mellemstops
         for (int i = 0; i < _waypoints.length; i++) {
-          final wpDef = _waypoints[i];
-          // Hent tiden for dette stop på denne dag. Hvis ikke sat, brug en fallback (fx 30 min efter start)
+          // Hent tid for dette stop (eller brug fallback)
           final time =
               instance.waypointTimes[i] ??
               TimeOfDay(
-                hour: instance.depTime.hour,
-                minute: instance.depTime.minute + 30,
+                hour: instance.depTime.hour + 1,
+                minute: instance.depTime.minute,
               );
 
-          waypointsJson.add({
-            'city': wpDef.city,
-            'lat': wpDef.coords!['lat'],
-            'lng': wpDef.coords!['lng'],
-            'departure_time':
-                "${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}", // Gem som string "14:30"
+          routePoints.add({
+            'city': _waypoints[i].city,
+            'coords': _waypoints[i].coords,
+            'time': time,
+            'type': 'waypoint',
           });
         }
 
-        // Kombiner dato og tid til timestamp
-        final startDateTime = _combineDateAndTime(
-          instance.date,
-          instance.depTime,
-        );
-        var endDateTime = _combineDateAndTime(instance.date, instance.arrTime);
-
-        // Håndter kørsel over midnat
-        if (endDateTime.isBefore(startDateTime)) {
-          endDateTime = endDateTime.add(const Duration(days: 1));
-        }
-
-        await Supabase.instance.client.from('rides').insert({
-          'driver_id': user.id,
-          'origin_city': _origin,
-          'destination_city': _destination,
-          'origin_location':
-              'POINT(${originCoords['lng']} ${originCoords['lat']})',
-          'destination_location':
-              'POINT(${destCoords['lng']} ${destCoords['lat']})',
-          'departure_time': startDateTime.toUtc().toIso8601String(),
-          'arrival_time': endDateTime.toUtc().toIso8601String(),
-          'seats_available': int.parse(_seatsController.text),
-          'price_dkk': int.parse(_priceController.text),
-          'car_model': carModel,
-          'status': 'active',
-          'is_ferry': _isFerry,
-          'detour_flex': _detourFlex,
-          'instant_booking': _instantBooking,
-          'ladies_only': _ladiesOnly,
-          'luggage_size': _luggageSize,
-          'comfort_guarantee': _comfortGuarantee,
-          'pref_music': _prefMusic,
-          'pref_pets': _prefPets,
-          'pref_smoking': _prefSmoking,
-          'pref_kids': _prefKids,
-          'comment': _commentController.text,
-          'waypoints':
-              waypointsJson, // <--- Her er magien! Specifikke tider gemt i JSON
+        // Slutpunkt
+        routePoints.add({
+          'city': _destination,
+          'coords': destCoords,
+          'time': instance.arrTime,
+          'type': 'destination',
         });
+
+        // 4. GENERER ALLE KOMBINATIONER (Double Loop)
+        // A->B, A->C, B->C osv.
+        for (int i = 0; i < routePoints.length - 1; i++) {
+          for (int j = i + 1; j < routePoints.length; j++) {
+            final fromPoint = routePoints[i];
+            final toPoint = routePoints[j];
+
+            // Tjek om det er HOVEDTUREN (Start til Slut)
+            // Vi gemmer kun waypoints-JSON på hovedturen for at undgå rod i display
+            bool isMainRide = (i == 0 && j == routePoints.length - 1);
+
+            List<Map<String, dynamic>> waypointsJson = [];
+            if (isMainRide) {
+              // Byg JSON kun til hovedturen
+              for (int k = 0; k < _waypoints.length; k++) {
+                final wp = _waypoints[k];
+                final t = instance.waypointTimes[k] ?? instance.depTime;
+                waypointsJson.add({
+                  'city': wp.city,
+                  'lat': wp.coords!['lat'],
+                  'lng': wp.coords!['lng'],
+                  'departure_time':
+                      "${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}",
+                });
+              }
+            }
+
+            // Beregn tider
+            final startDateTime = _combineDateAndTime(
+              instance.date,
+              fromPoint['time'],
+            );
+            var endDateTime = _combineDateAndTime(
+              instance.date,
+              toPoint['time'],
+            );
+
+            if (endDateTime.isBefore(startDateTime)) {
+              endDateTime = endDateTime.add(const Duration(days: 1));
+            }
+
+            // Indsæt som SELVSTÆNDIG tur i databasen
+            await Supabase.instance.client.from('rides').insert({
+              'driver_id': user.id,
+              'origin_city': fromPoint['city'],
+              'destination_city': toPoint['city'],
+              'origin_location':
+                  'POINT(${fromPoint['coords']['lng']} ${fromPoint['coords']['lat']})',
+              'destination_location':
+                  'POINT(${toPoint['coords']['lng']} ${toPoint['coords']['lat']})',
+              'departure_time': startDateTime.toUtc().toIso8601String(),
+              'arrival_time': endDateTime.toUtc().toIso8601String(),
+              'seats_available': int.parse(_seatsController.text),
+              'price_dkk': int.parse(
+                _priceController.text,
+              ), // NB: Samme pris for alle segmenter (indtil videre)
+              'car_model': carModel,
+              'status': 'active',
+              'is_ferry': _isFerry,
+              'detour_flex': _detourFlex,
+              'instant_booking': _instantBooking,
+              'ladies_only': _ladiesOnly,
+              'luggage_size': _luggageSize,
+              'comfort_guarantee': _comfortGuarantee,
+              'pref_music': _prefMusic,
+              'pref_pets': _prefPets,
+              'pref_smoking': _prefSmoking,
+              'pref_kids': _prefKids,
+              'comment': _commentController.text,
+              'waypoints': waypointsJson, // Kun hovedturen får JSON data
+            });
+          }
+        }
       }
 
       if (mounted) {
@@ -289,7 +333,6 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
 
   // --- iOS STYLE PICKERS ---
 
-  // Dato Vælger
   void _showIOSDatePicker(RideInstance instance) {
     showModalBottomSheet(
       context: context,
@@ -321,9 +364,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
     );
   }
 
-  // Tid Vælger
   void _showIOSTimePicker(TimeOfDay current, Function(TimeOfDay) onSelected) {
-    // Konverter TimeOfDay til DateTime for at bruge i pickeren
     final now = DateTime.now();
     final initial = DateTime(
       now.year,
@@ -351,9 +392,6 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
                   use24hFormat: true,
                   initialDateTime: initial,
                   onDateTimeChanged: (val) {
-                    // Vi opdaterer først staten når man slipper/vælger,
-                    // men her gemmer vi det i en variabel hvis vi ville lave live-opdatering.
-                    // For simplicitet opdaterer vi direkte via callback i realtid:
                     onSelected(TimeOfDay(hour: val.hour, minute: val.minute));
                   },
                 ),
@@ -486,12 +524,10 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
                 ),
                 const SizedBox(height: 10),
 
-                // HER KOMMER MAGIEN: LISTEN AF TURE MED DERES SPECIFIKKE TIDER
+                // LISTEN AF TURE MED DERES SPECIFIKKE TIDER
                 if (!_isRecurring)
-                  // Vis kun det første kort (index 0) hvis ikke gentag
                   _buildRideTimeCard(0)
                 else
-                  // Vis liste med tilføj knap
                   Column(
                     children: [
                       ...List.generate(
@@ -569,7 +605,10 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
                   (v) => setState(() => _ladiesOnly = v),
                   customColor: Colors.pinkAccent,
                 ),
+
                 const SizedBox(height: 30),
+
+                // --- KOMMENTARFELT ---
                 _buildSectionTitle("Besked til passagerer"),
                 const SizedBox(height: 10),
                 TextField(
@@ -578,7 +617,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
                   textCapitalization: TextCapitalization.sentences,
                   decoration: InputDecoration(
                     hintText:
-                        "Skriv evt. lidt om opsamlingssted, regler eller andet...",
+                        "Skriv lidt om opsamlingssted, regler eller andet...",
                     alignLabelWithHint: true,
                     filled: true,
                     fillColor: const Color(0xFFF8FAFC),
@@ -588,6 +627,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
                     ),
                   ),
                 ),
+
                 const SizedBox(height: 40),
                 SizedBox(
                   height: 56,
@@ -616,13 +656,17 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
     );
   }
 
-  // --- DET "KREATIVE" TIDSKORT ---
+  // --- KORTET MED TIDSLINJE ---
   Widget _buildRideTimeCard(int index) {
     final instance = _rideInstances[index];
-    final dateStr = DateFormat(
-      'EEE d. MMM',
-      'da_DK',
-    ).format(instance.date); // Kræver intl locale setup, ellers engelsk
+
+    // Sikker datovisning (hvis locale driller, fallback til EN)
+    String dateStr;
+    try {
+      dateStr = DateFormat('EEE d. MMM', 'da_DK').format(instance.date);
+    } catch (_) {
+      dateStr = DateFormat('EEE d. MMM').format(instance.date);
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 15),
@@ -640,7 +684,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
       ),
       child: ExpansionTile(
         tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        shape: Border.all(color: Colors.transparent), // Fjern border når åben
+        shape: Border.all(color: Colors.transparent),
         title: Row(
           children: [
             const Icon(Icons.calendar_month, color: Colors.grey, size: 20),
@@ -662,14 +706,12 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
               )
             : const Icon(Icons.expand_more),
 
-        // INDHOLD NÅR MAN FOLDER UD (Tidslinjen)
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
             child: Column(
               children: [
                 const Divider(),
-                // DATO VÆLGER
                 _buildTimeRow(
                   "Dato",
                   DateFormat('dd/MM/yyyy').format(instance.date),
@@ -678,8 +720,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
                 ),
                 const SizedBox(height: 15),
 
-                // RUTE TIDSLINJE
-                // 1. Start
+                // Start
                 _buildTimeRow(
                   "Afgang (${_origin ?? 'Start'})",
                   _formatTime(instance.depTime),
@@ -691,11 +732,10 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
                   },
                 ),
 
-                // 2. Mellemstops (Dynamisk genereret for denne dag)
+                // Mellemstops
                 ...List.generate(_waypoints.length, (wpIndex) {
                   final wpName =
                       _waypoints[wpIndex].city ?? "Stop ${wpIndex + 1}";
-                  // Hent eksisterende tid eller brug en default
                   final currentTime =
                       instance.waypointTimes[wpIndex] ?? instance.depTime;
 
@@ -716,7 +756,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
                   );
                 }),
 
-                // 3. Slut
+                // Slut
                 const SizedBox(height: 10),
                 _buildTimeRow(
                   "Ankomst (${_destination ?? 'Slut'})",
@@ -736,7 +776,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
     );
   }
 
-  // En pæn række til tidslinjen
+  // Visual Helper Widgets
   Widget _buildTimeRow(
     String label,
     String value,
@@ -790,7 +830,6 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
     );
   }
 
-  // --- HJÆLPERE ---
   String _formatTime(TimeOfDay t) {
     return "${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}";
   }
@@ -800,9 +839,6 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
   }
 
   Future<Map<String, double>?> _getCityCoordinates(String query) async {
-    // ... (Din eksisterende kode her - kopier fra din forrige version) ...
-    // For at spare plads i svaret, antager jeg du har denne funktion fra før.
-    // Hvis du mangler den, så sig til!
     if (query.isEmpty) return null;
     if (_stationData.containsKey(query)) {
       final station = _stationData[query];

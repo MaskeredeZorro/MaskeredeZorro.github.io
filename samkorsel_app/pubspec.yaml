@@ -38,3 +38,4 @@ flutter:
   assets:
     - assets/station_taxa.json
     - assets/map_pattern.png
+    - assets/logo.png

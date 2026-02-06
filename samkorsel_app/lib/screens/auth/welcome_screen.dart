@@ -25,30 +25,50 @@ class WelcomeScreen extends StatelessWidget {
                       color: const Color(0xFFF1F5F9),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
-                      Icons.directions_car_filled,
-                      size: 60,
-                      color: Color(0xFF6366F1),
+                    child: ClipOval(
+                      child: Image.asset(
+                        'assets/logo.png',
+                        width: 140,
+                        height: 140,
+                        fit: BoxFit
+                            .cover, // Tvinger firkanten til at fylde cirklen ud
+                      ),
                     ),
                   ),
                   const SizedBox(height: 30),
-                  const Text(
-                    "Velkommen til HoppOn",
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    "Danmarks nemmeste samkørsel.\nSpar penge og mød nye mennesker.",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey[600],
-                      height: 1.5,
-                    ),
+                  Column(
+                    children: [
+                      const Text(
+                        "HoppOn",
+                        style: TextStyle(
+                          fontSize: 42, // Gør den stor og dominerende
+                          fontWeight:
+                              FontWeight.w800, // Fed, men ikke "klumpet"
+                          color: Color(0xFF0F172A),
+                          letterSpacing:
+                              -2.0, // Det vigtigste Apple-trick: Træk bogstaverne tæt sammen
+                        ),
+                      ),
+                      const SizedBox(
+                        height: 4,
+                      ), // Meget lille afstand mellem navn og slogan
+                      const Text(
+                        "Kør sammen. Rejs bedre.",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 19,
+                          fontWeight:
+                              FontWeight.w500, // Medium vægt giver kvalitet
+                          color: Color(
+                            0xFF64748B,
+                          ), // Slate 500 – en mere moderne grå end standard grey[600]
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(
+                        height: 24,
+                      ), // Mere luft ned til næste element/knap
+                    ],
                   ),
                 ],
               ),

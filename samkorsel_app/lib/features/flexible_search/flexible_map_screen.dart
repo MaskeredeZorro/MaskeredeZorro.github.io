@@ -27,7 +27,10 @@ class _FlexibleMapScreenState extends State<FlexibleMapScreen> {
 
   List<Marker> _markers = [];
   bool _isLoading = true;
-  LatLng _currentCenter = const LatLng(56.26392, 9.501785);
+  LatLng _currentCenter = const LatLng(
+    56.26392,
+    9.501785,
+  ); // Default center (Jylland)
   int _ridesFound = 0;
 
   @override
@@ -37,70 +40,105 @@ class _FlexibleMapScreenState extends State<FlexibleMapScreen> {
     _refreshData();
   }
 
-  // Samlet funktion til at genopfriske kort og data
   Future<void> _refreshData() async {
     setState(() => _isLoading = true);
 
-    // 1. Find koordinater for postnummeret for at centrere kortet
-    await _centerMapOnZip(_zipController.text);
+    // 1. Find koordinater for søgningen (Hvor vil brugeren rejse FRA?)
+    final searchCoords = await _getCoordinatesForSearch(_zipController.text);
 
-    // 2. Hent lifts fra Supabase
-    await _fetchRidesFromZip();
+    if (searchCoords != null) {
+      // Opdater kortets center til start-stedet (så man kan se området man søger fra)
+      setState(() => _currentCenter = searchCoords);
+      _mapController.move(
+        searchCoords,
+        9.0,
+      ); // Lidt bredere zoom så man kan se destinationerne
+
+      // 2. Hent lifts der starter i nærheden
+      await _fetchRidesNearby(searchCoords);
+    } else {
+      // Fallback tekst-søgning
+      await _fetchRidesFallbackText();
+    }
 
     setState(() => _isLoading = false);
   }
 
-  Future<void> _centerMapOnZip(String zip) async {
+  // --- HENT KOORDINATER (Mapbox) ---
+  Future<LatLng?> _getCoordinatesForSearch(String query) async {
+    String searchTerm = query.trim();
+    if (searchTerm.isEmpty) return null;
+
+    final bool isZipCode = RegExp(r'^\d{4}$').hasMatch(searchTerm);
+    String searchUrl;
+
+    if (isZipCode) {
+      searchUrl =
+          "https://api.mapbox.com/geocoding/v5/mapbox.places/$searchTerm%20Denmark.json?access_token=$_mapboxAccessToken&types=postcode&limit=1";
+    } else {
+      searchUrl =
+          "https://api.mapbox.com/geocoding/v5/mapbox.places/${Uri.encodeComponent(searchTerm)}%20Denmark.json?access_token=$_mapboxAccessToken&limit=1&country=dk";
+    }
+
     try {
-      final url = Uri.parse(
-        "https://api.mapbox.com/geocoding/v5/mapbox.places/$zip%20Denmark.json?access_token=$_mapboxAccessToken&types=postcode&limit=1",
-      );
-      final response = await http.get(url);
+      final response = await http.get(Uri.parse(searchUrl));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['features'].isNotEmpty) {
           final center = data['features'][0]['center'];
-          final pos = LatLng(center[1].toDouble(), center[0].toDouble());
-          _currentCenter = pos;
-          _mapController.move(pos, 10.0);
+          return LatLng(center[1].toDouble(), center[0].toDouble());
         }
       }
     } catch (e) {
-      debugPrint("Fejl ved centrering: $e");
+      debugPrint("Mapbox fejl: $e");
     }
+    return null;
   }
 
-  Future<void> _fetchRidesFromZip() async {
+  // --- SØG EFTER TURE (SQL RPC) ---
+  Future<void> _fetchRidesNearby(LatLng coords) async {
     try {
-      // 1. Skab et tidsinterval for KUN den valgte dag
-      final DateTime startOfSelectedDay = DateTime(
+      final startOfDay = DateTime(
         _selectedDate.year,
         _selectedDate.month,
         _selectedDate.day,
-        0,
-        0,
-        0,
-      );
-
-      final DateTime endOfSelectedDay = DateTime(
+      ).toIso8601String();
+      final endOfDay = DateTime(
         _selectedDate.year,
         _selectedDate.month,
         _selectedDate.day,
         23,
         59,
         59,
+      ).toIso8601String();
+
+      // 1. Find ID'er på ture der STARTER tæt på søge-koordinaterne
+      final List<dynamic> nearbyIds = await Supabase.instance.client.rpc(
+        'get_nearby_ride_ids',
+        params: {
+          'search_lat': coords.latitude,
+          'search_lng': coords.longitude,
+          'radius_meters': 10000.0, // 10 km radius fra søgepunktet
+        },
       );
 
-      // 2. Opdater din query til at bruge både gte (start) og lte (slut)
+      if (nearbyIds.isEmpty) {
+        setState(() {
+          _markers = [];
+          _ridesFound = 0;
+        });
+        return;
+      }
+
+      // 2. Hent data på turene
       final response = await Supabase.instance.client
           .from('rides')
           .select(
             '*, profiles(*), origin_location::text, destination_location::text',
           )
-          .ilike('origin_city', '%${_zipController.text}%')
-          // Her er fixet:
-          .gte('departure_time', startOfSelectedDay.toIso8601String())
-          .lte('departure_time', endOfSelectedDay.toIso8601String())
+          .inFilter('id', nearbyIds)
+          .gte('departure_time', startOfDay)
+          .lte('departure_time', endOfDay)
           .eq('status', 'active');
 
       final List<Map<String, dynamic>> data = List<Map<String, dynamic>>.from(
@@ -108,24 +146,67 @@ class _FlexibleMapScreenState extends State<FlexibleMapScreen> {
       );
 
       setState(() {
-        _generateMarkers(data);
+        _generateMarkers(data); // Generer markører baseret på DESTINATION
         _ridesFound = data.length;
       });
-
-      debugPrint("Søger mellem: ${startOfSelectedDay} og ${endOfSelectedDay}");
-      debugPrint("Fandt: ${data.length} lift");
     } catch (e) {
-      debugPrint("Supabase fejl: $e");
+      debugPrint("Supabase Geo-fejl: $e");
     }
   }
 
+  // --- FALLBACK SØGNING ---
+  Future<void> _fetchRidesFallbackText() async {
+    try {
+      final startOfDay = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+      ).toIso8601String();
+      final endOfDay = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        23,
+        59,
+        59,
+      ).toIso8601String();
+      String query = _zipController.text.trim();
+
+      if (!RegExp(r'^\d{4}$').hasMatch(query)) {
+        query = query.split(' ')[0];
+      }
+
+      final response = await Supabase.instance.client
+          .from('rides')
+          .select(
+            '*, profiles(*), origin_location::text, destination_location::text',
+          )
+          .ilike('origin_city', '%$query%')
+          .gte('departure_time', startOfDay)
+          .lte('departure_time', endOfDay)
+          .eq('status', 'active');
+
+      final data = List<Map<String, dynamic>>.from(response);
+      setState(() {
+        _generateMarkers(data);
+        _ridesFound = data.length;
+      });
+    } catch (e) {
+      debugPrint("Fallback fejl: $e");
+    }
+  }
+
+  // --- MARKER GENERATOR (DESTINATION FIX) ---
   void _generateMarkers(List<Map<String, dynamic>> rides) {
     Map<String, List<Map<String, dynamic>>> grouped = {};
 
     for (var ride in rides) {
-      final destCoords = _parsePostGISHex(ride['destination_location']);
-      if (destCoords != null) {
-        String key = "${destCoords.latitude},${destCoords.longitude}";
+      // --- VIGTIGT: Vi bruger nu DESTINATION location til markøren ---
+      // Så hvis du søger fra Aarhus (8000), viser den prikker i Kolding, Vejle osv.
+      final coords = _parsePostGISHex(ride['destination_location']);
+
+      if (coords != null) {
+        String key = "${coords.latitude},${coords.longitude}";
         grouped.putIfAbsent(key, () => []).add(ride);
       }
     }
@@ -140,13 +221,13 @@ class _FlexibleMapScreenState extends State<FlexibleMapScreen> {
           onTap: () => _showRidesBottomSheet(entry.value),
           child: Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF0F172A), // Slate mørk
+              color: const Color(0xFF0F172A), // Mørkeblå markør
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white, width: 3),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 10,
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 8,
                   offset: const Offset(0, 4),
                 ),
               ],
@@ -167,7 +248,75 @@ class _FlexibleMapScreenState extends State<FlexibleMapScreen> {
     }).toList();
   }
 
-  // UI KOMPONENT: Den moderne filter-bar øverst
+  // --- BUILD UI ---
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          // KORTET
+          FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: _currentCenter,
+              initialZoom: 9.0,
+            ),
+            children: [
+              TileLayer(
+                urlTemplate:
+                    "https://api.mapbox.com/styles/v1/mapbox/light-v10/tiles/256/{z}/{x}/{y}@2x?access_token=$_mapboxAccessToken",
+              ),
+              MarkerLayer(markers: _markers),
+            ],
+          ),
+
+          // SØGEFELT & NAVIGATION
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: Container(
+                          height: 60,
+                          width: 60,
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(color: Colors.black12, blurRadius: 10),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.arrow_back,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(child: _buildFilterBar()),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // LOADING INDIKATOR
+          if (_isLoading)
+            const Center(
+              child: CircularProgressIndicator(color: Color(0xFF6366F1)),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // --- HJÆLPE WIDGETS ---
+
   Widget _buildFilterBar() {
     return Container(
       height: 60,
@@ -185,27 +334,27 @@ class _FlexibleMapScreenState extends State<FlexibleMapScreen> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.location_on, color: Color(0xFF6366F1), size: 22),
-          const SizedBox(width: 8),
+          const Icon(Icons.search, color: Color(0xFF6366F1), size: 24),
+          const SizedBox(width: 10),
           Expanded(
             child: TextField(
               controller: _zipController,
-              keyboardType: TextInputType.number,
               onSubmitted: (_) => _refreshData(),
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               decoration: const InputDecoration(
-                hintText: "Postnr.",
+                hintText: "Hvor rejser du fra?",
                 border: InputBorder.none,
+                hintStyle: TextStyle(color: Colors.grey),
               ),
             ),
           ),
-          const VerticalDivider(width: 30, indent: 15, endIndent: 15),
+          const VerticalDivider(width: 20, indent: 12, endIndent: 12),
           GestureDetector(
             onTap: _pickDate,
             child: Row(
               children: [
                 const Icon(Icons.calendar_today, size: 18, color: Colors.grey),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 Text(
                   DateFormat('dd. MMM').format(_selectedDate),
                   style: const TextStyle(fontWeight: FontWeight.bold),
@@ -232,13 +381,16 @@ class _FlexibleMapScreenState extends State<FlexibleMapScreen> {
   }
 
   void _showRidesBottomSheet(List<Map<String, dynamic>> rides) {
-    final destName = rides[0]['destination_city'].split(',')[0];
+    final destName = rides.isNotEmpty
+        ? rides[0]['destination_city'].split(',')[0]
+        : "Destination";
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.7,
+        height: MediaQuery.of(context).size.height * 0.6,
         decoration: const BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
@@ -297,7 +449,9 @@ class _FlexibleMapScreenState extends State<FlexibleMapScreen> {
                           fontSize: 17,
                         ),
                       ),
-                      subtitle: Text(ride['profiles']['full_name']),
+                      subtitle: Text(
+                        "Chauffør: ${ride['profiles']['full_name']}",
+                      ),
                       trailing: const Icon(
                         Icons.arrow_forward_ios,
                         size: 16,
@@ -320,71 +474,7 @@ class _FlexibleMapScreenState extends State<FlexibleMapScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: _currentCenter,
-              initialZoom: 9.0,
-            ),
-            children: [
-              TileLayer(
-                urlTemplate:
-                    "https://api.mapbox.com/styles/v1/mapbox/light-v10/tiles/256/{z}/{x}/{y}@2x?access_token=$_mapboxAccessToken",
-              ),
-              MarkerLayer(markers: _markers),
-            ],
-          ),
-
-          // Filter og navigations UI
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () => Navigator.pop(context),
-                        child: Container(
-                          height: 60,
-                          width: 60,
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(color: Colors.black12, blurRadius: 10),
-                            ],
-                          ),
-                          child: const Icon(
-                            Icons.arrow_back,
-                            color: Colors.black,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(child: _buildFilterBar()),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          if (_isLoading)
-            const Center(
-              child: CircularProgressIndicator(color: Color(0xFF6366F1)),
-            ),
-        ],
-      ),
-    );
-  }
-
-  // --- HJÆLPEFUNKTIONER ---
+  // --- PARSE HEX ---
   LatLng? _parsePostGISHex(String? hex) {
     if (hex == null || hex.length < 42) return null;
     try {

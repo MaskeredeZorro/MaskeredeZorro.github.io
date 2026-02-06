@@ -21,6 +21,13 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
     _fetchWalletData();
   }
 
+  // Hjælper til at vise statusmeddelelser
+  String _getPayoutLockReason() {
+    if (!_isStripeReady) return "Mangler skatteoplysninger";
+    if (_balance <= 0) return "Saldo er 0 kr.";
+    return "Udbetal";
+  }
+
   // --- HENT DATA (Opdateret til at tjekke user_stripe_data) ---
   Future<void> _fetchWalletData() async {
     try {
@@ -72,7 +79,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
       // (Forudsætter at du har oprettet denne Edge Function - hvis ikke, så sig til!)
       final res = await Supabase.instance.client.functions.invoke(
         'payout',
-        body: {'user_id': user.id, 'amount': _balance},
+        body: {'id': user.id, 'amount': _balance},
       );
 
       if (res.status == 200) {
