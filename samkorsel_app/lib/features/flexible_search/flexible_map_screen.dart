@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart'; // VIGTIGT: Til iOS picker
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -23,7 +24,10 @@ class _FlexibleMapScreenState extends State<FlexibleMapScreen> {
       'pk.eyJ1IjoiaG9wcG9uIiwiYSI6ImNtbDk0bDN3cTBiM3MzZnFzdThhOXRuZG4ifQ.9LP9GFe5zEvMjwhPtf6l0w';
 
   late TextEditingController _zipController;
+
+  // --- TIDS FILTRE (Gemmes som Lokal tid i hukommelsen) ---
   DateTime _selectedDate = DateTime.now();
+  DateTime? _latestArrivalTime;
 
   List<Marker> _markers = [];
   bool _isLoading = true;
@@ -40,28 +44,139 @@ class _FlexibleMapScreenState extends State<FlexibleMapScreen> {
     _refreshData();
   }
 
+  // --- OPDATER DATA ---
   Future<void> _refreshData() async {
     setState(() => _isLoading = true);
 
-    // 1. Find koordinater for søgningen (Hvor vil brugeren rejse FRA?)
+    // 1. Find koordinater for søgningen
     final searchCoords = await _getCoordinatesForSearch(_zipController.text);
 
     if (searchCoords != null) {
-      // Opdater kortets center til start-stedet (så man kan se området man søger fra)
       setState(() => _currentCenter = searchCoords);
-      _mapController.move(
-        searchCoords,
-        9.0,
-      ); // Lidt bredere zoom så man kan se destinationerne
-
-      // 2. Hent lifts der starter i nærheden
+      _mapController.move(searchCoords, 9.0);
       await _fetchRidesNearby(searchCoords);
     } else {
-      // Fallback tekst-søgning
       await _fetchRidesFallbackText();
     }
 
     setState(() => _isLoading = false);
+  }
+
+  // --- iOS DATAVÆLGER LOGIK ---
+  void _showIOSDateTimePicker({required bool isArrivalFilter}) {
+    final DateTime now = DateTime.now();
+
+    // Bestem start-tidspunkt for pickeren
+    DateTime initialTime = isArrivalFilter
+        ? (_latestArrivalTime ?? _selectedDate.add(const Duration(hours: 2)))
+        : _selectedDate;
+
+    // Sikr at vi ikke starter i fortiden
+    if (initialTime.isBefore(now)) initialTime = now;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext builder) {
+        return SizedBox(
+          height: 350,
+          child: Column(
+            children: [
+              // Header med "Færdig" knap
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(20),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      isArrivalFilter
+                          ? "Vælg senest ankomst"
+                          : "Vælg tidligst afgang",
+                      style: const TextStyle(color: Colors.grey, fontSize: 14),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.pop(context);
+                        _refreshData(); // Opdater kortet når man er færdig
+                      },
+                      child: const Text(
+                        "Færdig",
+                        style: TextStyle(
+                          color: Color(0xFF6366F1),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Selve Hjulet
+              Expanded(
+                child: CupertinoDatePicker(
+                  mode: CupertinoDatePickerMode.dateAndTime,
+                  use24hFormat: true,
+                  initialDateTime: initialTime,
+                  minimumDate: DateTime(
+                    now.year,
+                    now.month,
+                    now.day,
+                    now.hour,
+                    now.minute,
+                  ),
+                  onDateTimeChanged: (DateTime newDateTime) {
+                    // Vi tillader ikke fortiden, men pickerens minimumDate klarer det meste.
+                    // Her opdaterer vi state.
+                    if (newDateTime.isBefore(now)) return;
+
+                    setState(() {
+                      if (isArrivalFilter) {
+                        _latestArrivalTime = newDateTime;
+                      } else {
+                        _selectedDate = newDateTime;
+                        // Hvis afgang flyttes til efter ankomst, nulstil ankomst
+                        if (_latestArrivalTime != null &&
+                            _latestArrivalTime!.isBefore(_selectedDate)) {
+                          _latestArrivalTime = null;
+                        }
+                      }
+                    });
+                  },
+                ),
+              ),
+              // Knap til at fjerne ankomst-filter
+              if (isArrivalFilter)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 20),
+                  child: TextButton(
+                    onPressed: () {
+                      setState(() => _latestArrivalTime = null);
+                      Navigator.pop(context);
+                      _refreshData();
+                    },
+                    child: const Text(
+                      "Nulstil ankomsttid",
+                      style: TextStyle(color: Colors.red),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   // --- HENT KOORDINATER (Mapbox) ---
@@ -98,27 +213,32 @@ class _FlexibleMapScreenState extends State<FlexibleMapScreen> {
   // --- SØG EFTER TURE (SQL RPC) ---
   Future<void> _fetchRidesNearby(LatLng coords) async {
     try {
-      final startOfDay = DateTime(
-        _selectedDate.year,
-        _selectedDate.month,
-        _selectedDate.day,
-      ).toIso8601String();
-      final endOfDay = DateTime(
+      // 1. Definer tidsrammen (VIGTIGT: Konverter til UTC for DB sammenligning)
+
+      // Start: Det valgte tidspunkt (Tidligst afgang) -> UTC
+      // Fx valgt 17:00 DK tid -> Bliver 16:00 UTC
+      final String searchStartUTC = _selectedDate.toUtc().toIso8601String();
+
+      // Slut: Resten af det valgte døgn (lokal tid 23:59:59) -> UTC
+      // Vi finder slutningen af dagen i lokal tid først
+      final DateTime localEndOfDay = DateTime(
         _selectedDate.year,
         _selectedDate.month,
         _selectedDate.day,
         23,
         59,
         59,
-      ).toIso8601String();
+      );
+      // Og konverterer den til UTC, så vi får HELE dagen med i databasen
+      final String searchEndDayUTC = localEndOfDay.toUtc().toIso8601String();
 
-      // 1. Find ID'er på ture der STARTER tæt på søge-koordinaterne
+      // 2. Find ID'er tæt på
       final List<dynamic> nearbyIds = await Supabase.instance.client.rpc(
         'get_nearby_ride_ids',
         params: {
           'search_lat': coords.latitude,
           'search_lng': coords.longitude,
-          'radius_meters': 10000.0, // 10 km radius fra søgepunktet
+          'radius_meters': 20000.0, // 20 km radius
         },
       );
 
@@ -130,23 +250,32 @@ class _FlexibleMapScreenState extends State<FlexibleMapScreen> {
         return;
       }
 
-      // 2. Hent data på turene
-      final response = await Supabase.instance.client
+      // 3. Byg Query
+      var query = Supabase.instance.client
           .from('rides')
           .select(
             '*, profiles(*), origin_location::text, destination_location::text',
           )
           .inFilter('id', nearbyIds)
-          .gte('departure_time', startOfDay)
-          .lte('departure_time', endOfDay)
-          .eq('status', 'active');
+          .eq('status', 'active')
+          .gte('departure_time', searchStartUTC) // UTC sammenligning
+          .lte('departure_time', searchEndDayUTC); // UTC sammenligning
 
+      // 4. Tilføj Ankomst Filter (hvis valgt)
+      if (_latestArrivalTime != null) {
+        query = query.lte(
+          'arrival_time',
+          _latestArrivalTime!.toUtc().toIso8601String(),
+        );
+      }
+
+      final response = await query;
       final List<Map<String, dynamic>> data = List<Map<String, dynamic>>.from(
         response,
       );
 
       setState(() {
-        _generateMarkers(data); // Generer markører baseret på DESTINATION
+        _generateMarkers(data);
         _ridesFound = data.length;
       });
     } catch (e) {
@@ -157,36 +286,44 @@ class _FlexibleMapScreenState extends State<FlexibleMapScreen> {
   // --- FALLBACK SØGNING ---
   Future<void> _fetchRidesFallbackText() async {
     try {
-      final startOfDay = DateTime(
-        _selectedDate.year,
-        _selectedDate.month,
-        _selectedDate.day,
-      ).toIso8601String();
-      final endOfDay = DateTime(
+      // VIGTIGT: Samme UTC logik her
+      final String searchStartUTC = _selectedDate.toUtc().toIso8601String();
+
+      final DateTime localEndOfDay = DateTime(
         _selectedDate.year,
         _selectedDate.month,
         _selectedDate.day,
         23,
         59,
         59,
-      ).toIso8601String();
-      String query = _zipController.text.trim();
+      );
+      final String searchEndDayUTC = localEndOfDay.toUtc().toIso8601String();
 
-      if (!RegExp(r'^\d{4}$').hasMatch(query)) {
-        query = query.split(' ')[0];
+      String queryText = _zipController.text.trim();
+      if (!RegExp(r'^\d{4}$').hasMatch(queryText)) {
+        queryText = queryText.split(' ')[0];
       }
 
-      final response = await Supabase.instance.client
+      var query = Supabase.instance.client
           .from('rides')
           .select(
             '*, profiles(*), origin_location::text, destination_location::text',
           )
-          .ilike('origin_city', '%$query%')
-          .gte('departure_time', startOfDay)
-          .lte('departure_time', endOfDay)
-          .eq('status', 'active');
+          .ilike('origin_city', '%$queryText%')
+          .eq('status', 'active')
+          .gte('departure_time', searchStartUTC)
+          .lte('departure_time', searchEndDayUTC);
 
+      if (_latestArrivalTime != null) {
+        query = query.lte(
+          'arrival_time',
+          _latestArrivalTime!.toUtc().toIso8601String(),
+        );
+      }
+
+      final response = await query;
       final data = List<Map<String, dynamic>>.from(response);
+
       setState(() {
         _generateMarkers(data);
         _ridesFound = data.length;
@@ -196,15 +333,12 @@ class _FlexibleMapScreenState extends State<FlexibleMapScreen> {
     }
   }
 
-  // --- MARKER GENERATOR (DESTINATION FIX) ---
+  // --- MARKER GENERATOR ---
   void _generateMarkers(List<Map<String, dynamic>> rides) {
     Map<String, List<Map<String, dynamic>>> grouped = {};
 
     for (var ride in rides) {
-      // --- VIGTIGT: Vi bruger nu DESTINATION location til markøren ---
-      // Så hvis du søger fra Aarhus (8000), viser den prikker i Kolding, Vejle osv.
       final coords = _parsePostGISHex(ride['destination_location']);
-
       if (coords != null) {
         String key = "${coords.latitude},${coords.longitude}";
         grouped.putIfAbsent(key, () => []).add(ride);
@@ -221,7 +355,7 @@ class _FlexibleMapScreenState extends State<FlexibleMapScreen> {
           onTap: () => _showRidesBottomSheet(entry.value),
           child: Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF0F172A), // Mørkeblå markør
+              color: const Color(0xFF0F172A),
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white, width: 3),
               boxShadow: [
@@ -270,7 +404,7 @@ class _FlexibleMapScreenState extends State<FlexibleMapScreen> {
             ],
           ),
 
-          // SØGEFELT & NAVIGATION
+          // SØGEFELT & FILTRE
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
@@ -278,11 +412,12 @@ class _FlexibleMapScreenState extends State<FlexibleMapScreen> {
                 children: [
                   Row(
                     children: [
+                      // TILBAGE KNAP
                       GestureDetector(
                         onTap: () => Navigator.pop(context),
                         child: Container(
-                          height: 60,
-                          width: 60,
+                          height: 50,
+                          width: 50,
                           decoration: const BoxDecoration(
                             color: Colors.white,
                             shape: BoxShape.circle,
@@ -297,8 +432,81 @@ class _FlexibleMapScreenState extends State<FlexibleMapScreen> {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      Expanded(child: _buildFilterBar()),
+
+                      // SØGEFELT
+                      Expanded(
+                        child: Container(
+                          height: 50,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(25),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 15,
+                                offset: const Offset(0, 5),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.search,
+                                color: Color(0xFF6366F1),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: TextField(
+                                  controller: _zipController,
+                                  onSubmitted: (_) => _refreshData(),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  decoration: const InputDecoration(
+                                    hintText: "Postnr. eller by",
+                                    border: InputBorder.none,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ],
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // TIDS FILTER KNAPPER
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        // 1. TIDLIGST AFGANG
+                        _buildTimeFilterChip(
+                          icon: Icons.calendar_today,
+                          label:
+                              "Afgang: ${DateFormat('dd/MM HH:mm').format(_selectedDate)}",
+                          isActive: true,
+                          onTap: () =>
+                              _showIOSDateTimePicker(isArrivalFilter: false),
+                        ),
+
+                        const SizedBox(width: 10),
+
+                        // 2. SENEST ANKOMST
+                        _buildTimeFilterChip(
+                          icon: Icons.flag_outlined,
+                          label: _latestArrivalTime == null
+                              ? "Senest ankomst"
+                              : "Ankomst: ${DateFormat('HH:mm').format(_latestArrivalTime!)}",
+                          isActive: _latestArrivalTime != null,
+                          onTap: () =>
+                              _showIOSDateTimePicker(isArrivalFilter: true),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -315,71 +523,52 @@ class _FlexibleMapScreenState extends State<FlexibleMapScreen> {
     );
   }
 
-  // --- HJÆLPE WIDGETS ---
+  // --- UI HELPERS ---
 
-  Widget _buildFilterBar() {
-    return Container(
-      height: 60,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.search, color: Color(0xFF6366F1), size: 24),
-          const SizedBox(width: 10),
-          Expanded(
-            child: TextField(
-              controller: _zipController,
-              onSubmitted: (_) => _refreshData(),
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              decoration: const InputDecoration(
-                hintText: "Hvor rejser du fra?",
-                border: InputBorder.none,
-                hintStyle: TextStyle(color: Colors.grey),
+  Widget _buildTimeFilterChip({
+    required IconData icon,
+    required String label,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFF0F172A) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              color: isActive ? Colors.white : Colors.black87,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: isActive ? Colors.white : Colors.black87,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
               ),
             ),
-          ),
-          const VerticalDivider(width: 20, indent: 12, endIndent: 12),
-          GestureDetector(
-            onTap: _pickDate,
-            child: Row(
-              children: [
-                const Icon(Icons.calendar_today, size: 18, color: Colors.grey),
-                const SizedBox(width: 6),
-                Text(
-                  DateFormat('dd. MMM').format(_selectedDate),
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Future<void> _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime.now(),
-      lastDate: DateTime(2030),
-    );
-    if (picked != null) {
-      setState(() => _selectedDate = picked);
-      _refreshData();
-    }
-  }
-
+  // --- BOTTOM SHEET TIL TURE ---
   void _showRidesBottomSheet(List<Map<String, dynamic>> rides) {
     final destName = rides.isNotEmpty
         ? rides[0]['destination_city'].split(',')[0]
@@ -417,9 +606,12 @@ class _FlexibleMapScreenState extends State<FlexibleMapScreen> {
                 itemCount: rides.length,
                 itemBuilder: (context, index) {
                   final ride = rides[index];
+
+                  // VIGTIGT: Konverter fra UTC (DB) til Local (Visning)
                   final depTime = DateTime.parse(
                     ride['departure_time'],
                   ).toLocal();
+
                   return Container(
                     margin: const EdgeInsets.only(bottom: 12),
                     decoration: BoxDecoration(
@@ -474,7 +666,7 @@ class _FlexibleMapScreenState extends State<FlexibleMapScreen> {
     );
   }
 
-  // --- PARSE HEX ---
+  // --- HJÆLPEFUNKTIONER (PARSE HEX) ---
   LatLng? _parsePostGISHex(String? hex) {
     if (hex == null || hex.length < 42) return null;
     try {

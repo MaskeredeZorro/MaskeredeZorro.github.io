@@ -13,6 +13,7 @@ import '../features/rides/ride_detail_screen.dart';
 import '../features/flexible_search/flexible_map_screen.dart';
 import 'profile_screen.dart';
 import '/screens/messages_screen.dart';
+import 'package:flutter/cupertino.dart'; // REQUIRED for iOS pickers
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -184,8 +185,10 @@ class _SearchTabState extends State<SearchTab> {
   double _currentRadius = 20.0;
   bool _isDestFieldActive = false;
   DateTime _selectedDate = DateTime.now();
+  // TimeOfDay _selectedTime = TimeOfDay.now(); // Denne kan vi undvære nu, da DateTime indeholder tid
+
   final _dateDisplayController = TextEditingController(
-    text: DateFormat('dd/MM/yyyy').format(DateTime.now()),
+    text: DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now()), // Nu med tid
   );
 
   // Variabel til at gemme stationsdata fra JSON
@@ -246,19 +249,62 @@ class _SearchTabState extends State<SearchTab> {
     );
   }
 
-  Future<void> _pickDate() async {
-    final picked = await showDatePicker(
+  void _pickDate() {
+    final DateTime now = DateTime.now();
+
+    showModalBottomSheet(
       context: context,
-      firstDate: DateTime.now(),
-      lastDate: DateTime(2030),
-      initialDate: DateTime.now(),
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext builder) {
+        return SizedBox(
+          height: 350,
+          child: Column(
+            children: [
+              _buildPickerHeader(context),
+              Expanded(
+                child: CupertinoDatePicker(
+                  mode: CupertinoDatePickerMode.dateAndTime,
+                  use24hFormat: true,
+                  // Sikrer at vi starter på nuværende tidspunkt eller valgte (hvis fremtid)
+                  initialDateTime: _selectedDate.isBefore(now)
+                      ? now
+                      : _selectedDate,
+                  // Forhindrer scrolling tilbage i tid (på dato niveau)
+                  minimumDate: DateTime(
+                    now.year,
+                    now.month,
+                    now.day,
+                    now.hour,
+                    now.minute,
+                  ),
+                  onDateTimeChanged: (DateTime newDateTime) {
+                    // Ekstra sikkerhedstjek
+                    if (newDateTime.isBefore(now)) {
+                      setState(() {
+                        _selectedDate = now;
+                        _dateDisplayController.text = DateFormat(
+                          'dd/MM/yyyy HH:mm',
+                        ).format(now);
+                      });
+                    } else {
+                      setState(() {
+                        _selectedDate = newDateTime;
+                        _dateDisplayController.text = DateFormat(
+                          'dd/MM/yyyy HH:mm',
+                        ).format(newDateTime);
+                      });
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
-    if (picked != null) {
-      setState(() {
-        _selectedDate = picked;
-        _dateDisplayController.text = DateFormat('dd/MM/yyyy').format(picked);
-      });
-    }
   }
 
   Future<void> _handleSearch() async {
@@ -560,8 +606,16 @@ class _SearchTabState extends State<SearchTab> {
                       activeColor: _accentColor,
                       onChanged: (val) => setState(() => _currentRadius = val),
                     ),
+
                     // (Husk også SmartZones og Dato picker herunder fra din originale fil)
                     const SizedBox(height: 30),
+
+                    _buildSearchOption(
+                      label: "Hvornår skal du afsted?",
+                      icon: Icons.calendar_month,
+                      controller: _dateDisplayController,
+                      onTap: _pickDate,
+                    ),
                     SizedBox(
                       width: double.infinity,
                       height: 56,
@@ -593,6 +647,145 @@ class _SearchTabState extends State<SearchTab> {
       ),
     );
   }
+
+  Widget _buildPickerHeader(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          GestureDetector(
+            onTap: () =>
+                Navigator.pop(context), // Nu bruger den context fra argumentet
+            child: const Text(
+              "Færdig",
+              style: TextStyle(
+                color: Color(0xFF6366F1), // Indsat farveværdi direkte (Accent)
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchOption({
+    required String label,
+    required IconData icon,
+    required TextEditingController controller,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: _accentColor, size: 22),
+            const SizedBox(width: 16),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                ),
+                Text(
+                  controller.text,
+                  style: TextStyle(
+                    color: _primaryColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+Widget _buildPickerHeader(BuildContext context) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    decoration: BoxDecoration(
+      color: Colors.grey.shade100,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        GestureDetector(
+          onTap: () => Navigator.pop(context),
+          child: const Text(
+            "Færdig",
+            style: TextStyle(
+              color: Color(0xFF6366F1), // Farven er nu hardcoded
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _buildSearchOption({
+  required String label,
+  required IconData icon,
+  required TextEditingController controller,
+  required VoidCallback onTap,
+}) {
+  return InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(16),
+    child: Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: const Color(0xff6366f1), size: 22),
+          const SizedBox(width: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(color: Colors.grey[500], fontSize: 12),
+              ),
+              Text(
+                controller.text,
+                style: TextStyle(
+                  color: Color(0xff0f172a),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _CityAutocompleteField extends StatefulWidget {
@@ -1269,20 +1462,29 @@ class _RidesTabState extends State<RidesTab> {
   Future<void> _fetchRides() async {
     setState(() => _isLoading = true);
     try {
-      final startOfDay = DateTime(
-        _displayDate.year,
-        _displayDate.month,
-        _displayDate.day,
-      );
-      final endOfDay = startOfDay.add(const Duration(days: 1));
+      // 1. Find det lokale tidspunkt vi vil søge fra (nu eller valgt dato)
+      final DateTime searchThresholdLocal = widget.filterDate ?? DateTime.now();
+
+      // 2. Find slutningen af det lokale døgn (så vi kun ser ture for den valgte dag)
+      final DateTime endOfDayLocal = DateTime(
+        searchThresholdLocal.year,
+        searchThresholdLocal.month,
+        searchThresholdLocal.day,
+      ).add(const Duration(days: 1));
+
+      // 3. VIGTIGT: Konverter til UTC før vi sender til Databasen
+      // Databasen gemmer i UTC (+00). Hvis vi sender dansk tid (+01/+02) uden at konvertere,
+      // tror databasen det er UTC tid, og vi mister ture der ligger "mellem" tidszonerne.
+      final String startUTC = searchThresholdLocal.toUtc().toIso8601String();
+      final String endUTC = endOfDayLocal.toUtc().toIso8601String();
 
       final res = await Supabase.instance.client
           .from('rides')
           .select(
             '*, profiles(*), origin_location::text, destination_location::text',
           )
-          .gte('departure_time', startOfDay.toIso8601String())
-          .lt('departure_time', endOfDay.toIso8601String())
+          .gte('departure_time', startUTC) // Søg med UTC tid
+          .lt('departure_time', endUTC) // Søg med UTC tid
           .order('departure_time', ascending: true);
 
       List<Map<String, dynamic>> allRides = List<Map<String, dynamic>>.from(

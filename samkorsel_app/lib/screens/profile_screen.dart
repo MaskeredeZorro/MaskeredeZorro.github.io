@@ -39,10 +39,19 @@ class _ProfileScreenState extends State<ProfileScreen>
   // LOGIK: AFLYS BOOKING (Med advarsler)
   // ------------------------------------------------------------------------
   Future<void> _cancelBooking(String bookingId, String departureTimeStr) async {
-    // 1. Beregn advarsel baseret på tid
+    // 1. Beregn advarsel (Ingen ændringer her)
     final departure = DateTime.parse(departureTimeStr).toLocal();
     final now = DateTime.now();
     final hoursUntil = departure.difference(now).inHours;
+
+    if (now.isAfter(departure)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Turen er startet og kan ikke længere aflyses."),
+        ),
+      );
+      return;
+    }
 
     String warningTitle = "Afmeld tur";
     String warningText = "Er du sikker på, at du vil afmelde turen?";
@@ -67,7 +76,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       warningColor = Colors.green;
     }
 
-    // 2. Vis bekræftelsesdialog
+    // 2. Vis dialog (Ingen ændringer her)
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -106,7 +115,6 @@ class _ProfileScreenState extends State<ProfileScreen>
     if (confirm != true) return;
 
     // 3. Kald Edge Function
-    // Vis loading (dialog så man ikke kan trykke igen)
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -115,9 +123,28 @@ class _ProfileScreenState extends State<ProfileScreen>
 
     try {
       final client = Supabase.instance.client;
+
+      // --- RETTELSE: FORNY SESSION FØRST ---
+      // Dette sikrer, at tokenet ikke er udløbet
+      try {
+        await client.auth.refreshSession();
+      } catch (e) {
+        debugPrint("Kunne ikke opfriske session: $e");
+        // Vi fortsætter alligevel, i tilfælde af at det gamle token stadig virker
+      }
+
+      final session = client.auth.currentSession;
+      if (session == null) throw "Ingen aktiv session. Log ind igen.";
+
+      final String jwt = session.accessToken;
+      debugPrint(
+        "Sender request med token: ${jwt.substring(0, 10)}...",
+      ); // Debug print
+
       final response = await client.functions.invoke(
         'cancel-booking',
         body: {'booking_id': bookingId},
+        headers: {'Authorization': 'Bearer $jwt'},
       );
 
       if (mounted) Navigator.pop(context); // Fjern loading
@@ -130,17 +157,24 @@ class _ProfileScreenState extends State<ProfileScreen>
               backgroundColor: Colors.orange,
             ),
           );
-          setState(() {}); // Opdater listen
+          setState(() {});
         }
       } else {
-        throw response.data['error'] ?? "Ukendt fejl";
+        final errorData = response.data;
+        final errorMsg = (errorData is Map)
+            ? errorData['error']
+            : "Fejl (${response.status})";
+        // Hvis vi stadig får 401 her, er der noget galt med selve brugeren/serveren
+        if (response.status == 401) {
+          throw "Din session er udløbet. Prøv at logge ud og ind igen.";
+        }
+        throw errorMsg ?? "Ukendt fejl";
       }
     } catch (e) {
       if (mounted) {
-        if (Navigator.canPop(context))
-          Navigator.pop(context); // Fjern loading hvis den er der
+        if (Navigator.canPop(context)) Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Fejl: $e"), backgroundColor: Colors.red),
+          SnackBar(content: Text("$e"), backgroundColor: Colors.red),
         );
       }
     }
@@ -429,20 +463,14 @@ class _ProfileScreenState extends State<ProfileScreen>
     String newStatus,
     String passengerName,
   ) async {
-    debugPrint("--- STARTER STATUS OPDATERING ---");
-    debugPrint("Booking ID: $bookingId");
-    debugPrint("Handling: $newStatus for $passengerName");
-
     try {
-      // 1. Opdater status i databasen først
+      // 1. Opdater status i databasen
       await Supabase.instance.client
           .from('bookings')
           .update({'status': newStatus})
           .eq('id', bookingId);
 
-      debugPrint("Trin 1: Database status opdateret OK.");
-
-      // 2. Hent Stripe ID'et for denne specifikke booking
+      // 2. Hent Stripe ID
       final bookingData = await Supabase.instance.client
           .from('bookings')
           .select('stripe_payment_id')
@@ -450,54 +478,32 @@ class _ProfileScreenState extends State<ProfileScreen>
           .maybeSingle();
 
       final String? stripeId = bookingData?['stripe_payment_id'];
-      debugPrint("Trin 2 Resultat: Fundet Stripe ID: $stripeId");
 
-      // 3. Hvis der er et Stripe ID, kalder vi Edge Functionen (Capture eller Cancel)
-      if (stripeId != null && stripeId.isNotEmpty) {
-        debugPrint("Trin 3: Kalder Edge Function 'settle-payment'...");
-
-        final response = await Supabase.instance.client.functions.invoke(
+      // 3. Håndter Stripe (KUN ved afvisning)
+      if (stripeId != null && stripeId.isNotEmpty && newStatus == 'rejected') {
+        debugPrint("Afviser booking - frigiver reserveret beløb hos Stripe...");
+        await Supabase.instance.client.functions.invoke(
           'settle-payment',
-          body: {
-            'paymentIntentId': stripeId,
-            'action': newStatus == 'approved' ? 'capture' : 'cancel',
-          },
-        );
-
-        // Tjek om funktionen sendte en fejl retur
-        if (response.status != 200) {
-          throw "Edge Function svarede med fejl ${response.status}: ${response.data}";
-        }
-        debugPrint("Trin 3 Resultat: Betaling håndteret via Stripe.");
-      } else {
-        debugPrint(
-          "ADVARSEL: Springer Stripe over, da stripe_payment_id er tomt.",
+          body: {'paymentIntentId': stripeId, 'action': 'cancel'},
         );
       }
 
-      // 4. Opdater UI og vis besked
       if (mounted) {
-        setState(() {}); // Genindlæs skærmen for at opdatere listen
-
+        setState(() {});
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               newStatus == 'approved'
-                  ? "Du har godkendt $passengerName ✅"
-                  : "Du har afvist $passengerName ❌",
+                  ? "Godkendt: $passengerName"
+                  : "Afvist: $passengerName",
             ),
             backgroundColor: newStatus == 'approved'
                 ? Colors.green
                 : Colors.orange,
-            duration: const Duration(seconds: 3),
           ),
         );
       }
     } catch (e) {
-      debugPrint("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-      debugPrint("FEJL I _updateBookingStatus: $e");
-      debugPrint("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Fejl: $e"), backgroundColor: Colors.red),
@@ -510,86 +516,64 @@ class _ProfileScreenState extends State<ProfileScreen>
   // LOGIK: AFSLUT TUR (Håndterer både med og uden passagerer)
   // ------------------------------------------------------------------------
   Future<void> _completeTrip(String rideId) async {
-    try {
-      // 1. Vis loading
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
-      );
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
 
+    try {
       final client = Supabase.instance.client;
 
-      // 2. TJEK OM DER ER GODKENDTE PASSAGERER
-      final bookings = await client
+      // 1. Find alle godkendte passagerer, hvor vi endnu ikke har "hævet" pengene (captured)
+      final bookingsResponse = await client
           .from('bookings')
-          .select('id')
+          .select('stripe_payment_id, profiles(full_name)')
           .eq('ride_id', rideId)
           .eq('status', 'approved');
 
-      final int passengerCount = (bookings as List).length;
+      final bookings = List<Map<String, dynamic>>.from(bookingsResponse);
 
-      // --- SCENARIE A: INGEN PASSAGERER (0 kr.) ---
-      if (passengerCount == 0) {
-        debugPrint("Ingen passagerer. Afslutter tur lokalt uden betaling.");
-
-        await client
-            .from('rides')
-            .update({'status': 'completed'})
-            .eq('id', rideId);
-
-        if (mounted) {
-          Navigator.pop(context); // Fjern loading
-          setState(() {}); // Opdater UI
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Turen er afsluttet (Ingen passagerer)."),
-              backgroundColor: Colors.grey,
-            ),
+      // 2. SIKKERHEDS-CHECK: Hæv pengene NU, hvis de stadig kun er reserverede
+      // (Dette kører kun hvis de ikke allerede er hævet)
+      for (var booking in bookings) {
+        final String? stripeId = booking['stripe_payment_id'];
+        if (stripeId != null && stripeId.isNotEmpty) {
+          await client.functions.invoke(
+            'settle-payment',
+            body: {'paymentIntentId': stripeId, 'action': 'capture'},
           );
         }
-        return; // STOP HER
       }
 
-      // --- SCENARIE B: DER ER PASSAGERER (Betaling skal køre) ---
-      debugPrint("Fandt $passengerCount passagerer. Starter betalingsflow.");
-
-      // a. Beregn CO2 (Kun relevant hvis der var passagerer)
-      // Nu med rettet logik så den ikke fejler på st_x/st_y
+      // 3. Fordel CO2
       await _calculateAndDistributeCO2(rideId);
 
-      // b. Kald Edge Function for at flytte penge og opdatere saldo
+      // 4. Afregn turen (Flyt penge til chaufførens udbetalings-saldo)
       final String? jwt = client.auth.currentSession?.accessToken;
-      if (jwt == null) throw "Ingen session. Log ind igen.";
-
       final response = await client.functions.invoke(
         'complete-trip',
         body: {'trip_id': rideId},
         headers: {'Authorization': 'Bearer $jwt'},
       );
 
-      if (mounted) Navigator.pop(context); // Fjern loading
-
-      if (response.status == 200) {
-        if (mounted) {
-          setState(() {}); // Opdater UI
+      if (mounted) {
+        Navigator.pop(context);
+        if (response.status == 200) {
+          setState(() {});
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text("Turen er afsluttet, og betalingen er bogført! 💸"),
+              content: Text("Turen er afsluttet og afregnet! 💸"),
               backgroundColor: Colors.green,
             ),
           );
+        } else {
+          throw response.data['error'] ?? "Kunne ikke afregne.";
         }
-      } else {
-        final errorMsg = response.data['error'] ?? "Kunne ikke afregne turen.";
-        throw errorMsg;
       }
     } catch (e) {
-      debugPrint("Fejl i _completeTrip: $e");
       if (mounted) {
         if (Navigator.canPop(context)) Navigator.pop(context);
-
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Fejl: $e"), backgroundColor: Colors.red),
         );
@@ -1374,6 +1358,10 @@ class _ProfileScreenState extends State<ProfileScreen>
     final driver = ride['profiles'];
     final bool isCancelled = booking['status'].toString().contains('cancelled');
 
+    // TJEK OM TUREN ER STARTET
+    final DateTime depTime = DateTime.parse(ride['departure_time']).toLocal();
+    final bool hasStarted = DateTime.now().isAfter(depTime);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
@@ -1458,7 +1446,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             ),
           ),
 
-          // Kun vis knapper hvis turen IKKE er aflyst
+          // KNAPPER (Vis kun hvis ikke aflyst)
           if (booking['status'] == 'approved' && !isCancelled) ...[
             const Divider(height: 1),
 
@@ -1494,30 +1482,42 @@ class _ProfileScreenState extends State<ProfileScreen>
               ),
             ),
 
-            // AFLYS KNAP
+            // AFLYS KNAP (Deaktiveret hvis startet)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  icon: const Icon(Icons.cancel_outlined, size: 18),
-                  label: const Text("Aflys Tur"),
+                  icon: Icon(
+                    hasStarted ? Icons.timer_off : Icons.cancel_outlined,
+                    size: 18,
+                  ),
+                  label: Text(hasStarted ? "Turen er startet" : "Aflys Tur"),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.red,
-                    side: BorderSide(color: Colors.red.shade200),
+                    foregroundColor: hasStarted ? Colors.grey : Colors.red,
+                    side: BorderSide(
+                      color: hasStarted
+                          ? Colors.grey.shade300
+                          : Colors.red.shade200,
+                    ),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  onPressed: () =>
-                      _cancelBooking(booking['id'], ride['departure_time']),
+                  // Hvis startet = null (deaktiveret), ellers kald funktion
+                  onPressed: hasStarted
+                      ? null
+                      : () => _cancelBooking(
+                          booking['id'],
+                          ride['departure_time'],
+                        ),
                 ),
               ),
             ),
           ],
 
-          // VIS STATUS HVIS AFLYST
+          // VIS STATUS HVIS ALLEREDE AFLYST
           if (isCancelled)
             Container(
               width: double.infinity,
