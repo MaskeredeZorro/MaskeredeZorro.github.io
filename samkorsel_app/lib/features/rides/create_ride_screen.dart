@@ -161,6 +161,13 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
       return;
     }
 
+    // --- NYT: TJEK FOR MINIMUM PRIS PÅ 20 KR ---
+    final int price = int.tryParse(_priceController.text) ?? 0;
+    if (price < 20) {
+      _showError("Prisen skal være mindst 20 kr.");
+      return; // Stopper funktionen her
+    }
+
     // Tjek at mellemstops har bynavne
     for (var wp in _waypoints) {
       if (wp.city == null) {

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
+import 'dart:typed_data';
 
 // Sørg for at stierne passer til dine filer
 import '../screens/auth/welcome_screen.dart';
@@ -30,9 +31,120 @@ class _ProfileScreenState extends State<ProfileScreen>
   // Mapbox Token
   final String _mapboxToken =
       "pk.eyJ1IjoiaG9wcG9uIiwiYSI6ImNtbDk0bDN3cTBiM3MzZnFzdThhOXRuZG4ifQ.9LP9GFe5zEvMjwhPtf6l0w";
-  // --- NYT: DATO FILTER ---
 
+  // --- NYT: DATO FILTER ---
   DateTime? _filterDate;
+
+  // ------------------------------------------------------------------------
+  // LOGIK: AFLYS BOOKING (Med advarsler)
+  // ------------------------------------------------------------------------
+  Future<void> _cancelBooking(String bookingId, String departureTimeStr) async {
+    // 1. Beregn advarsel baseret på tid
+    final departure = DateTime.parse(departureTimeStr).toLocal();
+    final now = DateTime.now();
+    final hoursUntil = departure.difference(now).inHours;
+
+    String warningTitle = "Afmeld tur";
+    String warningText = "Er du sikker på, at du vil afmelde turen?";
+    String subWarning = "Dette kan ikke fortrydes.";
+    Color warningColor = Colors.grey;
+
+    if (hoursUntil < 3) {
+      warningTitle = "100% Gebyr ⚠️";
+      warningText = "Du mister hele beløbet!";
+      subWarning = "Der er under 3 timer til afgang. Ingen refundering.";
+      warningColor = Colors.red;
+    } else if (hoursUntil < 24) {
+      warningTitle = "50% Gebyr ⚠️";
+      warningText = "Du mister 50% af beløbet.";
+      subWarning =
+          "Der er under 24 timer til afgang. Vi trækker halvdelen af prisen.";
+      warningColor = Colors.orange;
+    } else {
+      warningTitle = "Gratis afmelding ✅";
+      warningText = "Du afmelder i god tid.";
+      subWarning = "Hele beløbet frigives på dit kort.";
+      warningColor = Colors.green;
+    }
+
+    // 2. Vis bekræftelsesdialog
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(warningTitle, style: TextStyle(color: warningColor)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              warningText,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(subWarning),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text(
+              "Behold tur",
+              style: TextStyle(color: Colors.grey),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              "Bekræft Aflysning",
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    // 3. Kald Edge Function
+    // Vis loading (dialog så man ikke kan trykke igen)
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final client = Supabase.instance.client;
+      final response = await client.functions.invoke(
+        'cancel-booking',
+        body: {'booking_id': bookingId},
+      );
+
+      if (mounted) Navigator.pop(context); // Fjern loading
+
+      if (response.status == 200) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Turen er aflyst."),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          setState(() {}); // Opdater listen
+        }
+      } else {
+        throw response.data['error'] ?? "Ukendt fejl";
+      }
+    } catch (e) {
+      if (mounted) {
+        if (Navigator.canPop(context))
+          Navigator.pop(context); // Fjern loading hvis den er der
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Fejl: $e"), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
 
   Future<void> _pickFilterDate() async {
     final picked = await showDatePicker(
@@ -68,22 +180,83 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   // ------------------------------------------------------------------------
-  // LOGIK: CO2 BEREGNING
+  // HJÆLPEFUNKTION: Parse POINT(lng lat) string
+  // ------------------------------------------------------------------------
+  // ------------------------------------------------------------------------
+  // HJÆLPEFUNKTION: Parse POINT(lng lat) ELLER Hex WKB
+  // ------------------------------------------------------------------------
+  Map<String, double> _getCoordsFromPoint(String pointStr) {
+    // Tjek om det er Hex-format (PostGIS WKB)
+    // Det starter typisk med "01" (Little Endian) og indeholder kun hex-tegn
+    final isHex =
+        RegExp(r'^[0-9A-Fa-f]+$').hasMatch(pointStr) && pointStr.length > 20;
+
+    if (isHex) {
+      try {
+        return _parseWkbPoint(pointStr);
+      } catch (e) {
+        debugPrint("Hex parse fejl: $e");
+        return {'lng': 0.0, 'lat': 0.0};
+      }
+    }
+
+    // Fallback til tekst-parsing: "POINT(10.123 56.123)"
+    try {
+      final clean = pointStr.replaceAll('POINT(', '').replaceAll(')', '');
+      final parts = clean.split(' ');
+      return {'lng': double.parse(parts[0]), 'lat': double.parse(parts[1])};
+    } catch (e) {
+      debugPrint("Text parse fejl: $pointStr - Fejl: $e");
+      return {'lng': 0.0, 'lat': 0.0};
+    }
+  }
+
+  // Ny hjælper til at afkode Hex-strengen
+  Map<String, double> _parseWkbPoint(String hexString) {
+    // 1. Konverter hex string til bytes
+    List<int> bytes = [];
+    for (int i = 0; i < hexString.length; i += 2) {
+      String byteStr = hexString.substring(i, i + 2);
+      bytes.add(int.parse(byteStr, radix: 16));
+    }
+
+    final byteData = ByteData.sublistView(Uint8List.fromList(bytes));
+
+    // 2. Læs byte order (første byte)
+    // 01 = Little Endian, 00 = Big Endian
+    final endian = byteData.getUint8(0) == 1 ? Endian.little : Endian.big;
+
+    // PostGIS EWKB struktur for POINT:
+    // Byte 0: Endianness (1 byte)
+    // Byte 1-4: Type (4 bytes) - Vi skipper disse
+    // Byte 5-8: SRID (4 bytes) - Vi skipper disse (hvis de findes, typisk 20 i hex flag)
+
+    // Vi antager PostGIS EWKB format som din fejlbesked viser (SRID er inkluderet)
+    // Offset til X er typisk 9 bytes inde (1 byte endian + 4 bytes type + 4 bytes SRID)
+    // X (Lng) er en 64-bit double
+    // Y (Lat) er en 64-bit double
+
+    double lng = byteData.getFloat64(9, endian);
+    double lat = byteData.getFloat64(17, endian);
+
+    return {'lng': lng, 'lat': lat};
+  }
+
+  // ------------------------------------------------------------------------
+  // LOGIK: CO2 BEREGNING (MED TVUNGEN FÆRGE-SPLIT)
   // ------------------------------------------------------------------------
   Future<void> _calculateAndDistributeCO2(String rideId) async {
     try {
       final client = Supabase.instance.client;
 
-      // 1. Hent tur-info inklusiv koordinater (PostGIS -> Lat/Lng)
+      // 1. Hent tur-info
       final rideData = await client
           .from('rides')
-          .select(
-            'driver_id, is_ferry, st_x(origin_location) as start_lng, st_y(origin_location) as start_lat, st_x(destination_location) as end_lng, st_y(destination_location) as end_lat',
-          )
+          .select('driver_id, is_ferry, origin_location, destination_location')
           .eq('id', rideId)
           .single();
 
-      // 2. Hent passagerer (kun godkendte)
+      // 2. Hent passagerer
       final passengers = await client
           .from('bookings')
           .select('passenger_id')
@@ -95,58 +268,157 @@ class _ProfileScreenState extends State<ProfileScreen>
         return;
       }
 
-      // 3. Beregn rute via Mapbox
-      final double startLat = rideData['start_lat'];
-      final double startLng = rideData['start_lng'];
-      final double endLat = rideData['end_lat'];
-      final double endLng = rideData['end_lng'];
+      // 3. Parse start/slut koordinater
+      final startCoords = _getCoordsFromPoint(rideData['origin_location']);
+      final endCoords = _getCoordsFromPoint(rideData['destination_location']);
+
+      final double startLat = startCoords['lat']!;
+      final double startLng = startCoords['lng']!;
+      final double endLat = endCoords['lat']!;
+      final double endLng = endCoords['lng']!;
+
       final bool isFerry = rideData['is_ferry'] ?? false;
 
-      final String excludeParam = isFerry ? '' : '&exclude=ferry';
+      double totalDistanceKm = 0.0;
 
-      final url = Uri.parse(
-        'https://api.mapbox.com/directions/v5/mapbox/driving/$startLng,$startLat;$endLng,$endLat?access_token=$_mapboxToken$excludeParam',
-      );
+      if (isFerry) {
+        // TRIN A: Prøv først at finde en direkte færgerute via API'et
+        // Vi beder om 'alternatives' og 'steps'
+        final directRoute = await _fetchMapboxRoute(
+          startLng,
+          startLat,
+          endLng,
+          endLat,
+          params: '&alternatives=true&steps=true',
+        );
 
-      final mapResponse = await http.get(url);
+        // Tjek om den fundne rute er en "ægte" færgerute (under 200 km)
+        // Aarhus-Hillerød via færge er ca 125 km. Via broen er den 330 km.
+        if (directRoute != null &&
+            (directRoute['distance'] as num) / 1000.0 < 200) {
+          totalDistanceKm = (directRoute['distance'] as num) / 1000.0;
+          debugPrint(
+            "Succes: Direkte færgerute fundet (${totalDistanceKm.toStringAsFixed(1)} km).",
+          );
+        } else {
+          // TRIN B (FALLBACK): Tving ruten via GPS koordinaterne
+          debugPrint(
+            "Info: Ingen færge fundet automatisk. Beregner splittet rute (Start->Aarhus + Odden->Slut).",
+          );
 
-      if (mapResponse.statusCode != 200) {
-        debugPrint("Mapbox API Fejl: ${mapResponse.body}");
-        return;
+          // Aarhus Færge GPS (Lng, Lat til Mapbox)
+          final double aarhusFerryLng = 10.252944144688946;
+          final double aarhusFerryLat = 56.15091404030663;
+
+          // Odden Færge GPS (Lng, Lat til Mapbox)
+          final double oddenFerryLng = 11.30108715834335;
+          final double oddenFerryLat = 55.97709587751027;
+
+          // 1. Kørsel: Start -> Aarhus Havn
+          final leg1 = await _fetchMapboxRoute(
+            startLng,
+            startLat,
+            aarhusFerryLng,
+            aarhusFerryLat,
+          );
+
+          // 2. Kørsel: Odden Havn -> Slut
+          final leg2 = await _fetchMapboxRoute(
+            oddenFerryLng,
+            oddenFerryLat,
+            endLng,
+            endLat,
+          );
+
+          if (leg1 != null && leg2 != null) {
+            final dist1 = (leg1['distance'] as num) / 1000.0;
+            final dist2 = (leg2['distance'] as num) / 1000.0;
+            totalDistanceKm = dist1 + dist2;
+            debugPrint(
+              "Splittet rute beregnet: Leg 1 ($dist1 km) + Leg 2 ($dist2 km) = $totalDistanceKm km",
+            );
+          } else {
+            debugPrint("Fejl: Kunne ikke beregne en af del-ruterne.");
+            return;
+          }
+        }
+      } else {
+        // IKKE FÆRGE: Beregn normal rute (ekskluder færger)
+        final route = await _fetchMapboxRoute(
+          startLng,
+          startLat,
+          endLng,
+          endLat,
+          params: '&exclude=ferry',
+        );
+        if (route != null) {
+          totalDistanceKm = (route['distance'] as num) / 1000.0;
+        }
       }
 
-      final mapData = json.decode(mapResponse.body);
-      final routes = mapData['routes'] as List;
-      if (routes.isEmpty) return;
-
-      // Distance i meter -> omregn til km
-      final double distanceKm = (routes[0]['distance'] as num) / 1000.0;
+      if (totalDistanceKm == 0.0) return;
 
       // 4. Beregn besparelse
-      // 1 bil = 0.16 kg CO2 pr km.
       final int passengerCount = passengers.length;
-      final double co2PerCar = distanceKm * 0.16;
+      final double co2PerCar = totalDistanceKm * 0.16;
       final double totalSaved = co2PerCar * passengerCount;
-
-      // Fordeling: Ligeligt mellem chauffør og passagerer
       final double sharePerPerson = totalSaved / (passengerCount + 1);
 
-      // 5. Opdater Chauffør (RPC)
+      // 5. Opdater Chauffør
       await client.rpc(
         'increment_co2',
         params: {'user_id': rideData['driver_id'], 'amount': sharePerPerson},
       );
 
-      // 6. Opdater Passagerer (RPC)
+      // 6. Opdater Passagerer
       for (var p in passengers) {
         await client.rpc(
           'increment_co2',
           params: {'user_id': p['passenger_id'], 'amount': sharePerPerson},
         );
       }
+
+      debugPrint(
+        "CO2 fordelt: ${sharePerPerson.toStringAsFixed(3)} kg til hver (Distance: ${totalDistanceKm.toStringAsFixed(1)} km).",
+      );
     } catch (e) {
       debugPrint("Fejl i CO2 beregning: $e");
     }
+  }
+
+  // ------------------------------------------------------------------------
+  // HJÆLPEFUNKTION TIL MAPBOX KALD
+  // ------------------------------------------------------------------------
+  Future<Map<String, dynamic>?> _fetchMapboxRoute(
+    double startLng,
+    double startLat,
+    double endLng,
+    double endLat, {
+    String params = '',
+  }) async {
+    try {
+      // Vi bruger driving-traffic for bedst mulige ruter
+      final url = Uri.parse(
+        'https://api.mapbox.com/directions/v5/mapbox/driving-traffic/$startLng,$startLat;$endLng,$endLat?access_token=$_mapboxToken$params',
+      );
+
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final routes = data['routes'] as List;
+        if (routes.isNotEmpty) {
+          // Vi sorterer altid kortest først for at være sikre
+          routes.sort(
+            (a, b) => (a['distance'] as num).compareTo(b['distance'] as num),
+          );
+          return routes[0];
+        }
+      }
+    } catch (e) {
+      debugPrint("Mapbox Helper Fejl: $e");
+    }
+    return null;
   }
 
   // ------------------------------------------------------------------------
@@ -155,7 +427,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   Future<void> _updateBookingStatus(
     String bookingId,
     String newStatus,
-    String passengerName, // <--- Vigtig: Vi tager navnet med ind her
+    String passengerName,
   ) async {
     debugPrint("--- STARTER STATUS OPDATERING ---");
     debugPrint("Booking ID: $bookingId");
@@ -235,9 +507,6 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   // ------------------------------------------------------------------------
-  // LOGIK: AFSLUT TUR & BETALING
-  // ------------------------------------------------------------------------
-  // ------------------------------------------------------------------------
   // LOGIK: AFSLUT TUR (Håndterer både med og uden passagerer)
   // ------------------------------------------------------------------------
   Future<void> _completeTrip(String rideId) async {
@@ -252,7 +521,6 @@ class _ProfileScreenState extends State<ProfileScreen>
       final client = Supabase.instance.client;
 
       // 2. TJEK OM DER ER GODKENDTE PASSAGERER
-      // Vi henter bookinger, der er 'approved' for denne tur
       final bookings = await client
           .from('bookings')
           .select('id')
@@ -265,7 +533,6 @@ class _ProfileScreenState extends State<ProfileScreen>
       if (passengerCount == 0) {
         debugPrint("Ingen passagerer. Afslutter tur lokalt uden betaling.");
 
-        // Vi opdaterer bare status i databasen direkte
         await client
             .from('rides')
             .update({'status': 'completed'})
@@ -282,13 +549,14 @@ class _ProfileScreenState extends State<ProfileScreen>
             ),
           );
         }
-        return; // STOP HER - Vi skal ikke kalde Edge Functionen
+        return; // STOP HER
       }
 
       // --- SCENARIE B: DER ER PASSAGERER (Betaling skal køre) ---
       debugPrint("Fandt $passengerCount passagerer. Starter betalingsflow.");
 
       // a. Beregn CO2 (Kun relevant hvis der var passagerer)
+      // Nu med rettet logik så den ikke fejler på st_x/st_y
       await _calculateAndDistributeCO2(rideId);
 
       // b. Kald Edge Function for at flytte penge og opdatere saldo
@@ -314,14 +582,12 @@ class _ProfileScreenState extends State<ProfileScreen>
           );
         }
       } else {
-        // Hvis Edge funktionen stadig fejler
         final errorMsg = response.data['error'] ?? "Kunne ikke afregne turen.";
         throw errorMsg;
       }
     } catch (e) {
       debugPrint("Fejl i _completeTrip: $e");
       if (mounted) {
-        // Sikr at loading-spinner forsvinder hvis den stadig er der
         if (Navigator.canPop(context)) Navigator.pop(context);
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -414,7 +680,6 @@ class _ProfileScreenState extends State<ProfileScreen>
   String _formatDate(String dateStr) {
     try {
       final date = DateTime.parse(dateStr).toLocal();
-      // Bruger en simpel formatering hvis initializeDateFormatting driller, ellers 'da_DK'
       return DateFormat('dd/MM • HH:mm').format(date);
     } catch (_) {
       return "";
@@ -667,6 +932,12 @@ class _ProfileScreenState extends State<ProfileScreen>
                             // Vent på data eller skjul hvis fejl
                             if (!rSnapshot.hasData) return const SizedBox();
                             final ride = rSnapshot.data!;
+
+                            // --- NYT: SKJUL HVIS TUREN ER SLUT ---
+                            // Hvis turen er completed, skal den ikke vises i "Aktive rejser"
+                            if (ride['status'] == 'completed') {
+                              return const SizedBox.shrink();
+                            }
 
                             // --- FILTRERINGS LOGIK ---
                             if (_filterDate != null) {
@@ -1101,6 +1372,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     Map<String, dynamic> ride,
   ) {
     final driver = ride['profiles'];
+    final bool isCancelled = booking['status'].toString().contains('cancelled');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
@@ -1166,13 +1438,17 @@ class _ProfileScreenState extends State<ProfileScreen>
                     vertical: 5,
                   ),
                   decoration: BoxDecoration(
-                    color: _getStatusColor(booking['status']).withOpacity(0.1),
+                    color: isCancelled
+                        ? Colors.red.withOpacity(0.1)
+                        : _getStatusColor(booking['status']).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    _getStatusText(booking['status']),
+                    isCancelled ? "Aflyst" : _getStatusText(booking['status']),
                     style: TextStyle(
-                      color: _getStatusColor(booking['status']),
+                      color: isCancelled
+                          ? Colors.red
+                          : _getStatusColor(booking['status']),
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
                     ),
@@ -1182,10 +1458,13 @@ class _ProfileScreenState extends State<ProfileScreen>
             ),
           ),
 
-          if (booking['status'] == 'approved') ...[
+          // Kun vis knapper hvis turen IKKE er aflyst
+          if (booking['status'] == 'approved' && !isCancelled) ...[
             const Divider(height: 1),
+
+            // KONTAKT KNAP
             Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
@@ -1214,7 +1493,56 @@ class _ProfileScreenState extends State<ProfileScreen>
                 ),
               ),
             ),
+
+            // AFLYS KNAP
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.cancel_outlined, size: 18),
+                  label: const Text("Aflys Tur"),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: BorderSide(color: Colors.red.shade200),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () =>
+                      _cancelBooking(booking['id'], ride['departure_time']),
+                ),
+              ),
+            ),
           ],
+
+          // VIS STATUS HVIS AFLYST
+          if (isCancelled)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.05),
+                borderRadius: const BorderRadius.vertical(
+                  bottom: Radius.circular(16),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Icon(Icons.info_outline, size: 16, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text(
+                    "Du har aflyst denne tur",
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );

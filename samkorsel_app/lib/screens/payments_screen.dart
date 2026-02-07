@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 
-// HUSK ATRETTE DENNE IMPORT, SÅ DEN PASSER TIL DIN FILSTRUKTUR
+// HUSK AT RETTE DENNE IMPORT, SÅ DEN PASSER TIL DIN FILSTRUKTUR
 import 'tax_info_screen.dart';
 
 class PaymentsScreen extends StatefulWidget {
@@ -15,7 +15,10 @@ class PaymentsScreen extends StatefulWidget {
 class _PaymentsScreenState extends State<PaymentsScreen> {
   bool _isLoading = true;
   bool _isStripeReady = false; // Styrer om vi må udbetale
-  double _balance = 0.00;
+
+  // Vi har nu to saldi: En tilgængelig og en der venter
+  double _availableBalance = 0.00;
+  double _pendingBalance = 0.00;
 
   @override
   void initState() {
@@ -39,19 +42,21 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
       bool isReady =
           stripeData != null && stripeData['onboarding_completed'] == true;
 
-      // 2. Hent saldo fra profiles
+      // 2. Hent saldo fra profiles (både normal balance og pending)
       final wallet = await Supabase.instance.client
           .from('profiles')
-          .select('balance')
+          .select('balance, pending_balance')
           .eq('id', userId)
           .maybeSingle();
 
       if (mounted) {
         setState(() {
           _isStripeReady = isReady;
-          _balance = wallet != null
-              ? (wallet['balance'] as num).toDouble()
-              : 0.00;
+          // 'balance' er nu pengene der er frigivet (ældre end 7 dage)
+          _availableBalance = (wallet?['balance'] as num?)?.toDouble() ?? 0.00;
+          // 'pending_balance' er pengene der venter (nyere end 7 dage)
+          _pendingBalance =
+              (wallet?['pending_balance'] as num?)?.toDouble() ?? 0.00;
           _isLoading = false;
         });
       }
@@ -63,19 +68,21 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
 
   // --- UDBETAL PENGE ---
   Future<void> _payoutFunds() async {
-    if (_balance <= 0) return;
+    // Vi udbetaler kun den tilgængelige saldo
+    if (_availableBalance <= 0) return;
 
     setState(() => _isLoading = true);
     try {
       final user = Supabase.instance.client.auth.currentUser!;
 
+      // Kalder Edge Function 'payout' med bruger ID og beløb
       final res = await Supabase.instance.client.functions.invoke(
         'payout',
-        body: {'id': user.id, 'amount': _balance},
+        body: {'id': user.id, 'amount': _availableBalance},
       );
 
       if (res.status == 200) {
-        // Nulstil saldo lokalt og i DB
+        // Nulstil den tilgængelige saldo lokalt og i DB
         await Supabase.instance.client
             .from('profiles')
             .update({'balance': 0})
@@ -84,9 +91,11 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
         // Gem udbetaling i historik
         await Supabase.instance.client.from('transactions').insert({
           'user_id': user.id,
-          'amount': _balance,
+          'amount': _availableBalance,
           'type': 'payout',
           'description': 'Udbetaling til bankkonto',
+          // Vi sætter den som 'completed' med det samme, da det er en udbetaling
+          'status': 'completed',
         });
 
         if (mounted) {
@@ -99,14 +108,21 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
           _fetchWalletData();
         }
       } else {
-        throw "Udbetaling fejlede på serveren. Status: ${res.status}";
+        // Hvis Edge Function fejler (f.eks. Stripe fejl), kaster vi en exception
+        // Vi prøver at parse fejlbeskeden fra serveren
+        final errorData = res.data;
+        throw errorData['error'] ??
+            "Udbetaling fejlede med status ${res.status}";
       }
     } catch (e) {
       debugPrint("Udbetalingsfejl: $e");
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Kunne ikke udbetale: $e")));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Kunne ikke udbetale: $e"),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -126,7 +142,6 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        // HER var fejlen. Vi tilføjer <dynamic> for at fixe type-fejlen.
         return FutureBuilder<List<dynamic>>(
           future: Future.wait<dynamic>([
             Supabase.instance.client
@@ -134,9 +149,10 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                 .select('price_dkk, origin_city, destination_city')
                 .eq('id', rideId)
                 .single(),
+            // Vi henter 'seats_booked' for korrekt udregning
             Supabase.instance.client
                 .from('bookings')
-                .select('id')
+                .select('seats_booked')
                 .eq('ride_id', rideId)
                 .eq('status', 'approved'),
           ]),
@@ -154,11 +170,18 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
 
             final double pricePerPerson = (rideData['price_dkk'] as num)
                 .toDouble();
-            final int passengerCount = bookings.length;
-            final double feePerPerson = 15.0; // Det faste gebyr du nævnte
 
-            final double totalGross = pricePerPerson * passengerCount;
-            final double totalFees = feePerPerson * passengerCount;
+            // --- KORREKT UDREGNING AF SÆDER ---
+            int totalSeatsSold = 0;
+            for (var booking in bookings) {
+              totalSeatsSold += (booking['seats_booked'] as num? ?? 1).toInt();
+            }
+            // ---------------------------------
+
+            final double feePerPerson = 15.0; // Det faste gebyr
+
+            final double totalGross = pricePerPerson * totalSeatsSold;
+            final double totalFees = feePerPerson * totalSeatsSold;
             final double netIncome = totalGross - totalFees;
 
             // Design stilarter
@@ -230,7 +253,10 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                             color: Colors.blueGrey,
                           ),
                           const SizedBox(width: 4),
-                          Text("x $passengerCount", style: mathStyle),
+                          Text(
+                            "x $totalSeatsSold",
+                            style: mathStyle,
+                          ), // Bruger nu seatsSold
                         ],
                       ),
                       Text(
@@ -258,7 +284,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            "x $passengerCount  x  -15 kr.",
+                            "x $totalSeatsSold  x  -15 kr.", // Bruger nu seatsSold
                             style: mathStyle,
                           ),
                         ],
@@ -360,7 +386,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            "Tilgængelig saldo",
+                            "Klar til udbetaling",
                             style: TextStyle(
                               color: Colors.white70,
                               fontSize: 14,
@@ -368,20 +394,56 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            "${_balance.toStringAsFixed(2)} kr.",
+                            "${_availableBalance.toStringAsFixed(2)} kr.",
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 32,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
+
+                          // --- PENDING BALANCE VISNING ---
+                          if (_pendingBalance > 0) ...[
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.access_time,
+                                    color: Colors.orangeAccent,
+                                    size: 14,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    "Venter (7 dage): ${_pendingBalance.toStringAsFixed(2)} kr.",
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+
+                          // -------------------------------
                           const SizedBox(height: 20),
 
                           // --- UDBETAL KNAP ---
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
-                              onPressed: (_balance > 0 && _isStripeReady)
+                              onPressed:
+                                  (_availableBalance > 0 && _isStripeReady)
                                   ? _payoutFunds
                                   : null,
                               style: ElevatedButton.styleFrom(
@@ -398,7 +460,8 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                               child: Text(
                                 _isStripeReady ? "Udbetal" : "Udbetaling låst",
                                 style: TextStyle(
-                                  color: (_balance > 0 && _isStripeReady)
+                                  color:
+                                      (_availableBalance > 0 && _isStripeReady)
                                       ? Colors.black
                                       : Colors.white54,
                                 ),
@@ -552,8 +615,49 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
   }
 
   Widget _buildTransactionItem(Map<String, dynamic> tx) {
+    // Typer
     final bool isEarnings = tx['type'] == 'ride_earnings';
+    final bool isPayment = tx['type'] == 'ride_payment';
+    final bool isPayout = tx['type'] == 'payout';
+    final bool isPenalty = tx['type'] == 'cancellation_fee';
+
+    // Status & Dato
+    final bool isPending = tx['status'] == 'pending';
     final DateTime date = DateTime.parse(tx['created_at']).toLocal();
+
+    // Definer design-variabler baseret på transaktionstype
+    IconData iconData;
+    Color iconColor;
+    Color bgColor;
+    String amountPrefix = "";
+    Color amountColor;
+
+    if (isEarnings || isPenalty) {
+      iconData = Icons.add_circle_outline;
+      iconColor = Colors.green;
+      bgColor = Colors.green.withOpacity(0.1);
+      amountPrefix = "+";
+      amountColor = isPending ? Colors.grey : Colors.green[700]!;
+    } else if (isPayment) {
+      iconData = Icons.remove_circle_outline;
+      iconColor = Colors.redAccent;
+      bgColor = Colors.red.withOpacity(0.1);
+      // Beløbet fra DB er allerede negativt for ride_payment
+      amountPrefix = "";
+      amountColor = Colors.black;
+    } else if (isPayout) {
+      iconData = Icons.account_balance_wallet_outlined;
+      iconColor = Colors.blue;
+      bgColor = Colors.blue.withOpacity(0.1);
+      amountPrefix = "-";
+      amountColor = Colors.blue[800]!;
+    } else {
+      iconData = Icons.info_outline;
+      iconColor = Colors.grey;
+      bgColor = Colors.grey.withOpacity(0.1);
+      amountPrefix = "";
+      amountColor = Colors.black;
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -566,8 +670,8 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          // Sæt onTap til at vise detaljer HVIS det er en indtjening
-          onTap: isEarnings && tx['ride_id'] != null
+          // Sæt onTap til at vise detaljer HVIS det er en indtjening/straf tilknyttet en tur
+          onTap: (isEarnings || isPenalty) && tx['ride_id'] != null
               ? () => _showRideBreakdown(
                   context,
                   tx['ride_id'],
@@ -579,15 +683,8 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
             child: Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: isEarnings
-                      ? Colors.green.withOpacity(0.1)
-                      : Colors.blue.withOpacity(0.1),
-                  child: Icon(
-                    isEarnings
-                        ? Icons.add_circle_outline
-                        : Icons.account_balance_wallet_outlined,
-                    color: isEarnings ? Colors.green : Colors.blue,
-                  ),
+                  backgroundColor: bgColor,
+                  child: Icon(iconData, color: iconColor),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -598,11 +695,39 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                         tx['description'] ?? "Transaktion",
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      Text(
-                        "${date.day}/${date.month}/${date.year} kl. ${date.hour}:${date.minute.toString().padLeft(2, '0')}",
-                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                      Row(
+                        children: [
+                          Text(
+                            "${date.day}/${date.month}/${date.year}",
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 12,
+                            ),
+                          ),
+                          if (isPending) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                                vertical: 1,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text(
+                                "Venter",
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.orange,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                      if (isEarnings)
+                      if (isEarnings || isPenalty)
                         const Padding(
                           padding: EdgeInsets.only(top: 4.0),
                           child: Text(
@@ -617,10 +742,10 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                   ),
                 ),
                 Text(
-                  "${isEarnings ? '+' : ''}${tx['amount']} kr.",
+                  "$amountPrefix${tx['amount']} kr.",
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: isEarnings ? Colors.green[700] : Colors.black,
+                    color: amountColor,
                     fontSize: 16,
                   ),
                 ),
