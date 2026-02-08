@@ -10,7 +10,7 @@ class VerificationScreen extends StatefulWidget {
   final String email;
   final String? password;
 
-  // --- NYE FELTER (Som fik din kode til at fejle før) ---
+  // Nye felter til chauffør-flowet
   final bool isBecomingDriver;
   final String? licensePlate;
   final Map<String, dynamic>? carDetails;
@@ -20,8 +20,8 @@ class VerificationScreen extends StatefulWidget {
     required this.phoneNumber,
     required this.email,
     this.password,
-    // Vi tilføjer dem til konstruktøren her:
     this.isBecomingDriver = false,
+    // HER MANGLER DE FØR - NU ER DE HER:
     this.licensePlate,
     this.carDetails,
   });
@@ -47,7 +47,7 @@ class _VerificationScreenState extends State<VerificationScreen>
 
   // Status
   bool _isEmailVerified = false;
-  bool _codeSent = false; // Styrer om vi viser "Send igen" eller "Indtast"
+  bool _codeSent = false;
   late final StreamSubscription<AuthState> _authSubscription;
 
   @override
@@ -57,7 +57,7 @@ class _VerificationScreenState extends State<VerificationScreen>
     _displayPhone = widget.phoneNumber;
     _startEmailTimer();
 
-    // 1. Lyt til deep links
+    // 1. Lyt til deep links (når brugeren klikker på email link)
     _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((
       data,
     ) {
@@ -67,7 +67,7 @@ class _VerificationScreenState extends State<VerificationScreen>
       }
     });
 
-    // 2. Tjek ved start
+    // 2. Tjek ved start (hvis de allerede har klikket)
     _checkStatusAndInit();
   }
 
@@ -102,14 +102,20 @@ class _VerificationScreenState extends State<VerificationScreen>
           setState(() => _isEmailVerified = true);
         }
 
-        // Hvis vi kommer fra "Bliv Chauffør", er SMS allerede sendt fra forrige skærm.
-        // Vi starter bare timeren visuelt, så brugeren ikke kan spamme "Send igen".
-        if (!_codeSent) {
-          setState(() {
-            _codeSent = true;
-            _smsResendTimer = 60;
-          });
-          _startSmsTimer();
+        // --- SKILLEVEJ ---
+        if (!widget.isBecomingDriver) {
+          // SCENARIE 1: PASSAGER -> Hjem
+          if (mounted) {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const HomeScreen()),
+              (route) => false,
+            );
+          }
+        } else {
+          // SCENARIE 2: DRIVER -> SMS Flow
+          if (!_codeSent) {
+            _sendSmsCode();
+          }
         }
       }
     } catch (e) {
@@ -121,6 +127,7 @@ class _VerificationScreenState extends State<VerificationScreen>
   Future<void> _manualCheck() async {
     final session = Supabase.instance.client.auth.currentSession;
     if (session != null) {
+      await Supabase.instance.client.auth.refreshSession();
       await _checkStatusAndInit();
       return;
     }
@@ -134,24 +141,10 @@ class _VerificationScreenState extends State<VerificationScreen>
         );
 
         if (res.user != null) {
-          if (mounted) {
-            setState(() {
-              _isEmailVerified = true;
-              _isLoading = false;
-            });
-            // Hvis brugeren logger ind nu, antager vi at SMS processen skal vises
-            if (!_codeSent) {
-              setState(() {
-                _codeSent = true;
-                _smsResendTimer = 60;
-              });
-              _startSmsTimer();
-            }
-          }
+          await _checkStatusAndInit();
         }
       } catch (e) {
         if (mounted) {
-          setState(() => _isLoading = false);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
@@ -161,14 +154,8 @@ class _VerificationScreenState extends State<VerificationScreen>
             ),
           );
         }
-      }
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Kunne ikke verificere. Prøv at logge ind igen."),
-          ),
-        );
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
       }
     }
   }
@@ -228,13 +215,13 @@ class _VerificationScreenState extends State<VerificationScreen>
   }
 
   Future<void> _sendSmsCode() async {
+    if (!widget.isBecomingDriver) return;
+
     if (widget.phoneNumber.trim().isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              "Fejl: Telefonnummer mangler. Gå venligst tilbage og indtast det igen.",
-            ),
+            content: Text("Fejl: Telefonnummer mangler."),
             backgroundColor: Colors.red,
           ),
         );
@@ -253,10 +240,8 @@ class _VerificationScreenState extends State<VerificationScreen>
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) return;
 
-      // Generer kode
       final code = (Random().nextInt(900000) + 100000).toString();
 
-      // Gem i DB
       await Supabase.instance.client.from('sms_verifications').insert({
         'user_id': user.id,
         'code': code,
@@ -265,7 +250,6 @@ class _VerificationScreenState extends State<VerificationScreen>
             .toIso8601String(),
       });
 
-      // Send SMS
       final success = await _smsService.sendVerificationCode(
         widget.phoneNumber,
         code,
@@ -280,23 +264,11 @@ class _VerificationScreenState extends State<VerificationScreen>
             ),
           );
         } else {
-          throw Exception(
-            "SureSMS kunne ikke sende beskeden. Tjek din saldo eller login.",
-          );
+          debugPrint("Kunne ikke sende SMS via provider");
         }
       }
     } catch (e) {
-      setState(() => _codeSent = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              "Fejl ved SMS: ${e.toString().replaceAll("Exception: ", "")}",
-            ),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      debugPrint("SMS Error: $e");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -327,18 +299,16 @@ class _VerificationScreenState extends State<VerificationScreen>
       if (DateTime.now().isAfter(expiresAt)) throw "Koden er udløbet.";
       if (_otpController.text.trim() != dbCode) throw "Forkert kode.";
 
-      // --- SUCCES! NU OPDATERER VI PROFILEN ---
+      // --- OPDATER PROFIL ---
       final Map<String, dynamic> updates = {
         'phone_verified': true,
         'phone_number': _displayPhone,
       };
 
-      // Hvis vi kommer fra "Bliv Chauffør", gemmer vi også bil og nummerplade.
-      // Din nye SQL trigger sørger automatisk for at sætte is_driver = true,
-      // fordi phone_verified bliver true og license_plate er udfyldt.
       if (widget.isBecomingDriver) {
         if (widget.licensePlate != null)
           updates['license_plate'] = widget.licensePlate;
+        // Vi gemmer car_details direkte (Supabase håndterer Map -> JSONB)
         if (widget.carDetails != null)
           updates['car_details'] = widget.carDetails;
       }
@@ -425,7 +395,7 @@ class _VerificationScreenState extends State<VerificationScreen>
                     ),
                     const SizedBox(height: 20),
 
-                    // KNAP 1: JEG HAR KLIKKET
+                    // KNAP: JEG HAR KLIKKET
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
@@ -459,7 +429,7 @@ class _VerificationScreenState extends State<VerificationScreen>
 
                     const SizedBox(height: 10),
 
-                    // KNAP 2: SEND IGEN
+                    // KNAP: SEND IGEN
                     TextButton(
                       onPressed: (_emailResendTimer == 0 && !_isSendingEmail)
                           ? _resendEmail
@@ -485,8 +455,8 @@ class _VerificationScreenState extends State<VerificationScreen>
                 ),
               ),
             ]
-            // --- SCENARIE B: Email OK -> Vis SMS ---
-            else ...[
+            // --- SCENARIE B: Email OK (Kun for chauffører) -> Vis SMS ---
+            else if (widget.isBecomingDriver) ...[
               const Icon(
                 Icons.sms_outlined,
                 size: 60,
@@ -563,6 +533,11 @@ class _VerificationScreenState extends State<VerificationScreen>
                   ),
                 ),
               ),
+            ] else ...[
+              // Fallback hvis man er passager og venter på redirect
+              const CircularProgressIndicator(),
+              const SizedBox(height: 20),
+              const Text("Logger ind..."),
             ],
           ],
         ),

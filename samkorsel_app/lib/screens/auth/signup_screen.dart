@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
-import '/screens/home_screen.dart'; // Eller den sti der passer til din fil
 import '/screens/verification_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
@@ -75,19 +74,23 @@ class _SignUpScreenState extends State<SignUpScreen> {
             _plateCtrl.text = data['registration_number'];
           }
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Bil fundet! ✅"),
-            backgroundColor: Colors.green,
-          ),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Bil fundet! ✅"),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
       } else {
         throw "Bil ikke fundet";
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Kunne ikke finde bil")));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Kunne ikke finde bil")));
+      }
     } finally {
       setState(() => _isFetchingCar = false);
     }
@@ -133,23 +136,21 @@ class _SignUpScreenState extends State<SignUpScreen> {
     setState(() => _isLoading = true);
 
     try {
+      final client = Supabase.instance.client;
+
       // TRIN A: Upload Billede
       final fileExt = _imageFile!.path.split('.').last;
       final fileName = '${DateTime.now().millisecondsSinceEpoch}.$fileExt';
       final filePath = '/$fileName';
 
-      await Supabase.instance.client.storage
-          .from('avatars')
-          .upload(filePath, _imageFile!);
+      await client.storage.from('avatars').upload(filePath, _imageFile!);
 
-      final avatarUrl = Supabase.instance.client.storage
-          .from('avatars')
-          .getPublicUrl(filePath);
+      final avatarUrl = client.storage.from('avatars').getPublicUrl(filePath);
 
       // TRIN B: Forbered Bil Data
-      dynamic carJson;
+      String? carDetailsString;
       if (_isDriver) {
-        carJson = {
+        final carJson = {
           'make': _makeCtrl.text,
           'model': _modelCtrl.text,
           'year': _yearCtrl.text,
@@ -159,51 +160,58 @@ class _SignUpScreenState extends State<SignUpScreen> {
               "${_yearCtrl.text} • ${_colorCtrl.text} • ${_plateCtrl.text}",
           'display_name': "${_makeCtrl.text} ${_modelCtrl.text}",
         };
+        carDetailsString = jsonEncode(carJson);
       }
 
-      // TRIN C: Opret Bruger
-      // Vi gemmer kun telefonnummer hvis _isDriver er true
       final String? finalPhone = _isDriver ? _phoneCtrl.text.trim() : null;
 
-      await Supabase.instance.client.auth.signUp(
+      // TRIN C: Opret Bruger
+      // INDSÆT DETTE I STEDET:
+      final AuthResponse res = await client.auth.signUp(
         email: _emailCtrl.text.trim(),
         password: _passCtrl.text.trim(),
         emailRedirectTo: 'io.supabase.flutterquickstart://login-callback',
         data: {
           'full_name': _nameCtrl.text.trim(),
-          'phone_number': finalPhone, // Null hvis passager
-          'gender': _selectedGender,
           'avatar_url': avatarUrl,
-          'is_driver': _isDriver,
-          'license_plate': _isDriver ? _plateCtrl.text : null,
-          'car_details': carJson,
+          'gender': _selectedGender,
         },
       );
 
-      // TRIN D: Naviger
+      final userId = res.user?.id;
+
+      // TRIN D: TVING OPDATERING AF PROFILES TABELLEN
+      if (userId != null) {
+        await Future.delayed(const Duration(milliseconds: 500));
+        await client
+            .from('profiles')
+            .update({
+              'full_name': _nameCtrl.text.trim(),
+              'gender': _selectedGender,
+              'avatar_url': avatarUrl,
+              'is_driver': _isDriver,
+              // Vi sætter kun phone_number hvis de er chauffør, men phone_verified er false indtil SMS er klaret
+              'phone_number': finalPhone,
+              'license_plate': _isDriver ? _plateCtrl.text : null,
+              'car_details': carDetailsString,
+            })
+            .eq('id', userId);
+      }
+
+      // TRIN E: Naviger til Verificering
       if (mounted) {
-        if (_isDriver) {
-          // Hvis chauffør: Send til SMS-verificering
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (_) => VerificationScreen(
-                phoneNumber: finalPhone ?? "",
-                email: _emailCtrl.text.trim(),
-                password: _passCtrl.text.trim(),
-              ),
+        // Vi sender dem altid til verificering, men med info om de skal være driver
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) => VerificationScreen(
+              phoneNumber: finalPhone ?? "",
+              email: _emailCtrl.text.trim(),
+              password: _passCtrl.text.trim(),
+              isBecomingDriver: _isDriver, // VIGTIGT: Sender status videre
             ),
-            (route) => false,
-          );
-        } else {
-          // Hvis passager: Send direkte til hovedmenuen
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (_) =>
-                  const HomeScreen(), // Navnet på din startskærm for passagerer
-            ),
-            (route) => false,
-          );
-        }
+          ),
+          (route) => false,
+        );
       }
     } on AuthException catch (e) {
       if (mounted) {
@@ -283,7 +291,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   labelText: "Fulde navn *",
                   prefixIcon: Icon(Icons.person_outline),
                 ),
-                validator: (v) => v!.isEmpty ? "Påkrævet" : null,
+                validator: (v) => (v?.isEmpty ?? true) ? "Påkrævet" : null,
               ),
               const SizedBox(height: 15),
 
@@ -313,8 +321,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   labelText: "Email *",
                   prefixIcon: Icon(Icons.email_outlined),
                 ),
-                validator: (v) =>
-                    v!.isEmpty || !v.contains('@') ? "Ugyldig email" : null,
+                validator: (v) => (v?.isEmpty ?? true) || !v!.contains('@')
+                    ? "Ugyldig email"
+                    : null,
               ),
               const SizedBox(height: 15),
 
@@ -326,7 +335,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   labelText: "Adgangskode *",
                   prefixIcon: Icon(Icons.lock_outline),
                 ),
-                validator: (v) => v!.length < 6 ? "Mindst 6 tegn" : null,
+                validator: (v) => (v?.length ?? 0) < 6 ? "Mindst 6 tegn" : null,
               ),
 
               const SizedBox(height: 30),
@@ -349,7 +358,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               if (_isDriver) ...[
                 const SizedBox(height: 15),
 
-                // --- TELEFONNUMMER (Flyttet herned) ---
+                // --- TELEFONNUMMER ---
                 TextFormField(
                   controller: _phoneCtrl,
                   keyboardType: TextInputType.phone,
@@ -358,7 +367,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     prefixIcon: Icon(Icons.phone_android),
                     helperText: "Passagerer skal kunne kontakte dig",
                   ),
-                  // Validerer kun hvis _isDriver er true
                   validator: (v) {
                     if (!_isDriver) return null;
                     return (v == null || v.length < 8)

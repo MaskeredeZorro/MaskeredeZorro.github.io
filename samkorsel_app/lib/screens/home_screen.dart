@@ -16,6 +16,7 @@ import '../screens/verification_screen.dart'; // Tjek at stien passer
 import 'profile_screen.dart';
 import '/screens/messages_screen.dart';
 import 'package:flutter/cupertino.dart'; // REQUIRED for iOS pickers
+import '../services/notification_service.dart'; // Justér stien så den passer til din filstruktur
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -32,6 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _checkDriverStatus(); // Tjek ved start
+    NotificationService.initialize();
   }
 
   // --- NY FUNKTION: HENT CHAUFFØR STATUS ---
@@ -265,6 +267,7 @@ class _BecomeDriverSheetState extends State<BecomeDriverSheet> {
   }
 
   Future<void> _saveAndContinue() async {
+    if (_isLoading) return;
     if (!_isDriverToggle) return;
 
     // 2. TJEK AT TELEFON ER INDTASTET

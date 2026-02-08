@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/cupertino.dart'; // Til iOS Dato vælger
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -27,7 +28,7 @@ class _TaxInfoScreenState extends State<TaxInfoScreen> {
   final _addressCtrl = TextEditingController();
   final _cprCtrl = TextEditingController();
   final _ibanCtrl = TextEditingController();
-
+  final _floorDoorCtrl = TextEditingController(); // Tilføj denne
   String _country = "Danmark";
   DateTime? _dob;
 
@@ -75,7 +76,7 @@ class _TaxInfoScreenState extends State<TaxInfoScreen> {
     }
   }
 
-  // --- NY MAPBOX SØGE FUNKTION ---
+  // --- MAPBOX SØGE FUNKTION ---
   Future<void> _showAddressPicker() async {
     final selectedAddress = await showModalBottomSheet<String>(
       context: context,
@@ -94,6 +95,66 @@ class _TaxInfoScreenState extends State<TaxInfoScreen> {
     }
   }
 
+  // --- iOS DATO VÆLGER ---
+  void _showIOSDatePicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext builder) {
+        return SizedBox(
+          height: 300,
+          child: Column(
+            children: [
+              // Header med "Færdig" knap
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(20),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: const Text(
+                        "Færdig",
+                        style: TextStyle(
+                          color: Colors.blue,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: CupertinoDatePicker(
+                  mode: CupertinoDatePickerMode.date,
+                  initialDateTime: _dob ?? DateTime(2000),
+                  minimumDate: DateTime(1900),
+                  maximumDate: DateTime.now(),
+                  onDateTimeChanged: (val) {
+                    setState(() => _dob = val);
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _submitTaxInfo() async {
     if (!_formKey.currentState!.validate()) return;
     if (_dob == null) {
@@ -110,13 +171,18 @@ class _TaxInfoScreenState extends State<TaxInfoScreen> {
       if (user == null) throw "Du er blevet logget ud.";
 
       String cprToSend = _isCprLocked ? "" : _cprCtrl.text;
+      // Fjerner mellemrum en ekstra gang for en sikkerheds skyld
       String ibanToSend = _ibanCtrl.text.replaceAll(' ', '');
-
+      // Slet ikke noget, men indsæt dette før rpc-kaldet:
+      String fullAddress = _addressCtrl.text;
+      if (_floorDoorCtrl.text.isNotEmpty) {
+        fullAddress += ", ${_floorDoorCtrl.text.trim()}";
+      }
       await Supabase.instance.client.rpc(
         'submit_tax_info',
         params: {
           'p_full_name': "${_fNameCtrl.text} ${_lNameCtrl.text}",
-          'p_address': _addressCtrl.text,
+          'p_address': fullAddress,
           'p_country': _country,
           'p_cpr': cprToSend,
           'p_bank_iban': ibanToSend,
@@ -184,10 +250,11 @@ class _TaxInfoScreenState extends State<TaxInfoScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Status boks (Sikkerhed)
+                  // 1. SIKKERHEDS HEADER
                   _buildSecurityHeader(),
                   const SizedBox(height: 30),
 
+                  // 2. FORMULAR
                   ExpansionTile(
                     title: const Text(
                       "Privatperson",
@@ -197,7 +264,7 @@ class _TaxInfoScreenState extends State<TaxInfoScreen> {
                       ),
                     ),
                     subtitle: const Text(
-                      "Lovpligtige oplysninger",
+                      "Lovpligtige oplysninger for udbetaling",
                       style: TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                     initiallyExpanded: true,
@@ -212,10 +279,16 @@ class _TaxInfoScreenState extends State<TaxInfoScreen> {
                         key: _formKey,
                         child: Column(
                           children: [
+                            // NAVN (Nu lige høje)
                             Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Expanded(
-                                  child: _buildInput(_fNameCtrl, "Fornavn"),
+                                  child: _buildInput(
+                                    _fNameCtrl,
+                                    "Fornavn",
+                                    // Ingen helperText her, så det matcher efternavn
+                                  ),
                                 ),
                                 const SizedBox(width: 10),
                                 Expanded(
@@ -223,11 +296,13 @@ class _TaxInfoScreenState extends State<TaxInfoScreen> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 10),
-                            _buildBirthdayPicker(),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 15),
 
-                            // --- ADRESSE FELT MED MAPBOX SØGNING ---
+                            // FØDSELSDAG (Med iOS picker)
+                            _buildBirthdayPicker(),
+                            const SizedBox(height: 15),
+
+                            // ADRESSE
                             GestureDetector(
                               onTap: _showAddressPicker,
                               child: AbsorbPointer(
@@ -236,59 +311,139 @@ class _TaxInfoScreenState extends State<TaxInfoScreen> {
                                   "Hjemstedsadresse",
                                   icon: Icons.location_on_outlined,
                                   hint: "Tryk for at søge adresse...",
+                                  helperText:
+                                      "Din folkeregisteradresse (Påkrævet jf. Hvidvaskloven)",
                                 ),
                               ),
                             ),
 
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 15),
+                            // Indsæt dette felt under adresse-søgeren:
+                            _buildInput(
+                              _floorDoorCtrl,
+                              "Etage, dør (valgfri)",
+                              hint: "f.eks. st. tv. eller 2. sal nr. 4",
+                            ),
+                            const SizedBox(height: 15),
                             _buildCountryDropdown(),
-                            const SizedBox(height: 10),
-                            _buildCprField(),
+
                             const SizedBox(height: 20),
                             const Divider(),
-                            const SizedBox(height: 10),
-                            _buildIbanField(),
                             const SizedBox(height: 20),
+
+                            // CPR NUMMER (Maks 10 cifre, kun tal)
+                            _buildCprField(),
+
+                            const SizedBox(height: 20),
+
+                            // IBAN (Ingen mellemrum)
+                            _buildIbanField(),
+
+                            const SizedBox(height: 30),
                             _buildSubmitButton(),
                           ],
                         ),
                       ),
                     ],
                   ),
+
                   const SizedBox(height: 40),
+
+                  // 3. FAQ SEKTION
                   const Text(
                     "Ofte stillede spørgsmål",
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 15),
+
                   _buildFAQ(
-                    "Hvor finder jeg mit IBAN nummer?",
-                    "Dit IBAN nummer står i din netbank. Det består af 'DK' efterfulgt af 16 tal.",
+                    "Skal jeg betale skat af pengene?",
+                    "Som hovedregel er samkørsel i Danmark skattefrit, så længe beløbet kun dækker dine omkostninger til bilen (benzin, vedligehold, osv.). Vi indberetter automatisk til SKAT for dig, så du slipper for bøvlet, men det betyder sjældent, at du skal betale penge.",
                   ),
+                  _buildFAQ(
+                    "Hvorfor skal I bruge mit CPR-nummer?",
+                    "Det er et lovkrav fra EU (DAC7-direktivet). For at vi må udbetale penge til dig, skal vi kunne identificere dig over for myndighederne. Vi bruger det ALDRIG til andet, og det slettes, hvis du lukker din profil.",
+                  ),
+                  _buildFAQ(
+                    "Kan I trække penge fra min konto?",
+                    "Nej, aldrig. Dit IBAN-nummer fungerer kun én vej: Vi kan sætte dine optjente penge ind på din konto. Vi har ingen fuldmagt til at hæve penge fra dig.",
+                  ),
+                  _buildFAQ(
+                    "Er mine oplysninger sikre?",
+                    "Ja. Dine data sendes krypteret direkte til vores betalingspartner Stripe (samme sikkerhedsniveau som store banker). HoppOn gemmer ikke dine følsomme data ukrypteret.",
+                  ),
+
+                  const SizedBox(height: 40),
                 ],
               ),
             ),
     );
   }
 
-  // --- UI Komponenter ---
+  // --- HJÆLPE WIDGETS ---
 
   Widget _buildSecurityHeader() {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.green.withOpacity(0.1),
+        color: const Color(0xFFEFF6FF), // Meget lys blå
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.green.withOpacity(0.5)),
+        border: Border.all(color: const Color(0xFFDBEAFE)),
       ),
-      child: const Row(
+      child: Column(
         children: [
-          Icon(Icons.lock, color: Colors.green),
-          SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              "Dine data krypteres øjeblikkeligt og bruges kun til lovpligtig indberetning.",
-              style: TextStyle(color: Colors.black87, fontSize: 13),
+          Row(
+            children: [
+              const Icon(
+                Icons.lock_outline,
+                color: Color(0xFF2563EB),
+                size: 28,
+              ),
+              const SizedBox(width: 15),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Bank-niveau sikkerhed",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1E40AF),
+                        fontSize: 15,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      "Dine oplysninger behandles fortroligt og krypteret.",
+                      style: TextStyle(color: Color(0xFF1E3A8A), fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.check_circle, size: 14, color: Colors.green[600]),
+                const SizedBox(width: 6),
+                Text(
+                  "Secured by Stripe Identity",
+                  style: TextStyle(
+                    color: Colors.grey[700],
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -296,17 +451,151 @@ class _TaxInfoScreenState extends State<TaxInfoScreen> {
     );
   }
 
+  Widget _buildCprField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              "CPR-nummer",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            IconButton(
+              icon: const Icon(
+                Icons.help_outline,
+                size: 18,
+                color: Colors.grey,
+              ),
+              onPressed: () => _showExplanationDialog(
+                "Hvorfor CPR?",
+                "Vi er lovmæssigt forpligtet til at indberette udbetalinger til SKAT. Ved at indtaste dit CPR-nummer her, sker indberetningen automatisk, så du ikke selv skal huske det.",
+              ),
+            ),
+          ],
+        ),
+        TextFormField(
+          controller: _cprCtrl,
+          keyboardType: TextInputType.number,
+          readOnly: _isCprLocked,
+          obscureText: !_isCprLocked,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(10), // Maks 10 cifre
+          ],
+          validator: (val) {
+            if (_isCprLocked) return null;
+            if (val == null || val.length != 10) return "Skal være 10 cifre";
+            return null;
+          },
+          decoration: InputDecoration(
+            hintText: "DDMMÅÅXXXX",
+            helperText: "Sendes krypteret (Kun til SKAT-indberetning)",
+            helperStyle: TextStyle(color: Colors.grey[600]),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            filled: true,
+            fillColor: _isCprLocked ? Colors.grey[200] : Colors.grey[50],
+            prefixIcon: const Icon(Icons.fingerprint),
+            suffixIcon: const Icon(Icons.lock, size: 16, color: Colors.grey),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildIbanField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              "IBAN-nummer",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            IconButton(
+              icon: const Icon(
+                Icons.help_outline,
+                size: 18,
+                color: Colors.grey,
+              ),
+              onPressed: () => _showExplanationDialog(
+                "Hvad er IBAN?",
+                "IBAN er din bankkontos internationale ID. Du finder det i din netbank under kontodetaljer. Det starter med 'DK' og efterfølges af 16 tal.",
+              ),
+            ),
+          ],
+        ),
+        TextFormField(
+          controller: _ibanCtrl,
+          textCapitalization: TextCapitalization.characters,
+          inputFormatters: [
+            FilteringTextInputFormatter.deny(RegExp(r'\s')), // Forbyd mellemrum
+          ],
+          validator: (val) {
+            if (val == null || val.isEmpty) return "Påkrævet";
+            // Ingen grund til replaceAll her da vi blokerer det ved input,
+            // men vi gør det alligevel for en sikkerheds skyld
+            String clean = val.toUpperCase().replaceAll(' ', '');
+            if (!clean.startsWith("DK") || clean.length != 18)
+              return "Ugyldigt dansk IBAN";
+            return null;
+          },
+          decoration: InputDecoration(
+            hintText: "DK0000000000000000",
+            helperText: "Her udbetaler vi din fortjeneste til",
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            filled: true,
+            fillColor: Colors.grey[50],
+            prefixIcon: const Icon(Icons.account_balance),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInput(
+    TextEditingController ctrl,
+    String label, {
+    IconData? icon,
+    String? hint,
+    String? helperText,
+    bool isRequired = true, // Tilføj denne parameter
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 6),
+        TextFormField(
+          controller: ctrl,
+          validator: (val) {
+            if (!isRequired) return null;
+            return (val == null || val.isEmpty) ? "Påkrævet" : null;
+          },
+          decoration: InputDecoration(
+            hintText: hint,
+            helperText: helperText, // Nu kun hvis det er sat
+            helperMaxLines: 2,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            filled: true,
+            fillColor: Colors.white,
+            prefixIcon: icon != null ? Icon(icon) : null,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 14,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildBirthdayPicker() {
     return InkWell(
-      onTap: () async {
-        final d = await showDatePicker(
-          context: context,
-          firstDate: DateTime(1900),
-          lastDate: DateTime.now(),
-          initialDate: DateTime(2000),
-        );
-        if (d != null) setState(() => _dob = d);
-      },
+      onTap: _showIOSDatePicker, // Kalder nu den nye iOS funktion
       child: InputDecorator(
         decoration: InputDecoration(
           labelText: "Fødselsdato",
@@ -333,53 +622,6 @@ class _TaxInfoScreenState extends State<TaxInfoScreen> {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         filled: true,
         fillColor: Colors.grey[50],
-      ),
-    );
-  }
-
-  Widget _buildCprField() {
-    return TextFormField(
-      controller: _cprCtrl,
-      keyboardType: TextInputType.number,
-      readOnly: _isCprLocked,
-      obscureText: !_isCprLocked,
-      inputFormatters: [
-        FilteringTextInputFormatter.digitsOnly,
-        LengthLimitingTextInputFormatter(10),
-      ],
-      validator: (val) {
-        if (_isCprLocked) return null;
-        if (val == null || val.length != 10) return "Skal være 10 cifre";
-        return null;
-      },
-      decoration: InputDecoration(
-        labelText: _isCprLocked ? "CPR (Gemt)" : "CPR Nummer",
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-        filled: true,
-        fillColor: _isCprLocked ? Colors.grey[200] : Colors.grey[50],
-        suffixIcon: const Icon(Icons.lock, size: 16, color: Colors.grey),
-      ),
-    );
-  }
-
-  Widget _buildIbanField() {
-    return TextFormField(
-      controller: _ibanCtrl,
-      textCapitalization: TextCapitalization.characters,
-      validator: (val) {
-        if (val == null || val.isEmpty) return "Påkrævet";
-        String clean = val.replaceAll(' ', '');
-        if (!clean.startsWith("DK") || clean.length != 18)
-          return "Ugyldigt dansk IBAN";
-        return null;
-      },
-      decoration: InputDecoration(
-        labelText: "IBAN Nummer",
-        hintText: "DK00 0000 0000 0000 00",
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-        filled: true,
-        fillColor: Colors.grey[50],
-        prefixIcon: const Icon(Icons.account_balance),
       ),
     );
   }
@@ -416,46 +658,49 @@ class _TaxInfoScreenState extends State<TaxInfoScreen> {
     );
   }
 
-  Widget _buildInput(
-    TextEditingController ctrl,
-    String label, {
-    IconData? icon,
-    String? hint,
-  }) {
-    return TextFormField(
-      controller: ctrl,
-      validator: (val) => (val == null || val.isEmpty) ? "Påkrævet" : null,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        prefixIcon: icon != null ? Icon(icon) : null,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-        filled: true,
-        fillColor: Colors.grey[50],
-      ),
-    );
-  }
-
-  Widget _buildFAQ(String title, String content) {
+  Widget _buildFAQ(String question, String answer) {
     return Card(
       elevation: 0,
-      margin: const EdgeInsets.only(bottom: 8),
+      color: const Color(0xFFF8FAFC),
+      margin: const EdgeInsets.only(bottom: 10),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
         side: BorderSide(color: Colors.grey.shade200),
       ),
       child: ExpansionTile(
         title: Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+          question,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF0F172A),
+          ),
         ),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              content,
-              style: TextStyle(color: Colors.grey[700], height: 1.5),
+          Text(
+            answer,
+            style: const TextStyle(
+              fontSize: 13,
+              color: Colors.black87,
+              height: 1.5,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showExplanationDialog(String title, String content) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(content),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("OK"),
           ),
         ],
       ),
@@ -463,7 +708,7 @@ class _TaxInfoScreenState extends State<TaxInfoScreen> {
   }
 }
 
-// --- MAPBOX ADRESSE SØGE WIDGET ---
+// --- MAPBOX ADRESSE SØGE WIDGET (Uden for state class) ---
 
 class _MapboxSearchWidget extends StatefulWidget {
   final String mapboxToken;

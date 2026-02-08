@@ -7,9 +7,13 @@ import 'screens/home_screen.dart';
 import 'screens/auth/welcome_screen.dart';
 import 'screens/verification_screen.dart'; // Rettet sti
 import 'screens/onboarding_screen.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'services/notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp();
 
   await initializeDateFormatting('da_DK', null);
 
@@ -22,11 +26,11 @@ Future<void> main() async {
       'pk_live_51SxARZEva3C2iRHuROjwB4fDAvUrCibEKXeoNA8VvWzZf7QwpCnUylfwXvBiB54nS2ptotVjp8t3idyKrXWi8JiX00Tp3wlQ4I';
   await Stripe.instance.applySettings();
 
-  runApp(const SamkorselApp());
+  runApp(const HoppOn());
 }
 
-class SamkorselApp extends StatelessWidget {
-  const SamkorselApp({super.key});
+class HoppOn extends StatelessWidget {
+  const HoppOn({super.key});
 
   @override
   Widget build(BuildContext context) {

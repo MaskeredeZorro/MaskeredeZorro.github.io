@@ -1,3 +1,15 @@
+// 1. TILFØJ DENNE BLOK HELT I TOPPEN
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath("com.google.gms:google-services:4.4.1")
+    }
+}
+
+// RESTEN AF DIN EKSISTERENDE KODE FORTSÆTTER HERUNDER:
 allprojects {
     repositories {
         google()
@@ -15,6 +27,7 @@ subprojects {
     val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
     project.layout.buildDirectory.value(newSubprojectBuildDir)
 }
+
 subprojects {
     project.evaluationDependsOn(":app")
 }

@@ -23,6 +23,8 @@ dependencies:
   flutter_stripe: ^10.1.0 
   url_launcher: ^6.2.0 
   flutter_map_cancellable_tile_provider: ^3.0.2
+  firebase_core: ^2.24.2    # <--- TILFØJ DENNE
+  firebase_messaging: ^14.7.10 # <--- TILFØJ DENNE (til notifikationer)
 
 dev_dependencies:
   flutter_test:

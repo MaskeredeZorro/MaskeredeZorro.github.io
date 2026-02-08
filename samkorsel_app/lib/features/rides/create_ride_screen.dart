@@ -152,8 +152,8 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
     }
   }
 
-  // --- OPRET TUR LOGIK (MED KOMBINATORIK) ---
   Future<void> _createRide() async {
+    // 1. INPUT VALIDERING
     if (_origin == null ||
         _destination == null ||
         _priceController.text.isEmpty) {
@@ -161,14 +161,13 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
       return;
     }
 
-    // --- NYT: TJEK FOR MINIMUM PRIS PÅ 20 KR ---
-    final int price = int.tryParse(_priceController.text) ?? 0;
-    if (price < 20) {
+    final int userPrice = int.tryParse(_priceController.text) ?? 0;
+    if (userPrice < 20) {
       _showError("Prisen skal være mindst 20 kr.");
-      return; // Stopper funktionen her
+      return;
     }
 
-    // Tjek at mellemstops har bynavne
+    // Tjek mellemstops
     for (var wp in _waypoints) {
       if (wp.city == null) {
         _showError("Vælg by for alle mellemstops.");
@@ -182,7 +181,80 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) throw Exception("Log ind først.");
 
-      // 1. Hent bilmodel & Geo-kordinater til ALLE punkter først
+      // 2. HENT KOORDINATER (Bruges både til DB og Pris-tjek)
+      final originCoords = await _getCityCoordinates(_origin!);
+      final destCoords = await _getCityCoordinates(_destination!);
+
+      if (originCoords == null || destCoords == null) {
+        throw Exception("Kunne ikke finde start/slut koordinater.");
+      }
+
+      // 3. PRISLOFT BEREGNING (Skatte-tjek)
+      // Vi beregner distancen
+      double distanceKm = await _calculateTotalDistance(
+        originCoords,
+        destCoords,
+      );
+
+      if (distanceKm == 0.0) {
+        // Fallback hvis Mapbox fejler: Vi lader den gå igennem, men logger det
+        debugPrint("Kunne ikke beregne distance - skipper prisloft tjek.");
+      } else {
+        final int seats = int.tryParse(_seatsController.text) ?? 3;
+        final double skatSats = 3.73;
+        int ferryCost = _isFerry ? 249 : 0; // Standard lav færgepris
+
+        // Beregn Maks Pris Pr. Sæde
+        // Formel: ((KM * 3.73) + Færge) / Sæder
+        double maxPriceTotal = (distanceKm * skatSats) + ferryCost;
+        int maxPricePerSeat = (maxPriceTotal / seats).floor();
+
+        debugPrint(
+          "PRISLOFT TJEK: Km: $distanceKm, Færge: $ferryCost, Maks Total: $maxPriceTotal, Maks Pr. Sæde: $maxPricePerSeat, Din Pris: $userPrice",
+        );
+
+        // TJEK OM PRISEN ER FOR HØJ
+        if (userPrice > maxPricePerSeat) {
+          if (_isFerry) {
+            // SCENARIE: FÆRGE (Giv mulighed for at ændre færgepris)
+            setState(() => _isLoading = false); // Stop loading mens de svarer
+
+            final newFerryPrice = await _showFerryPriceDialog(
+              maxPricePerSeat,
+              ferryCost,
+            );
+
+            if (newFerryPrice == null) {
+              return; // Bruger annullerede
+            }
+
+            // Genberegn med ny færgepris
+            ferryCost = newFerryPrice;
+            maxPriceTotal = (distanceKm * skatSats) + ferryCost;
+            maxPricePerSeat = (maxPriceTotal / seats).floor();
+
+            if (userPrice > maxPricePerSeat) {
+              _showError(
+                "Prisen er stadig for høj ift. SKATs satser (Max: $maxPricePerSeat kr).",
+              );
+              return;
+            }
+            // Hvis vi er her, er prisen godkendt med ny færgepris -> Fortsæt til oprettelse
+            setState(() => _isLoading = true);
+          } else {
+            // SCENARIE: INGEN FÆRGE (Hård grænse)
+            setState(() => _isLoading = false);
+            _showError(
+              "Prisen overstiger SKATs kørselssats (Max ca. $maxPricePerSeat kr). Sænk prisen.",
+            );
+            return;
+          }
+        }
+      }
+
+      // --- HERFRA KØRER DEN NORMALE OPRETTELSE (Din eksisterende kode) ---
+
+      // Hent bilmodel
       final profile = await Supabase.instance.client
           .from('profiles')
           .select('car_details')
@@ -190,30 +262,22 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
           .single();
       final carModel = profile['car_details'] ?? "Min Bil";
 
-      final originCoords = await _getCityCoordinates(_origin!);
-      final destCoords = await _getCityCoordinates(_destination!);
-
-      if (originCoords == null || destCoords == null)
-        throw Exception("Kunne ikke finde start/slut koordinater.");
-
-      // Hent koordinater for waypoints og gem dem i waypoints listen
+      // Hent koordinater for waypoints
       for (var wp in _waypoints) {
         wp.coords = await _getCityCoordinates(wp.city!);
         if (wp.coords == null)
           throw Exception("Kunne ikke finde koordinater for ${wp.city}");
       }
 
-      // 2. Loop gennem hver dato (Instance)
       final instancesToCreate = _isRecurring
           ? _rideInstances
           : [_rideInstances.first];
 
       for (var instance in instancesToCreate) {
-        // 3. BYG RUTEN TIL KOMBINATORIK
-        // Vi laver en midlertidig liste over alle stop på denne tur med deres specifikke tider
-        List<Map<String, dynamic>> routePoints = [];
+        // ... (Resten af din kode for rutebygning og loop er uændret herfra)
+        // Kopier resten af logikken fra din oprindelige _createRide herunder:
 
-        // Startpunkt
+        List<Map<String, dynamic>> routePoints = [];
         routePoints.add({
           'city': _origin,
           'coords': originCoords,
@@ -221,16 +285,13 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
           'type': 'origin',
         });
 
-        // Mellemstops
         for (int i = 0; i < _waypoints.length; i++) {
-          // Hent tid for dette stop (eller brug fallback)
           final time =
               instance.waypointTimes[i] ??
               TimeOfDay(
                 hour: instance.depTime.hour + 1,
                 minute: instance.depTime.minute,
               );
-
           routePoints.add({
             'city': _waypoints[i].city,
             'coords': _waypoints[i].coords,
@@ -239,7 +300,6 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
           });
         }
 
-        // Slutpunkt
         routePoints.add({
           'city': _destination,
           'coords': destCoords,
@@ -247,20 +307,14 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
           'type': 'destination',
         });
 
-        // 4. GENERER ALLE KOMBINATIONER (Double Loop)
-        // A->B, A->C, B->C osv.
         for (int i = 0; i < routePoints.length - 1; i++) {
           for (int j = i + 1; j < routePoints.length; j++) {
             final fromPoint = routePoints[i];
             final toPoint = routePoints[j];
-
-            // Tjek om det er HOVEDTUREN (Start til Slut)
-            // Vi gemmer kun waypoints-JSON på hovedturen for at undgå rod i display
             bool isMainRide = (i == 0 && j == routePoints.length - 1);
 
             List<Map<String, dynamic>> waypointsJson = [];
             if (isMainRide) {
-              // Byg JSON kun til hovedturen
               for (int k = 0; k < _waypoints.length; k++) {
                 final wp = _waypoints[k];
                 final t = instance.waypointTimes[k] ?? instance.depTime;
@@ -274,7 +328,6 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
               }
             }
 
-            // Beregn tider
             final startDateTime = _combineDateAndTime(
               instance.date,
               fromPoint['time'],
@@ -283,12 +336,10 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
               instance.date,
               toPoint['time'],
             );
-
             if (endDateTime.isBefore(startDateTime)) {
               endDateTime = endDateTime.add(const Duration(days: 1));
             }
 
-            // Indsæt som SELVSTÆNDIG tur i databasen
             await Supabase.instance.client.from('rides').insert({
               'driver_id': user.id,
               'origin_city': fromPoint['city'],
@@ -300,9 +351,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
               'departure_time': startDateTime.toUtc().toIso8601String(),
               'arrival_time': endDateTime.toUtc().toIso8601String(),
               'seats_available': int.parse(_seatsController.text),
-              'price_dkk': int.parse(
-                _priceController.text,
-              ), // NB: Samme pris for alle segmenter (indtil videre)
+              'price_dkk': int.parse(_priceController.text),
               'car_model': carModel,
               'status': 'active',
               'is_ferry': _isFerry,
@@ -316,7 +365,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
               'pref_smoking': _prefSmoking,
               'pref_kids': _prefKids,
               'comment': _commentController.text,
-              'waypoints': waypointsJson, // Kun hovedturen får JSON data
+              'waypoints': waypointsJson,
             });
           }
         }
@@ -963,6 +1012,161 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
       debugPrint("$e");
     }
     return null;
+  }
+
+  // --- NYE HJÆLPERE TIL AFSTAND OG PRIS ---
+  // --- NYE HJÆLPERE TIL AFSTAND OG PRIS ---
+
+  // Henter rutedata fra Mapbox
+  Future<Map<String, dynamic>?> _fetchMapboxRoute(
+    double startLng,
+    double startLat,
+    double endLng,
+    double endLat, {
+    String params = '',
+  }) async {
+    const String token =
+        'pk.eyJ1IjoiaG9wcG9uIiwiYSI6ImNtbDk0bDN3cTBiM3MzZnFzdThhOXRuZG4ifQ.9LP9GFe5zEvMjwhPtf6l0w';
+    try {
+      final url = Uri.parse(
+        'https://api.mapbox.com/directions/v5/mapbox/driving-traffic/$startLng,$startLat;$endLng,$endLat?access_token=$token$params',
+      );
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final routes = data['routes'] as List;
+        if (routes.isNotEmpty) {
+          // Sorter kortest først
+          routes.sort(
+            (a, b) => (a['distance'] as num).compareTo(b['distance'] as num),
+          );
+          return routes[0];
+        }
+      }
+    } catch (e) {
+      debugPrint("Mapbox Route Fejl: $e");
+    }
+    return null;
+  }
+
+  // Beregner total distance i KM (inkl. færge logik)
+  Future<double> _calculateTotalDistance(
+    Map<String, double> start,
+    Map<String, double> end,
+  ) async {
+    double totalKm = 0.0;
+
+    if (_isFerry) {
+      // --- FÆRGE LOGIK (Kopieret og tilpasset din beskrivelse) ---
+      final double aarhusLng = 10.21396;
+      final double aarhusLat = 56.15720;
+      final double oddenLng = 11.29615;
+      final double oddenLat = 55.97330;
+
+      // Bestem retning (Øst/Vest)
+      bool isEastbound = start['lng']! < end['lng']!;
+      double fStartLng, fStartLat, fEndLng, fEndLat;
+
+      if (isEastbound) {
+        fStartLng = aarhusLng;
+        fStartLat = aarhusLat;
+        fEndLng = oddenLng;
+        fEndLat = oddenLat;
+      } else {
+        fStartLng = oddenLng;
+        fStartLat = oddenLat;
+        fEndLng = aarhusLng;
+        fEndLat = aarhusLat;
+      }
+
+      // Leg 1: Start -> Færge
+      final leg1 = await _fetchMapboxRoute(
+        start['lng']!,
+        start['lat']!,
+        fStartLng,
+        fStartLat,
+      );
+      // Leg 2: Færge -> Slut
+      final leg2 = await _fetchMapboxRoute(
+        fEndLng,
+        fEndLat,
+        end['lng']!,
+        end['lat']!,
+      );
+
+      if (leg1 != null && leg2 != null) {
+        final dist1 = (leg1['distance'] as num) / 1000.0;
+        final dist2 = (leg2['distance'] as num) / 1000.0;
+        // Vi tæller kun kørte km iflg. SKAT, men du kan lægge færgedistancen til hvis du vil.
+        // Her følger vi din CO2 logik (kun kørsel + evt. færgefix):
+        totalKm = dist1 + dist2;
+      }
+    } else {
+      // IKKE FÆRGE: Kørsel udenom (via Storebælt)
+      final route = await _fetchMapboxRoute(
+        start['lng']!,
+        start['lat']!,
+        end['lng']!,
+        end['lat']!,
+        params: '&exclude=ferry',
+      );
+      if (route != null) {
+        totalKm = (route['distance'] as num) / 1000.0;
+      }
+    }
+    return totalKm;
+  }
+
+  // Dialog til at ændre færgepris
+  Future<int?> _showFerryPriceDialog(
+    int currentMaxPrice,
+    int currentFerryCost,
+  ) async {
+    final controller = TextEditingController(
+      text: "549",
+    ); // Standard "høj" færgepris forslag
+    return showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Prisloft nået"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "Din pris overstiger det anbefalede loft baseret på en standard færgebillet (249 kr).",
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              "Har du betalt mere for færgen? Indtast beløbet her for at hæve loftet:",
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: "Faktisk færgepris (kr)",
+                border: OutlineInputBorder(),
+                suffixText: "kr",
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, null), // Annuller
+            child: const Text("Annuller", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final val = int.tryParse(controller.text);
+              Navigator.pop(ctx, val);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: _primaryColor),
+            child: const Text("Opdater & Tjek"),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showError(String msg) {
