@@ -53,7 +53,7 @@ class _FlexibleMapScreenState extends State<FlexibleMapScreen> {
 
     if (searchCoords != null) {
       setState(() => _currentCenter = searchCoords);
-      _mapController.move(searchCoords, 9.0);
+      _mapController.move(searchCoords, 6.2);
       await _fetchRidesNearby(searchCoords);
     } else {
       await _fetchRidesFallbackText();
@@ -349,8 +349,8 @@ class _FlexibleMapScreenState extends State<FlexibleMapScreen> {
       final coords = entry.key.split(',');
       return Marker(
         point: LatLng(double.parse(coords[0]), double.parse(coords[1])),
-        width: 50,
-        height: 50,
+        width: 35,
+        height: 35,
         child: GestureDetector(
           onTap: () => _showRidesBottomSheet(entry.value),
           child: Container(
@@ -372,7 +372,7 @@ class _FlexibleMapScreenState extends State<FlexibleMapScreen> {
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
-                  fontSize: 14,
+                  fontSize: 12,
                 ),
               ),
             ),
@@ -393,7 +393,7 @@ class _FlexibleMapScreenState extends State<FlexibleMapScreen> {
             mapController: _mapController,
             options: MapOptions(
               initialCenter: _currentCenter,
-              initialZoom: 9.0,
+              initialZoom: 6.2,
             ),
             children: [
               TileLayer(

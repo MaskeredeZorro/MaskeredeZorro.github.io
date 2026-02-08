@@ -20,18 +20,22 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
   bool _isLoading = true;
   Map<String, dynamic>? _profile;
 
-  // Statistik
-  int _rideCount = 0;
-  double _avgRating = 0.0;
+  // Statistik (Beregnet fra appen)
+  int _calculatedRideCount = 0;
+  double _calculatedAvgRating = 0.0;
   int _totalReviews = 0;
 
   // Review tilladelse
-  bool _canReview = false; // Må brugeren anmelde?
-  bool _hasReviewed = false; // Har brugeren allerede anmeldt?
+  bool _canReview = false;
+  bool _hasReviewed = false;
 
-  // Data til UI
+  // Data til UI & Filtrering
   Map<int, int> _ratingDistribution = {5: 0, 4: 0, 3: 0, 2: 0, 1: 0};
-  List<Map<String, dynamic>> _latestReviews = [];
+  List<Map<String, dynamic>> _allReviews = []; // Alle reviews gemt her
+
+  // State for visning
+  bool _showAllReviews = false; // Folder listen ud
+  int? _selectedStarFilter; // Hvis man klikker på en bar (fx 5 stjerner)
 
   @override
   void initState() {
@@ -52,10 +56,18 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
           .single();
 
       // 2. Hent antal ture (Driver)
-      final ridesRes = await client
+      final ridesAsDriver = await client
           .from('rides')
           .count()
-          .eq('driver_id', widget.userId);
+          .eq('driver_id', widget.userId)
+          .eq('status', 'completed');
+
+      // 2b. Hent antal ture (Passager)
+      final ridesAsPassenger = await client
+          .from('bookings')
+          .count()
+          .eq('passenger_id', widget.userId)
+          .eq('status', 'approved');
 
       // 3. Hent alle anmeldelser
       final reviewsRes = await client
@@ -66,7 +78,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
 
       final reviews = List<Map<String, dynamic>>.from(reviewsRes);
 
-      // 4. Beregn statistik & Tjek om jeg allerede har anmeldt
+      // 4. Beregn statistik
       double sum = 0;
       Map<int, int> dist = {5: 0, 4: 0, 3: 0, 2: 0, 1: 0};
       bool alreadyReviewed = false;
@@ -76,52 +88,73 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
         sum += stars;
         if (dist.containsKey(stars)) dist[stars] = dist[stars]! + 1;
 
-        // Tjek om jeg har skrevet denne anmeldelse
         if (currentUserId != null && r['reviewer_id'] == currentUserId) {
           alreadyReviewed = true;
         }
       }
 
-      // 5. TJEK OM JEG MÅ ANMELDE (Har vi kørt sammen?)
+      // 5. Tjek om jeg må anmelde
       bool userCanReview = false;
       if (currentUserId != null &&
           currentUserId != widget.userId &&
           !alreadyReviewed) {
-        // Vi tjekker: Findes der en booking hvor JEG er passager, HAN er chauffør, og status er approved?
-        // Vi bruger !inner til at filtrere på relationen 'rides'
         final sharedRides = await client
             .from('bookings')
             .select('id, rides!inner(driver_id)')
             .eq('passenger_id', currentUserId)
-            .eq('status', 'approved') // Kun godkendte ture
+            .eq('status', 'approved')
             .eq('rides.driver_id', widget.userId)
-            .limit(1); // Vi behøver kun finde én
+            .limit(1);
 
         if (sharedRides.isNotEmpty) {
           userCanReview = true;
         }
       }
 
-      setState(() {
-        _profile = profileRes;
-        _rideCount = ridesRes;
-        _totalReviews = reviews.length;
-        _avgRating = _totalReviews > 0 ? sum / _totalReviews : 0.0;
-        _ratingDistribution = dist;
-        _latestReviews = reviews.take(3).toList();
-        _canReview = userCanReview;
-        _hasReviewed = alreadyReviewed;
-        _isLoading = false;
-      });
+      // 6. Gem det hele i State
+      if (mounted) {
+        setState(() {
+          _profile = profileRes;
+
+          // Her lægges både kørte og rejste ture sammen
+          _calculatedRideCount = ridesAsDriver + ridesAsPassenger;
+
+          _totalReviews = reviews.length;
+          _calculatedAvgRating = _totalReviews > 0 ? sum / _totalReviews : 0.0;
+          _ratingDistribution = dist;
+          _allReviews = reviews;
+          _canReview = userCanReview;
+          _hasReviewed = alreadyReviewed;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       debugPrint("Fejl ved profil hentning: $e");
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
+  // -- LOGIK: FILTRERING AF REVIEWS --
+  List<Map<String, dynamic>> get _visibleReviews {
+    // 1. Filtrer baseret på valgt stjerne
+    List<Map<String, dynamic>> filtered = _allReviews;
+    if (_selectedStarFilter != null) {
+      filtered = _allReviews
+          .where((r) => r['rating'] == _selectedStarFilter)
+          .toList();
+    }
+
+    // 2. Hvis vi ikke viser alle (og ikke har filtreret), vis kun top 3
+    if (!_showAllReviews && _selectedStarFilter == null) {
+      return filtered.take(3).toList();
+    }
+
+    return filtered;
+  }
+
   // -- DIALOG: SKRIV ANMELDELSE --
   void _showAddReviewDialog() {
-    if (!_canReview) return; // Sikkerhedstjek
+    if (!_canReview) return;
 
     final commentController = TextEditingController();
     int selectedStars = 5;
@@ -216,7 +249,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
           backgroundColor: Colors.green,
         ),
       );
-      _loadProfileData(); // Genindlæs for at vise den nye rating
+      _loadProfileData();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -233,7 +266,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
       builder: (c) => AlertDialog(
         title: const Text("Anmeld bruger"),
         content: const Text(
-          "Er du sikker på, at du vil anmelde denne profil for upassende adfærd? Dette vil blive sendt til support.",
+          "Er du sikker på, at du vil anmelde denne profil for upassende adfærd?",
         ),
         actions: [
           TextButton(
@@ -289,6 +322,11 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
             _buildHeader(),
             const SizedBox(height: 30),
 
+            // --- GOMORE BADGE (MANUEL DATA) ---
+            _buildGoMoreBadge(),
+            // Vi tilføjer kun spacing i selve metoden hvis den returnerer noget,
+            // ellers returnerer den SizedBox.shrink() som fylder 0.
+
             // --- INFO BOX ---
             _buildInfoStats(),
             const SizedBox(height: 30),
@@ -330,7 +368,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
             _buildVerifiedTile("Telefonnummer bekræftet", Icons.phone_android),
             const SizedBox(height: 30),
 
-            // --- RATINGS HEADER + KNAP ---
+            // --- RATINGS HEADER ---
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -342,8 +380,6 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                     color: _slate,
                   ),
                 ),
-
-                // VIS KUN KNAP HVIS MAN MÅ ANMELDE
                 if (_canReview)
                   TextButton.icon(
                     onPressed: _showAddReviewDialog,
@@ -369,12 +405,13 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
             ),
 
             const SizedBox(height: 20),
+            // Klikbar rating statistik
             _buildRatingBreakdown(),
 
             const SizedBox(height: 25),
 
-            // --- NYESTE REVIEWS ---
-            if (_latestReviews.isEmpty)
+            // --- LISTE AF REVIEWS ---
+            if (_visibleReviews.isEmpty)
               Container(
                 padding: const EdgeInsets.all(20),
                 width: double.infinity,
@@ -382,23 +419,31 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                   color: _bg,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Text(
-                  "Ingen anmeldelser endnu.",
+                child: Text(
+                  _selectedStarFilter != null
+                      ? "Ingen anmeldelser med $_selectedStarFilter stjerner."
+                      : "Ingen anmeldelser endnu.",
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey),
+                  style: const TextStyle(color: Colors.grey),
                 ),
               )
             else
-              ..._latestReviews.map((r) => _buildReviewCard(r)),
+              ..._visibleReviews.map((r) => _buildReviewCard(r)),
 
             const SizedBox(height: 20),
 
-            // --- SE ALLE KNAP ---
-            if (_totalReviews > 3)
+            // --- SE ALLE KNAP (Viser kun hvis der er flere at vise) ---
+            if (_totalReviews > 3 &&
+                !_showAllReviews &&
+                _selectedStarFilter == null)
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    setState(() {
+                      _showAllReviews = true;
+                    });
+                  },
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     side: BorderSide(color: _slate),
@@ -413,6 +458,20 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
+                ),
+              ),
+
+            // Knap til at fjerne filter hvis aktivt
+            if (_selectedStarFilter != null)
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _selectedStarFilter = null;
+                    });
+                  },
+                  child: const Text("Vis alle igen"),
                 ),
               ),
 
@@ -442,7 +501,79 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     );
   }
 
-  // --- WIDGETS (Samme design som før) ---
+  // --- WIDGETS ---
+
+  // Ny Badge Widget (Helt uafhængig af appens egne data)
+  Widget _buildGoMoreBadge() {
+    // 1. Prøv at hente de manuelle data
+    final manualCount = _profile!['manual_ride_count'];
+    final manualRating = _profile!['manual_rating'];
+
+    // 2. Hvis en af dem mangler (er null), så vis ingenting (returner 0 height)
+    if (manualCount == null || manualRating == null) {
+      return const SizedBox.shrink();
+    }
+
+    // 3. Konverter til typer vi kan bruge (sikkerhed hvis Supabase sender num/int/double)
+    final int displayCount = (manualCount as num).toInt();
+    final double displayRating = (manualRating as num).toDouble();
+
+    // 4. Hvis vi er her, har vi data. Vis badge!
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20.0), // Spacing til næste element
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.green.withOpacity(0.08), // Meget lys grøn baggrund
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.green.withOpacity(0.3)),
+        ),
+        child: Row(
+          children: [
+            // Badge Ikon
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: const BoxDecoration(
+                color: Colors.green,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.sentiment_satisfied_alt, // Smiley ala GoMore
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 16),
+            // Tekst
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Verificeret samkørselshistorik",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: _slate,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "$displayCount+ tidligere verificerede samkørsler \nGns. ${displayRating.toStringAsFixed(1)} stjerner.",
+                    style: TextStyle(
+                      color: Colors.grey[800],
+                      fontSize: 13,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildHeader() {
     return Row(
@@ -476,7 +607,9 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                   const Icon(Icons.star, color: Colors.amber, size: 20),
                   const SizedBox(width: 4),
                   Text(
-                    _avgRating > 0 ? _avgRating.toStringAsFixed(1) : "Ny",
+                    _calculatedAvgRating > 0
+                        ? _calculatedAvgRating.toStringAsFixed(1)
+                        : "Ny",
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
@@ -509,7 +642,6 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
       city = (_profile!['address'] as String).split(',').last.trim();
     }
 
-    // NYT: Hent CO2 værdien sikkert (hvis den er null, bruger vi 0.0)
     final double co2Saved =
         (_profile!['co2_saved_kg'] as num?)?.toDouble() ?? 0.0;
 
@@ -528,10 +660,9 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
           const SizedBox(height: 12),
           _buildStatRow(
             Icons.directions_car_filled_outlined,
-            "$_rideCount samkørsler",
+            "$_calculatedRideCount samkørsler",
           ),
 
-          // --- NYT: CO2 VISNING ---
           const SizedBox(height: 20),
           Container(
             padding: const EdgeInsets.all(12),
@@ -565,7 +696,6 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
               ],
             ),
           ),
-          // ------------------------
         ],
       ),
     );
@@ -622,33 +752,54 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
             children: [5, 4, 3, 2, 1].map((star) {
               int count = _ratingDistribution[star] ?? 0;
               double percent = _totalReviews == 0 ? 0 : count / _totalReviews;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 15,
-                      child: Text(
-                        "$star",
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
+
+              // Tjek om denne stjerne er valgt
+              bool isSelected = _selectedStarFilter == star;
+              // Tjek om en anden er valgt (så denne skal være faded)
+              bool isFaded = _selectedStarFilter != null && !isSelected;
+
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    if (_selectedStarFilter == star) {
+                      _selectedStarFilter = null; // Fravælg
+                    } else {
+                      _selectedStarFilter = star; // Vælg
+                    }
+                  });
+                },
+                child: Opacity(
+                  opacity: isFaded ? 0.3 : 1.0, // Fade hvis ikke valgt
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 15,
+                          child: Text(
+                            "$star",
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: isSelected ? _indigo : Colors.black,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: percent,
-                          backgroundColor: Colors.grey[200],
-                          color: _slate,
-                          minHeight: 6,
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: percent,
+                              backgroundColor: Colors.grey[200],
+                              color: isSelected ? _indigo : _slate,
+                              minHeight: 6,
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               );
             }).toList(),
@@ -660,7 +811,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
           child: Column(
             children: [
               Text(
-                _avgRating.toStringAsFixed(1),
+                _calculatedAvgRating.toStringAsFixed(1),
                 style: TextStyle(
                   fontSize: 48,
                   fontWeight: FontWeight.w900,
@@ -672,7 +823,9 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                 children: List.generate(
                   5,
                   (index) => Icon(
-                    index < _avgRating.round() ? Icons.star : Icons.star_border,
+                    index < _calculatedAvgRating.round()
+                        ? Icons.star
+                        : Icons.star_border,
                     color: Colors.amber,
                     size: 16,
                   ),

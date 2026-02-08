@@ -1,10 +1,10 @@
 import 'dart:convert';
-import 'dart:io'; // Til filhåndtering
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
-import 'package:image_picker/image_picker.dart'; // Husk at tilføje denne i pubspec.yaml
-
+import 'package:image_picker/image_picker.dart';
+import '/screens/home_screen.dart'; // Eller den sti der passer til din fil
 import '/screens/verification_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
@@ -24,7 +24,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
 
-  // --- NYT: Obligatoriske felter ---
+  // Obligatoriske felter
   File? _imageFile;
   String? _selectedGender;
   final List<String> _genderOptions = ['Mand', 'Kvinde', 'Andet'];
@@ -43,7 +43,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(
       source: ImageSource.gallery,
-      maxWidth: 600, // Komprimer billedet lidt
+      maxWidth: 600,
     );
 
     if (pickedFile != null) {
@@ -97,29 +97,27 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Future<void> _signUp() async {
     if (!_formKey.currentState!.validate()) return;
 
-    // --- KRAV 1: Profilbillede skal være valgt ---
     if (_imageFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Du SKAL vælge et profilbillede 📸"),
+          content: Text("Du mangler et profilbillede 📸"),
           backgroundColor: Colors.red,
         ),
       );
       return;
     }
 
-    // --- KRAV 2: Køn skal være valgt ---
     if (_selectedGender == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Du SKAL vælge køn 🚻"),
+          content: Text("Du skal vælge et køn 🚻"),
           backgroundColor: Colors.red,
         ),
       );
       return;
     }
 
-    // --- KRAV 3: Hvis chauffør, skal bil være hentet ---
+    // Tjek kun bil hvis man er chauffør
     if (_isDriver && _makeCtrl.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -135,12 +133,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // TRIN A: Upload Billede til Supabase Storage
+      // TRIN A: Upload Billede
       final fileExt = _imageFile!.path.split('.').last;
       final fileName = '${DateTime.now().millisecondsSinceEpoch}.$fileExt';
       final filePath = '/$fileName';
 
-      // Husk at oprette en bucket der hedder 'avatars' i Supabase Storage og gør den Public!
       await Supabase.instance.client.storage
           .from('avatars')
           .upload(filePath, _imageFile!);
@@ -164,16 +161,19 @@ class _SignUpScreenState extends State<SignUpScreen> {
         };
       }
 
-      // TRIN C: Opret Bruger (Inkl. URL og Køn)
+      // TRIN C: Opret Bruger
+      // Vi gemmer kun telefonnummer hvis _isDriver er true
+      final String? finalPhone = _isDriver ? _phoneCtrl.text.trim() : null;
+
       await Supabase.instance.client.auth.signUp(
         email: _emailCtrl.text.trim(),
         password: _passCtrl.text.trim(),
         emailRedirectTo: 'io.supabase.flutterquickstart://login-callback',
         data: {
           'full_name': _nameCtrl.text.trim(),
-          'phone_number': _phoneCtrl.text.trim(),
-          'gender': _selectedGender, // Gemmer Køn
-          'avatar_url': avatarUrl, // Gemmer Billede URL
+          'phone_number': finalPhone, // Null hvis passager
+          'gender': _selectedGender,
+          'avatar_url': avatarUrl,
           'is_driver': _isDriver,
           'license_plate': _isDriver ? _plateCtrl.text : null,
           'car_details': carJson,
@@ -182,16 +182,28 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
       // TRIN D: Naviger
       if (mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) => VerificationScreen(
-              phoneNumber: _phoneCtrl.text.trim(),
-              email: _emailCtrl.text.trim(),
-              password: _passCtrl.text.trim(),
+        if (_isDriver) {
+          // Hvis chauffør: Send til SMS-verificering
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (_) => VerificationScreen(
+                phoneNumber: finalPhone ?? "",
+                email: _emailCtrl.text.trim(),
+                password: _passCtrl.text.trim(),
+              ),
             ),
-          ),
-          (route) => false,
-        );
+            (route) => false,
+          );
+        } else {
+          // Hvis passager: Send direkte til hovedmenuen
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (_) =>
+                  const HomeScreen(), // Navnet på din startskærm for passagerer
+            ),
+            (route) => false,
+          );
+        }
       }
     } on AuthException catch (e) {
       if (mounted) {
@@ -228,7 +240,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               ),
               const SizedBox(height: 30),
 
-              // --- 1. PROFILBILLEDE (OBLIGATORISK) ---
+              // --- 1. PROFILBILLEDE ---
               Center(
                 child: GestureDetector(
                   onTap: _pickImage,
@@ -264,6 +276,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               ),
               const SizedBox(height: 30),
 
+              // --- NAVN ---
               TextFormField(
                 controller: _nameCtrl,
                 decoration: const InputDecoration(
@@ -274,7 +287,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               ),
               const SizedBox(height: 15),
 
-              // --- 2. KØN VÆLGER (OBLIGATORISK) ---
+              // --- KØN ---
               DropdownButtonFormField<String>(
                 value: _selectedGender,
                 decoration: const InputDecoration(
@@ -292,6 +305,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               ),
               const SizedBox(height: 15),
 
+              // --- EMAIL ---
               TextFormField(
                 controller: _emailCtrl,
                 keyboardType: TextInputType.emailAddress,
@@ -303,16 +317,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     v!.isEmpty || !v.contains('@') ? "Ugyldig email" : null,
               ),
               const SizedBox(height: 15),
-              TextFormField(
-                controller: _phoneCtrl,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  labelText: "Telefonnummer *",
-                  prefixIcon: Icon(Icons.phone_android),
-                ),
-                validator: (v) => v!.length < 8 ? "Ugyldigt nummer" : null,
-              ),
-              const SizedBox(height: 15),
+
+              // --- PASSWORD ---
               TextFormField(
                 controller: _passCtrl,
                 obscureText: true,
@@ -326,20 +332,43 @@ class _SignUpScreenState extends State<SignUpScreen> {
               const SizedBox(height: 30),
               const Divider(),
 
+              // --- DRIVER SWITCH ---
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text(
                   "Jeg vil gerne være chauffør",
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
-                subtitle: const Text("Tilføj din bil med det samme"),
+                subtitle: const Text("Kræver telefonnummer og bil"),
                 value: _isDriver,
                 activeColor: const Color(0xFF6366F1),
                 onChanged: (val) => setState(() => _isDriver = val),
               ),
 
+              // --- VIS KUN HVIS CHAUFFØR ---
               if (_isDriver) ...[
                 const SizedBox(height: 15),
+
+                // --- TELEFONNUMMER (Flyttet herned) ---
+                TextFormField(
+                  controller: _phoneCtrl,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: "Telefonnummer *",
+                    prefixIcon: Icon(Icons.phone_android),
+                    helperText: "Passagerer skal kunne kontakte dig",
+                  ),
+                  // Validerer kun hvis _isDriver er true
+                  validator: (v) {
+                    if (!_isDriver) return null;
+                    return (v == null || v.length < 8)
+                        ? "Ugyldigt nummer"
+                        : null;
+                  },
+                ),
+                const SizedBox(height: 15),
+
+                // --- BIL BOKS ---
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -399,6 +428,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
               ],
 
               const SizedBox(height: 40),
+
+              // --- OPRET KNAP ---
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(

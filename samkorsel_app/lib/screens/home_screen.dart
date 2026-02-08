@@ -11,6 +11,8 @@ import 'package:intl/intl.dart';
 import '../features/rides/create_ride_screen.dart';
 import '../features/rides/ride_detail_screen.dart';
 import '../features/flexible_search/flexible_map_screen.dart';
+import '../../services/sms_service.dart'; // Tjek at stien passer
+import '../screens/verification_screen.dart'; // Tjek at stien passer
 import 'profile_screen.dart';
 import '/screens/messages_screen.dart';
 import 'package:flutter/cupertino.dart'; // REQUIRED for iOS pickers
@@ -219,7 +221,7 @@ class BecomeDriverSheet extends StatefulWidget {
 }
 
 class _BecomeDriverSheetState extends State<BecomeDriverSheet> {
-  bool _isDriverToggle = false; // Starter som false, brugeren skal slå den til
+  bool _isDriverToggle = false;
   bool _isLoading = false;
   bool _isFetchingCar = false;
 
@@ -229,7 +231,10 @@ class _BecomeDriverSheetState extends State<BecomeDriverSheet> {
   final _yearCtrl = TextEditingController();
   final _colorCtrl = TextEditingController();
 
-  // API Opslag (Genbrugt logik)
+  // 1. NY CONTROLLER TIL TELEFON
+  final _phoneCtrl = TextEditingController();
+
+  // API Opslag (Uændret)
   Future<void> _fetchCarFromApi() async {
     String plate = _plateCtrl.text.replaceAll(' ', '').trim();
     if (plate.length < 2) return;
@@ -260,11 +265,27 @@ class _BecomeDriverSheetState extends State<BecomeDriverSheet> {
   }
 
   Future<void> _saveAndContinue() async {
-    if (!_isDriverToggle) return; // Skal være slået til
+    if (!_isDriverToggle) return;
+
+    // 2. TJEK AT TELEFON ER INDTASTET
+    final String phone = _phoneCtrl.text.trim();
+    if (phone.length < 8) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Indtast venligst et gyldigt telefonnummer (min. 8 cifre).",
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     if (_makeCtrl.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Hent venligst din biloplysninger først."),
+          content: Text("Hent venligst dine biloplysninger først."),
+          backgroundColor: Colors.red,
         ),
       );
       return;
@@ -273,9 +294,10 @@ class _BecomeDriverSheetState extends State<BecomeDriverSheet> {
     setState(() => _isLoading = true);
 
     try {
-      final userId = Supabase.instance.client.auth.currentUser!.id;
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return;
 
-      // Byg Car JSON
+      // 3. BYG BIL-DATA (Men gem ikke i DB endnu!)
       final carJson = {
         'make': _makeCtrl.text,
         'model': _modelCtrl.text,
@@ -287,22 +309,47 @@ class _BecomeDriverSheetState extends State<BecomeDriverSheet> {
         'display_name': "${_makeCtrl.text} ${_modelCtrl.text}",
       };
 
-      // Opdater profil i DB
-      await Supabase.instance.client
-          .from('profiles')
-          .update({
-            'is_driver': true,
-            'license_plate': _plateCtrl.text,
-            'car_details': carJson,
-          })
-          .eq('id', userId);
+      // 4. GENERER SMS KODE & GEM I DB
+      final String code = (math.Random().nextInt(900000) + 100000).toString();
 
-      // Kald success callback (lukker vinduet og går videre)
-      widget.onSuccess();
+      await Supabase.instance.client.from('sms_verifications').insert({
+        'user_id': user.id,
+        'code': code,
+        'expires_at': DateTime.now()
+            .add(const Duration(minutes: 10))
+            .toIso8601String(),
+      });
+
+      // 5. SEND SMS
+      final smsService = SmsService();
+      final success = await smsService.sendVerificationCode(phone, code);
+
+      if (success && mounted) {
+        Navigator.pop(context); // Luk sheetet
+
+        // 6. GÅ TIL VERIFICATION SCREEN MED DATA
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => VerificationScreen(
+              phoneNumber: phone,
+              email: user.email ?? "",
+              // Vi sender data med, så VerificationScreen kan gemme det hele til sidst
+              isBecomingDriver: true,
+              licensePlate: _plateCtrl.text,
+              carDetails: carJson,
+            ),
+          ),
+        );
+      } else {
+        throw "Kunne ikke sende SMS. Prøv igen.";
+      }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Fejl: $e")));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Fejl: $e")));
+      }
       setState(() => _isLoading = false);
     }
   }
@@ -318,146 +365,170 @@ class _BecomeDriverSheetState extends State<BecomeDriverSheet> {
         24,
         24,
         24,
-        MediaQuery.of(context).viewInsets.bottom + 24, // Håndterer tastatur
+        MediaQuery.of(context).viewInsets.bottom + 24,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "Bliv Chauffør 🚘",
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            "For at oprette ture skal du registrere din bil.",
-            style: TextStyle(color: Colors.grey),
-          ),
-          const SizedBox(height: 20),
-
-          // --- SWITCH ROW ---
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                "Vil du blive chauffør?",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              Switch(
-                value: _isDriverToggle,
-                onChanged: (val) => setState(() => _isDriverToggle = val),
-                activeColor: const Color(0xFF6366F1),
-              ),
-            ],
-          ),
-          const Text(
-            "Slå til for at tilføje din bil og tilbyde lift.",
-            style: TextStyle(color: Colors.grey, fontSize: 12),
-          ),
-
-          // --- FORMULAR (Vises kun hvis switch er true) ---
-          if (_isDriverToggle) ...[
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Bliv Chauffør 🚘",
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              "For at oprette ture skal vi verificere dit nummer og registrere din bil.",
+              style: TextStyle(color: Colors.grey),
+            ),
             const SizedBox(height: 20),
+
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: _plateCtrl,
-                    textCapitalization: TextCapitalization.characters,
-                    decoration: InputDecoration(
-                      labelText: "Nummerplade",
-                      filled: true,
-                      fillColor: Colors.grey[100],
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                  ),
+                const Text(
+                  "Vil du blive chauffør?",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(width: 10),
-                SizedBox(
-                  height: 56,
-                  child: ElevatedButton.icon(
-                    onPressed: _isFetchingCar ? null : _fetchCarFromApi,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    icon: _isFetchingCar
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(Icons.search, size: 18),
-                    label: const Text("Hent"),
-                  ),
+                Switch(
+                  value: _isDriverToggle,
+                  onChanged: (val) => setState(() => _isDriverToggle = val),
+                  activeColor: const Color(0xFF6366F1),
                 ),
               ],
             ),
+            const Text(
+              "Slå til for at starte processen.",
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
 
-            if (_makeCtrl.text.isNotEmpty) ...[
-              const SizedBox(height: 15),
-              // Bil Info Preview
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.green.withOpacity(0.3)),
+            if (_isDriverToggle) ...[
+              const SizedBox(height: 20),
+
+              // 7. NYT: TELEFON FELT I UI
+              TextField(
+                controller: _phoneCtrl,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: "Telefonnummer *",
+                  prefixIcon: const Icon(
+                    Icons.phone_android,
+                    color: Colors.grey,
+                  ),
+                  filled: true,
+                  fillColor: Colors.grey[100],
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.check_circle, color: Colors.green),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        "${_makeCtrl.text} ${_modelCtrl.text} (${_yearCtrl.text})",
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green,
+              ),
+              const SizedBox(height: 15),
+
+              // BIL FELT
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _plateCtrl,
+                      textCapitalization: TextCapitalization.characters,
+                      decoration: InputDecoration(
+                        labelText: "Nummerplade *",
+                        prefixIcon: const Icon(
+                          Icons.confirmation_number,
+                          color: Colors.grey,
+                        ),
+                        filled: true,
+                        fillColor: Colors.grey[100],
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
                         ),
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ],
-          ],
-
-          const SizedBox(height: 30),
-
-          // --- KNAP ---
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: ElevatedButton(
-              onPressed: _isDriverToggle && !_isLoading
-                  ? _saveAndContinue
-                  : null, // Deaktiver hvis ikke driver
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0F172A),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: _isLoading
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text(
-                      "Gem & Opret Tur",
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(width: 10),
+                  SizedBox(
+                    height: 56,
+                    child: ElevatedButton.icon(
+                      onPressed: _isFetchingCar ? null : _fetchCarFromApi,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.black,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      icon: _isFetchingCar
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.search, size: 18),
+                      label: const Text("Hent"),
                     ),
+                  ),
+                ],
+              ),
+
+              if (_makeCtrl.text.isNotEmpty) ...[
+                const SizedBox(height: 15),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.green.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.check_circle, color: Colors.green),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          "${_makeCtrl.text} ${_modelCtrl.text} (${_yearCtrl.text})",
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+
+            const SizedBox(height: 30),
+
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: _isDriverToggle && !_isLoading
+                    ? _saveAndContinue
+                    : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0F172A),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: _isLoading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text(
+                        "Verificer & Opret Tur",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -789,7 +860,7 @@ class _SearchTabState extends State<SearchTab> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Text(
-                        "Søg fleksibelt",
+                        "Søg fleksibelt fra dit område",
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 20,
@@ -797,7 +868,7 @@ class _SearchTabState extends State<SearchTab> {
                         ),
                       ),
                       const Text(
-                        "Se alle ture fra dit område på kortet",
+                        "Alle ture har afgang fra dit postnr.",
                         style: TextStyle(color: Colors.white70, fontSize: 12),
                       ),
                       const Spacer(),

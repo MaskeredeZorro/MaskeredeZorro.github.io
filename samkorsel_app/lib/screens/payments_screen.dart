@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 
-// HUSK AT RETTE DENNE IMPORT, SÅ DEN PASSER TIL DIN FILSTRUKTUR
+// HUSK AT RETTE DENNE IMPORT HVIS NØDVENDIGT
 import 'tax_info_screen.dart';
 
 class PaymentsScreen extends StatefulWidget {
@@ -19,6 +19,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
   // Vi har nu to saldi: En tilgængelig og en der venter
   double _availableBalance = 0.00;
   double _pendingBalance = 0.00;
+  List<Map<String, dynamic>> _transactions = [];
 
   @override
   void initState() {
@@ -42,21 +43,27 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
       bool isReady =
           stripeData != null && stripeData['onboarding_completed'] == true;
 
-      // 2. Hent saldo fra profiles (både normal balance og pending)
+      // 2. Hent saldo fra profiles
       final wallet = await Supabase.instance.client
           .from('profiles')
           .select('balance, pending_balance')
           .eq('id', userId)
           .maybeSingle();
 
+      // 3. Hent transaktionshistorik
+      final txData = await Supabase.instance.client
+          .from('transactions')
+          .select()
+          .eq('user_id', userId)
+          .order('created_at', ascending: false);
+
       if (mounted) {
         setState(() {
           _isStripeReady = isReady;
-          // 'balance' er nu pengene der er frigivet (ældre end 7 dage)
           _availableBalance = (wallet?['balance'] as num?)?.toDouble() ?? 0.00;
-          // 'pending_balance' er pengene der venter (nyere end 7 dage)
           _pendingBalance =
               (wallet?['pending_balance'] as num?)?.toDouble() ?? 0.00;
+          _transactions = List<Map<String, dynamic>>.from(txData);
           _isLoading = false;
         });
       }
@@ -68,33 +75,31 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
 
   // --- UDBETAL PENGE ---
   Future<void> _payoutFunds() async {
-    // Vi udbetaler kun den tilgængelige saldo
     if (_availableBalance <= 0) return;
 
     setState(() => _isLoading = true);
     try {
       final user = Supabase.instance.client.auth.currentUser!;
 
-      // Kalder Edge Function 'payout' med bruger ID og beløb
+      // Kalder Edge Function 'payout'
       final res = await Supabase.instance.client.functions.invoke(
         'payout',
         body: {'id': user.id, 'amount': _availableBalance},
       );
 
       if (res.status == 200) {
-        // Nulstil den tilgængelige saldo lokalt og i DB
+        // Nulstil saldo lokalt og i DB (for hurtig UI respons)
         await Supabase.instance.client
             .from('profiles')
             .update({'balance': 0})
             .eq('id', user.id);
 
-        // Gem udbetaling i historik
+        // Gem udbetaling i historik (hvis Edge Function ikke gør det)
         await Supabase.instance.client.from('transactions').insert({
           'user_id': user.id,
-          'amount': _availableBalance,
+          'amount': -_availableBalance, // Negativt da det går ud
           'type': 'payout',
           'description': 'Udbetaling til bankkonto',
-          // Vi sætter den som 'completed' med det samme, da det er en udbetaling
           'status': 'completed',
         });
 
@@ -105,14 +110,11 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
               backgroundColor: Colors.green,
             ),
           );
-          _fetchWalletData();
+          _fetchWalletData(); // Opdater alt
         }
       } else {
-        // Hvis Edge Function fejler (f.eks. Stripe fejl), kaster vi en exception
-        // Vi prøver at parse fejlbeskeden fra serveren
         final errorData = res.data;
-        throw errorData['error'] ??
-            "Udbetaling fejlede med status ${res.status}";
+        throw errorData['error'] ?? "Udbetaling fejlede (${res.status})";
       }
     } catch (e) {
       debugPrint("Udbetalingsfejl: $e");
@@ -129,7 +131,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
     }
   }
 
-  // --- LOGIK: VIS DETALJERET REGNING (Sheet) ---
+  // --- LOGIK: VIS DETALJERET REGNING ---
   void _showRideBreakdown(
     BuildContext context,
     String rideId,
@@ -149,7 +151,6 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                 .select('price_dkk, origin_city, destination_city')
                 .eq('id', rideId)
                 .single(),
-            // Vi henter 'seats_booked' for korrekt udregning
             Supabase.instance.client
                 .from('bookings')
                 .select('seats_booked')
@@ -164,27 +165,25 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
               );
             }
 
-            // Udpak data
             final rideData = snapshot.data![0] as Map<String, dynamic>;
             final bookings = snapshot.data![1] as List;
 
             final double pricePerPerson = (rideData['price_dkk'] as num)
                 .toDouble();
 
-            // --- KORREKT UDREGNING AF SÆDER ---
             int totalSeatsSold = 0;
             for (var booking in bookings) {
               totalSeatsSold += (booking['seats_booked'] as num? ?? 1).toInt();
             }
-            // ---------------------------------
 
-            final double feePerPerson = 15.0; // Det faste gebyr
+            // --- RETTELSE: FAST GEBYR PÅ 15 KR ---
+            const double feePerPerson = 15.0;
 
             final double totalGross = pricePerPerson * totalSeatsSold;
             final double totalFees = feePerPerson * totalSeatsSold;
             final double netIncome = totalGross - totalFees;
 
-            // Design stilarter
+            // Design
             const labelStyle = TextStyle(fontSize: 14, color: Colors.grey);
             const valueStyle = TextStyle(
               fontSize: 14,
@@ -228,7 +227,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                   ),
                   const Divider(height: 30),
 
-                  // 1. Turpris pr. person
+                  // 1. Turpris
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -241,7 +240,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // 2. Passagerer * Pris (Brutto)
+                  // 2. Brutto
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -253,10 +252,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                             color: Colors.blueGrey,
                           ),
                           const SizedBox(width: 4),
-                          Text(
-                            "x $totalSeatsSold",
-                            style: mathStyle,
-                          ), // Bruger nu seatsSold
+                          Text("x $totalSeatsSold", style: mathStyle),
                         ],
                       ),
                       Text(
@@ -271,20 +267,20 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                     child: Divider(),
                   ),
 
-                  // 3. Gebyr beregning
+                  // 3. Gebyr (FAST 15 KR)
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Row(
                         children: [
                           const Icon(
-                            Icons.person,
+                            Icons.flash_on,
                             size: 16,
                             color: Colors.redAccent,
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            "x $totalSeatsSold  x  -15 kr.", // Bruger nu seatsSold
+                            "x $totalSeatsSold  x  -15 kr.",
                             style: mathStyle,
                           ),
                         ],
@@ -309,7 +305,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                     child: Divider(thickness: 2),
                   ),
 
-                  // 4. Endeligt regnestykke
+                  // 4. Netto
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -354,6 +350,15 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         foregroundColor: Colors.black,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              setState(() => _isLoading = true);
+              _fetchWalletData();
+            },
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -402,7 +407,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                             ),
                           ),
 
-                          // --- PENDING BALANCE VISNING ---
+                          // --- PENDING BALANCE ---
                           if (_pendingBalance > 0) ...[
                             const SizedBox(height: 8),
                             Container(
@@ -435,7 +440,6 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                             ),
                           ],
 
-                          // -------------------------------
                           const SizedBox(height: 20),
 
                           // --- UDBETAL KNAP ---
@@ -532,7 +536,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                       ).then((_) => _fetchWalletData()),
                     ),
 
-                    // --- HER STARTER HISTORIK-SEGMENTET ---
+                    // --- HISTORIK ---
                     const SizedBox(height: 30),
                     const Text(
                       "Historik",
@@ -543,36 +547,20 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                     ),
                     const SizedBox(height: 10),
 
-                    StreamBuilder<List<Map<String, dynamic>>>(
-                      stream: Supabase.instance.client
-                          .from('transactions')
-                          .stream(primaryKey: ['id'])
-                          .eq(
-                            'user_id',
-                            Supabase.instance.client.auth.currentUser!.id,
-                          )
-                          .order('created_at', ascending: false),
-                      builder: (context, snapshot) {
-                        if (!snapshot.hasData) return const SizedBox();
-                        final transactions = snapshot.data!;
-
-                        if (transactions.isEmpty) {
-                          return const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 20),
-                            child: Text(
-                              "Ingen historik endnu.",
-                              style: TextStyle(color: Colors.grey),
-                            ),
-                          );
-                        }
-
-                        return Column(
-                          children: transactions
-                              .map((tx) => _buildTransactionItem(tx))
-                              .toList(),
-                        );
-                      },
-                    ),
+                    if (_transactions.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: Text(
+                          "Ingen historik endnu.",
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      )
+                    else
+                      Column(
+                        children: _transactions
+                            .map((tx) => _buildTransactionItem(tx))
+                            .toList(),
+                      ),
                   ],
                 ),
               ),
@@ -615,17 +603,14 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
   }
 
   Widget _buildTransactionItem(Map<String, dynamic> tx) {
-    // Typer
     final bool isEarnings = tx['type'] == 'ride_earnings';
     final bool isPayment = tx['type'] == 'ride_payment';
     final bool isPayout = tx['type'] == 'payout';
     final bool isPenalty = tx['type'] == 'cancellation_fee';
 
-    // Status & Dato
     final bool isPending = tx['status'] == 'pending';
     final DateTime date = DateTime.parse(tx['created_at']).toLocal();
 
-    // Definer design-variabler baseret på transaktionstype
     IconData iconData;
     Color iconColor;
     Color bgColor;
@@ -633,23 +618,22 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
     Color amountColor;
 
     if (isEarnings || isPenalty) {
-      iconData = Icons.add_circle_outline;
+      iconData = Icons.drive_eta; // Bil ikon for kørsel
       iconColor = Colors.green;
       bgColor = Colors.green.withOpacity(0.1);
       amountPrefix = "+";
       amountColor = isPending ? Colors.grey : Colors.green[700]!;
     } else if (isPayment) {
-      iconData = Icons.remove_circle_outline;
-      iconColor = Colors.redAccent;
-      bgColor = Colors.red.withOpacity(0.1);
-      // Beløbet fra DB er allerede negativt for ride_payment
-      amountPrefix = "";
+      iconData = Icons.directions_walk; // Person ikon for passager
+      iconColor = Colors.black87;
+      bgColor = Colors.grey.withOpacity(0.1);
+      amountPrefix = ""; // Beløbet er allerede negativt fra DB
       amountColor = Colors.black;
     } else if (isPayout) {
-      iconData = Icons.account_balance_wallet_outlined;
+      iconData = Icons.account_balance_wallet; // Wallet for udbetaling
       iconColor = Colors.blue;
       bgColor = Colors.blue.withOpacity(0.1);
-      amountPrefix = "-";
+      amountPrefix = ""; // Udbetaling er negativ
       amountColor = Colors.blue[800]!;
     } else {
       iconData = Icons.info_outline;
@@ -670,7 +654,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          // Sæt onTap til at vise detaljer HVIS det er en indtjening/straf tilknyttet en tur
+          // Kun klikbar hvis det er en indtægt knyttet til en tur
           onTap: (isEarnings || isPenalty) && tx['ride_id'] != null
               ? () => _showRideBreakdown(
                   context,
@@ -684,7 +668,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
               children: [
                 CircleAvatar(
                   backgroundColor: bgColor,
-                  child: Icon(iconData, color: iconColor),
+                  child: Icon(iconData, color: iconColor, size: 20),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -731,10 +715,11 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                         const Padding(
                           padding: EdgeInsets.only(top: 4.0),
                           child: Text(
-                            "Tryk for specifikation",
+                            "Se detaljer",
                             style: TextStyle(
                               fontSize: 10,
                               color: Colors.blueGrey,
+                              decoration: TextDecoration.underline,
                             ),
                           ),
                         ),

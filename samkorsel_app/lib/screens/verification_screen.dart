@@ -8,13 +8,22 @@ import '/screens/home_screen.dart';
 class VerificationScreen extends StatefulWidget {
   final String phoneNumber;
   final String email;
-  final String? password; // <--- DETTE ER DET NYE FELT DU MANGLER
+  final String? password;
+
+  // --- NYE FELTER (Som fik din kode til at fejle før) ---
+  final bool isBecomingDriver;
+  final String? licensePlate;
+  final Map<String, dynamic>? carDetails;
 
   const VerificationScreen({
     super.key,
     required this.phoneNumber,
     required this.email,
-    this.password, // <--- DETTE SKAL MED I KONSTRUKTØREN
+    this.password,
+    // Vi tilføjer dem til konstruktøren her:
+    this.isBecomingDriver = false,
+    this.licensePlate,
+    this.carDetails,
   });
 
   @override
@@ -38,7 +47,7 @@ class _VerificationScreenState extends State<VerificationScreen>
 
   // Status
   bool _isEmailVerified = false;
-  bool _codeSent = false;
+  bool _codeSent = false; // Styrer om vi viser "Send igen" eller "Indtast"
   late final StreamSubscription<AuthState> _authSubscription;
 
   @override
@@ -85,7 +94,6 @@ class _VerificationScreenState extends State<VerificationScreen>
       final session = Supabase.instance.client.auth.currentSession;
       if (session == null) return;
 
-      // Brug eksisterende session data i stedet for at kalde refreshSession hver gang
       final user = session.user;
       bool emailConfirmed = user.emailConfirmedAt != null;
 
@@ -93,9 +101,15 @@ class _VerificationScreenState extends State<VerificationScreen>
         if (mounted) {
           setState(() => _isEmailVerified = true);
         }
-        // Send kun SMS hvis den ikke er sendt i denne session
+
+        // Hvis vi kommer fra "Bliv Chauffør", er SMS allerede sendt fra forrige skærm.
+        // Vi starter bare timeren visuelt, så brugeren ikke kan spamme "Send igen".
         if (!_codeSent) {
-          _sendSmsCode();
+          setState(() {
+            _codeSent = true;
+            _smsResendTimer = 60;
+          });
+          _startSmsTimer();
         }
       }
     } catch (e) {
@@ -103,16 +117,14 @@ class _VerificationScreenState extends State<VerificationScreen>
     }
   }
 
-  // --- SILENT LOGIN (Håndterer localhost problemet) ---
+  // --- SILENT LOGIN ---
   Future<void> _manualCheck() async {
-    // 1. Tjek først om vi allerede er logget ind via deep link
     final session = Supabase.instance.client.auth.currentSession;
     if (session != null) {
       await _checkStatusAndInit();
       return;
     }
 
-    // 2. Hvis ingen session, men vi har password -> Prøv at logge ind
     if (widget.password != null) {
       setState(() => _isLoading = true);
       try {
@@ -122,13 +134,19 @@ class _VerificationScreenState extends State<VerificationScreen>
         );
 
         if (res.user != null) {
-          // Login lykkedes! Det betyder mailen ER bekræftet.
           if (mounted) {
             setState(() {
               _isEmailVerified = true;
               _isLoading = false;
             });
-            _sendSmsCode();
+            // Hvis brugeren logger ind nu, antager vi at SMS processen skal vises
+            if (!_codeSent) {
+              setState(() {
+                _codeSent = true;
+                _smsResendTimer = 60;
+              });
+              _startSmsTimer();
+            }
           }
         }
       } catch (e) {
@@ -210,7 +228,6 @@ class _VerificationScreenState extends State<VerificationScreen>
   }
 
   Future<void> _sendSmsCode() async {
-    // 1. SIKKERHEDS-TJEK: Stop hvis nummeret er tomt, før vi overhovedet prøver
     if (widget.phoneNumber.trim().isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -236,10 +253,10 @@ class _VerificationScreenState extends State<VerificationScreen>
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) return;
 
-      // 2. Generer 6-cifret kode
+      // Generer kode
       final code = (Random().nextInt(900000) + 100000).toString();
 
-      // 3. Gem koden i databasen først
+      // Gem i DB
       await Supabase.instance.client.from('sms_verifications').insert({
         'user_id': user.id,
         'code': code,
@@ -248,7 +265,7 @@ class _VerificationScreenState extends State<VerificationScreen>
             .toIso8601String(),
       });
 
-      // 4. SEND SMS: Her bruger vi widget.phoneNumber direkte for at undgå "" fejl
+      // Send SMS
       final success = await _smsService.sendVerificationCode(
         widget.phoneNumber,
         code,
@@ -258,12 +275,11 @@ class _VerificationScreenState extends State<VerificationScreen>
         if (success) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text("SMS-kode sendt!"),
+              content: Text("Ny SMS-kode sendt!"),
               backgroundColor: Colors.green,
             ),
           );
         } else {
-          // Hvis SureSMS melder fejl
           throw Exception(
             "SureSMS kunne ikke sende beskeden. Tjek din saldo eller login.",
           );
@@ -295,7 +311,6 @@ class _VerificationScreenState extends State<VerificationScreen>
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) throw "Bruger ikke fundet. Log venligst ind igen.";
 
-      // Hent koden fra DB
       final response = await Supabase.instance.client
           .from('sms_verifications')
           .select()
@@ -312,17 +327,37 @@ class _VerificationScreenState extends State<VerificationScreen>
       if (DateTime.now().isAfter(expiresAt)) throw "Koden er udløbet.";
       if (_otpController.text.trim() != dbCode) throw "Forkert kode.";
 
-      // SUCCES: Opdater profil
+      // --- SUCCES! NU OPDATERER VI PROFILEN ---
+      final Map<String, dynamic> updates = {
+        'phone_verified': true,
+        'phone_number': _displayPhone,
+      };
+
+      // Hvis vi kommer fra "Bliv Chauffør", gemmer vi også bil og nummerplade.
+      // Din nye SQL trigger sørger automatisk for at sætte is_driver = true,
+      // fordi phone_verified bliver true og license_plate er udfyldt.
+      if (widget.isBecomingDriver) {
+        if (widget.licensePlate != null)
+          updates['license_plate'] = widget.licensePlate;
+        if (widget.carDetails != null)
+          updates['car_details'] = widget.carDetails;
+      }
+
       await Supabase.instance.client
           .from('profiles')
-          .update({'phone_verified': true, 'phone_number': _displayPhone})
+          .update(updates)
           .eq('id', user.id);
 
-      // STOP alt loading og lyttere før navigation
       _authSubscription.cancel();
 
       if (mounted) {
-        // Brug pushAndRemoveUntil for at bryde ud af auth-flowet helt
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Telefon bekræftet! Du er nu klar. ✅"),
+            backgroundColor: Colors.green,
+          ),
+        );
+
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const HomeScreen()),
           (route) => false,
@@ -390,7 +425,7 @@ class _VerificationScreenState extends State<VerificationScreen>
                     ),
                     const SizedBox(height: 20),
 
-                    // KNAP 1: JEG HAR KLIKKET (Nu med SILENT LOGIN)
+                    // KNAP 1: JEG HAR KLIKKET
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(

@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'public_profile_screen.dart';
+import 'review_screen.dart';
 
 class ChatDetailScreen extends StatefulWidget {
   final String otherUserId;
-  final String otherUserName; // Vi bruger denne som "midlertidig" tekst
+  final String otherUserName;
   final String? rideId;
 
   const ChatDetailScreen({
@@ -24,32 +25,31 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final _myUserId = Supabase.instance.client.auth.currentUser!.id;
   bool _isSending = false;
 
-  // Variabler til at gemme profil-data, som vi henter
+  // Appens tema farve
+  final Color _primaryColor = const Color(0xFF0F172A);
+
   String? _realName;
   String? _avatarUrl;
 
   @override
   void initState() {
     super.initState();
-    _fetchProfile(); // <--- Vi starter hentning af profil med det samme
+    _fetchProfile();
   }
 
-  /// Henter navn og billede på den anden person
   Future<void> _fetchProfile() async {
     if (widget.otherUserId == 'system_hoppon') return;
 
     try {
       final data = await Supabase.instance.client
           .from('profiles')
-          .select(
-            'full_name, avatar_url',
-          ) // <--- RETTET HER (fra first_name til full_name)
+          .select('full_name, avatar_url')
           .eq('id', widget.otherUserId)
           .single();
 
       if (mounted) {
         setState(() {
-          _realName = data['full_name']; // <--- OG RETTET HER
+          _realName = data['full_name'];
           _avatarUrl = data['avatar_url'];
         });
       }
@@ -58,7 +58,69 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
   }
 
-  /// Henter beskeder (Samme funktion som før)
+  Future<void> _handlePassengerReview(String rideId) async {
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator()),
+      );
+
+      final client = Supabase.instance.client;
+
+      final rideData = await client
+          .from('rides')
+          .select('driver_id, profiles(full_name)')
+          .eq('id', rideId)
+          .single();
+
+      final driverId = rideData['driver_id'];
+      final profileData = rideData['profiles'] as Map<String, dynamic>?;
+      final driverName = profileData?['full_name'] ?? 'Chauffør';
+
+      final existingReview = await client
+          .from('reviews')
+          .select()
+          .eq('ride_id', rideId)
+          .eq('reviewer_id', _myUserId)
+          .eq('reviewee_id', driverId)
+          .maybeSingle();
+
+      if (mounted) Navigator.pop(context);
+
+      if (existingReview != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Du har allerede anmeldt denne tur ✅"),
+            ),
+          );
+        }
+        return;
+      }
+
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ReviewScreen(
+              rideId: rideId,
+              peopleToReview: [
+                {'id': driverId, 'name': driverName, 'role': 'Chauffør'},
+              ],
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted && Navigator.canPop(context)) Navigator.pop(context);
+      debugPrint("Fejl ved review start: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Kunne ikke åbne anmeldelse. Prøv igen.")),
+      );
+    }
+  }
+
   Stream<List<Map<String, dynamic>>> _getMessages() {
     return Supabase.instance.client
         .from('messages')
@@ -73,6 +135,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 (sender == _myUserId && receiver == widget.otherUserId);
             final isOtherToMe =
                 (sender == widget.otherUserId && receiver == _myUserId);
+
             final isSystemToMe =
                 (sender == null &&
                 receiver == _myUserId &&
@@ -116,24 +179,20 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final isSystemChat = widget.otherUserId == 'system_hoppon';
-
-    // Vi bruger det hentede navn hvis vi har det, ellers det vi fik sendt med (placeholder)
     final displayName = _realName ?? widget.otherUserName;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF8FAFC), // Lys baggrundsfarve
       appBar: AppBar(
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
-        elevation: 1,
+        elevation: 0,
         titleSpacing: 0,
         title: Row(
           children: [
-            // PROFIL BILLEDE (Nu klikbart!)
             if (!isSystemChat)
               GestureDetector(
                 onTap: () {
-                  // Naviger til PublicProfileScreen
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -154,17 +213,22 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 ),
               ),
 
-            // System ikon (ikke klikbart)
             if (isSystemChat)
-              const CircleAvatar(
-                radius: 18,
-                backgroundColor: Colors.black,
-                child: Icon(Icons.security, size: 20, color: Colors.white),
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: _primaryColor,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.security,
+                  size: 16,
+                  color: Colors.white,
+                ),
               ),
 
             const SizedBox(width: 10),
 
-            // NAVN (Også klikbart for god UX)
             if (!isSystemChat)
               GestureDetector(
                 onTap: () {
@@ -179,15 +243,15 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 child: Text(
                   displayName,
                   style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               )
             else
               const Text(
                 "HoppOn",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
               ),
           ],
         ),
@@ -216,13 +280,118 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
                 return ListView.builder(
                   reverse: true,
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 20,
+                  ),
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
                     final msg = messages[index];
                     final isMe = msg['sender_id'] == _myUserId;
                     final isSystem = msg['sender_id'] == null;
+                    final String? currentRideId = msg['ride_id'];
 
+                    // --- NYT DESIGN: SYSTEM BESKED (Centreret kort) ---
+                    if (isSystem) {
+                      return Center(
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(vertical: 12),
+                          padding: const EdgeInsets.all(20),
+                          constraints: BoxConstraints(
+                            maxWidth: MediaQuery.of(context).size.width * 0.85,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.06),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            children: [
+                              // Ikon Header
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.info_outline,
+                                    size: 18,
+                                    color: _primaryColor,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    "OPDATERING FRA HOPPON",
+                                    style: TextStyle(
+                                      color: _primaryColor,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                      letterSpacing: 1.0,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              const Divider(height: 1),
+                              const SizedBox(height: 12),
+
+                              // Besked Tekst
+                              Text(
+                                msg['content'] ?? "",
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: Colors.black87,
+                                  fontSize: 15,
+                                  height: 1.4,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                _formatTime(msg['created_at']),
+                                style: TextStyle(
+                                  color: Colors.grey[400],
+                                  fontSize: 11,
+                                ),
+                              ),
+
+                              // Knap
+                              if (currentRideId != null) ...[
+                                const SizedBox(height: 16),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton(
+                                    onPressed: () =>
+                                        _handlePassengerReview(currentRideId),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: _primaryColor,
+                                      foregroundColor: Colors.white,
+                                      elevation: 0,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      "Giv Anmeldelse ⭐",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+
+                    // --- ALMINDELIG CHAT BESKED (Bobler) ---
                     return Align(
                       alignment: isMe
                           ? Alignment.centerRight
@@ -237,19 +406,25 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                           maxWidth: MediaQuery.of(context).size.width * 0.75,
                         ),
                         decoration: BoxDecoration(
-                          color: isSystem
-                              ? Colors.amber.shade50
-                              : (isMe ? Colors.black : Colors.grey.shade200),
+                          color: isMe ? _primaryColor : Colors.white,
                           borderRadius: BorderRadius.only(
-                            topLeft: const Radius.circular(16),
-                            topRight: const Radius.circular(16),
+                            topLeft: const Radius.circular(18),
+                            topRight: const Radius.circular(18),
                             bottomLeft: isMe
-                                ? const Radius.circular(16)
-                                : const Radius.circular(0),
+                                ? const Radius.circular(18)
+                                : Radius.zero,
                             bottomRight: isMe
-                                ? const Radius.circular(0)
-                                : const Radius.circular(16),
+                                ? Radius.zero
+                                : const Radius.circular(18),
                           ),
+                          boxShadow: [
+                            if (!isMe)
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 2,
+                                offset: const Offset(0, 1),
+                              ),
+                          ],
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -257,9 +432,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                             Text(
                               msg['content'] ?? "",
                               style: TextStyle(
-                                color: isSystem
-                                    ? Colors.black87
-                                    : (isMe ? Colors.white : Colors.black87),
+                                color: isMe ? Colors.white : Colors.black87,
                                 fontSize: 16,
                               ),
                             ),
@@ -267,9 +440,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                             Text(
                               _formatTime(msg['created_at']),
                               style: TextStyle(
-                                color: isSystem
-                                    ? Colors.black54
-                                    : (isMe ? Colors.white70 : Colors.black54),
+                                color: isMe ? Colors.white60 : Colors.grey[400],
                                 fontSize: 10,
                               ),
                             ),
@@ -282,12 +453,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               },
             ),
           ),
+
           if (!isSystemChat)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: Colors.white,
-                border: Border(top: BorderSide(color: Colors.grey.shade200)),
+                border: Border(top: BorderSide(color: Color(0xFFEEEEEE))),
               ),
               child: SafeArea(
                 child: Row(
@@ -298,11 +470,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                         textCapitalization: TextCapitalization.sentences,
                         decoration: InputDecoration(
                           hintText: "Skriv en besked...",
+                          hintStyle: TextStyle(color: Colors.grey[400]),
                           filled: true,
-                          fillColor: Colors.grey.shade100,
+                          fillColor: const Color(0xFFF8FAFC),
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 20,
-                            vertical: 10,
+                            vertical: 12,
                           ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(25),
@@ -311,28 +484,43 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 10),
                     GestureDetector(
                       onTap: _isSending ? null : _sendMessage,
                       child: CircleAvatar(
-                        backgroundColor: Colors.black,
-                        radius: 22,
+                        backgroundColor: _primaryColor,
+                        radius: 24,
                         child: _isSending
                             ? const Padding(
-                                padding: EdgeInsets.all(12.0),
+                                padding: EdgeInsets.all(14.0),
                                 child: CircularProgressIndicator(
                                   color: Colors.white,
                                   strokeWidth: 2,
                                 ),
                               )
                             : const Icon(
-                                Icons.send,
+                                Icons.send_rounded,
                                 color: Colors.white,
-                                size: 20,
+                                size: 22,
                               ),
                       ),
                     ),
                   ],
+                ),
+              ),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.all(20),
+              width: double.infinity,
+              color: const Color(0xFFF1F5F9),
+              alignment: Alignment.center,
+              child: Text(
+                "Dette er en automatisk besked. Du kan ikke svare, men du er velkommen til at kontakte mig via hej@hoppon.dk",
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontStyle: FontStyle.italic,
+                  fontSize: 13,
                 ),
               ),
             ),

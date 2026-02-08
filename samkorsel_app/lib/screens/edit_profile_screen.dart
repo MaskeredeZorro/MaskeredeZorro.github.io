@@ -258,6 +258,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) return;
 
+      // 1. Håndter Bil-data
       dynamic carJson;
       if (_isDriver) {
         carJson = {
@@ -274,32 +275,52 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         carJson = null;
       }
 
-      // TJEK OM NUMMERET ER ÆNDRET
-      final String newPhone = _phoneController.text.trim();
-      final bool hasPhoneChanged = newPhone != _originalPhone;
+      // 2. Håndter Telefon-logik
+      // Vi henter kun teksten, hvis man er chauffør. Ellers er det null.
+      final String? newPhoneRaw = _isDriver
+          ? _phoneController.text.trim()
+          : null;
 
-      // 1. Opdater alt det basale først
+      // Vi skal kun verificere, hvis:
+      // A) Man er chauffør
+      // B) Der står noget i feltet
+      // C) Det er forskelligt fra det, der står i databasen (_originalPhone)
+      final bool hasPhoneChanged =
+          _isDriver &&
+          newPhoneRaw != null &&
+          newPhoneRaw.isNotEmpty &&
+          newPhoneRaw != _originalPhone;
+
+      // 3. Forbered data til Supabase
       final Map<String, dynamic> updates = {
-        'full_name': _nameController.text,
-        'bio': _bioController.text,
+        'full_name': _nameController.text.trim(),
+        'bio': _bioController.text.trim(),
         'avatar_url': _avatarUrl,
-        'gender': _selectedGender, // <--- NYT: Gemmer køn
+        'gender': _selectedGender,
         'is_driver': _isDriver,
         'car_details': carJson,
-        'license_plate': _isDriver ? _plateController.text : null,
+        'license_plate': _isDriver ? _plateController.text.trim() : null,
         'updated_at': DateTime.now().toIso8601String(),
+
+        // LOGIK FOR TELEFON I DATABASEN:
+        // Hvis _isDriver er true: Vi gemmer 'newPhoneRaw' (medmindre det ændret, se nedenfor).
+        // Hvis _isDriver er false: Vi gemmer 'null' (sletter nummeret fra DB).
+        'phone_number': _isDriver ? newPhoneRaw : null,
       };
 
-      if (!hasPhoneChanged) {
-        updates['phone_number'] = newPhone;
+      // VIGTIGT: Hvis nummeret er ændret, må vi IKKE gemme det endnu.
+      // Vi skal vente til SMS-koden er indtastet.
+      if (hasPhoneChanged) {
+        updates.remove('phone_number');
       }
 
+      // 4. Send opdatering til Supabase
       await Supabase.instance.client
           .from('profiles')
           .update(updates)
           .eq('id', user.id);
 
-      // 2. Håndter Nummerskifte Logik
+      // 5. Håndter SMS Verificering (hvis nummeret er nyt og man er chauffør)
       if (hasPhoneChanged) {
         final String code = (Random().nextInt(900000) + 100000).toString();
 
@@ -311,8 +332,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               .toIso8601String(),
         });
 
+        // Send SMS (Husk at newPhoneRaw ikke er null her pga. hasPhoneChanged tjekket)
         final smsService = SmsService();
-        await smsService.sendVerificationCode(newPhone, code);
+        await smsService.sendVerificationCode(newPhoneRaw!, code);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -321,15 +343,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ),
           );
 
+          // Naviger til verificering
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) =>
-                  VerificationScreen(phoneNumber: newPhone, email: _email),
+                  VerificationScreen(phoneNumber: newPhoneRaw, email: _email),
             ),
           );
         }
       } else {
+        // Ingen ændring i telefon (eller brugeren er ikke længere chauffør)
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -341,13 +365,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         }
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text("Fejl ved opdatering: $e"),
             backgroundColor: Colors.red,
           ),
         );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -447,13 +472,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ),
                     const SizedBox(height: 15),
 
-                    _buildTextField(
-                      "Telefonnummer",
-                      _phoneController,
-                      Icons.phone,
-                      isNumber: true,
-                    ),
-
                     const SizedBox(height: 15),
 
                     // --- NYT: KØN DROPDOWN ---
@@ -536,6 +554,40 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ),
 
                     if (_isDriver) ...[
+                      // INDSÆT DETTE:
+                      const SizedBox(height: 20),
+
+                      // --- TELEFONNUMMER (Flyttet herned) ---
+                      TextFormField(
+                        controller: _phoneController,
+                        keyboardType: TextInputType
+                            .number, // Ændret til number for at fremtvinge tal-tastatur
+                        maxLength: 8, // Dette stopper indtastning efter 8 tegn
+                        decoration: InputDecoration(
+                          counterText:
+                              "", // Dette skjuler den lille "0/8" tæller nede i hjørnet
+                          labelText: "Telefonnummer",
+                          prefixIcon: const Icon(
+                            Icons.phone_android,
+                            color: Colors.grey,
+                          ),
+                          helperText: "Nødvendigt for at tilbyde ture",
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                        // Validerer kun hvis _isDriver er true
+                        validator: (v) {
+                          if (_isDriver && (v == null || v.length < 8)) {
+                            return "Ugyldigt nummer";
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 15),
                       const SizedBox(height: 20),
                       Row(
                         children: [
