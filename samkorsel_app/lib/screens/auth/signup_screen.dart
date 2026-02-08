@@ -1,9 +1,10 @@
 import 'dart:convert';
+import 'dart:io'; // Til filhåndtering
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart'; // Husk at tilføje denne i pubspec.yaml
 
-// Importér din verification screen
 import '/screens/verification_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
@@ -23,6 +24,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
 
+  // --- NYT: Obligatoriske felter ---
+  File? _imageFile;
+  String? _selectedGender;
+  final List<String> _genderOptions = ['Mand', 'Kvinde', 'Andet'];
+
   // Chauffør Del
   bool _isDriver = false;
   final _plateCtrl = TextEditingController();
@@ -31,6 +37,21 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _yearCtrl = TextEditingController();
   final _colorCtrl = TextEditingController();
   bool _isFetchingCar = false;
+
+  // --- FUNKTION: Vælg Billede ---
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 600, // Komprimer billedet lidt
+    );
+
+    if (pickedFile != null) {
+      setState(() {
+        _imageFile = File(pickedFile.path);
+      });
+    }
+  }
 
   // --- 1. HENT BIL FRA NUMMERPLADE ---
   Future<void> _fetchCar() async {
@@ -76,9 +97,37 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Future<void> _signUp() async {
     if (!_formKey.currentState!.validate()) return;
 
+    // --- KRAV 1: Profilbillede skal være valgt ---
+    if (_imageFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Du SKAL vælge et profilbillede 📸"),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // --- KRAV 2: Køn skal være valgt ---
+    if (_selectedGender == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Du SKAL vælge køn 🚻"),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // --- KRAV 3: Hvis chauffør, skal bil være hentet ---
     if (_isDriver && _makeCtrl.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Husk at hente din bil via nummerpladen")),
+        const SnackBar(
+          content: Text(
+            "Du skal hente dine biloplysninger via nummerpladen 🚗",
+          ),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
@@ -86,7 +135,21 @@ class _SignUpScreenState extends State<SignUpScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // FORBERED DATA
+      // TRIN A: Upload Billede til Supabase Storage
+      final fileExt = _imageFile!.path.split('.').last;
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}.$fileExt';
+      final filePath = '/$fileName';
+
+      // Husk at oprette en bucket der hedder 'avatars' i Supabase Storage og gør den Public!
+      await Supabase.instance.client.storage
+          .from('avatars')
+          .upload(filePath, _imageFile!);
+
+      final avatarUrl = Supabase.instance.client.storage
+          .from('avatars')
+          .getPublicUrl(filePath);
+
+      // TRIN B: Forbered Bil Data
       dynamic carJson;
       if (_isDriver) {
         carJson = {
@@ -101,7 +164,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         };
       }
 
-      // OPRET I AUTH
+      // TRIN C: Opret Bruger (Inkl. URL og Køn)
       await Supabase.instance.client.auth.signUp(
         email: _emailCtrl.text.trim(),
         password: _passCtrl.text.trim(),
@@ -109,21 +172,22 @@ class _SignUpScreenState extends State<SignUpScreen> {
         data: {
           'full_name': _nameCtrl.text.trim(),
           'phone_number': _phoneCtrl.text.trim(),
+          'gender': _selectedGender, // Gemmer Køn
+          'avatar_url': avatarUrl, // Gemmer Billede URL
           'is_driver': _isDriver,
           'license_plate': _isDriver ? _plateCtrl.text : null,
           'car_details': carJson,
         },
       );
 
-      // NAVIGER STRAKS
+      // TRIN D: Naviger
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
             builder: (_) => VerificationScreen(
               phoneNumber: _phoneCtrl.text.trim(),
               email: _emailCtrl.text.trim(),
-              password: _passCtrl.text
-                  .trim(), // <--- VIGTIGT: Vi sender koden med!
+              password: _passCtrl.text.trim(),
             ),
           ),
           (route) => false,
@@ -139,10 +203,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       debugPrint("Fejl: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Der skete en fejl"),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text("Fejl: $e"), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -167,20 +228,75 @@ class _SignUpScreenState extends State<SignUpScreen> {
               ),
               const SizedBox(height: 30),
 
+              // --- 1. PROFILBILLEDE (OBLIGATORISK) ---
+              Center(
+                child: GestureDetector(
+                  onTap: _pickImage,
+                  child: Column(
+                    children: [
+                      CircleAvatar(
+                        radius: 50,
+                        backgroundColor: Colors.grey[200],
+                        backgroundImage: _imageFile != null
+                            ? FileImage(_imageFile!)
+                            : null,
+                        child: _imageFile == null
+                            ? const Icon(
+                                Icons.camera_alt,
+                                size: 40,
+                                color: Colors.grey,
+                              )
+                            : null,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _imageFile == null
+                            ? "Tilføj profilbillede *"
+                            : "Ændre billede",
+                        style: TextStyle(
+                          color: _imageFile == null ? Colors.red : Colors.blue,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 30),
+
               TextFormField(
                 controller: _nameCtrl,
                 decoration: const InputDecoration(
-                  labelText: "Fulde navn",
+                  labelText: "Fulde navn *",
                   prefixIcon: Icon(Icons.person_outline),
                 ),
                 validator: (v) => v!.isEmpty ? "Påkrævet" : null,
               ),
               const SizedBox(height: 15),
+
+              // --- 2. KØN VÆLGER (OBLIGATORISK) ---
+              DropdownButtonFormField<String>(
+                value: _selectedGender,
+                decoration: const InputDecoration(
+                  labelText: "Køn *",
+                  prefixIcon: Icon(Icons.wc),
+                ),
+                items: _genderOptions.map((String gender) {
+                  return DropdownMenuItem<String>(
+                    value: gender,
+                    child: Text(gender),
+                  );
+                }).toList(),
+                onChanged: (val) => setState(() => _selectedGender = val),
+                validator: (v) => v == null ? "Vælg venligst køn" : null,
+              ),
+              const SizedBox(height: 15),
+
               TextFormField(
                 controller: _emailCtrl,
                 keyboardType: TextInputType.emailAddress,
                 decoration: const InputDecoration(
-                  labelText: "Email",
+                  labelText: "Email *",
                   prefixIcon: Icon(Icons.email_outlined),
                 ),
                 validator: (v) =>
@@ -191,7 +307,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 controller: _phoneCtrl,
                 keyboardType: TextInputType.phone,
                 decoration: const InputDecoration(
-                  labelText: "Telefonnummer",
+                  labelText: "Telefonnummer *",
                   prefixIcon: Icon(Icons.phone_android),
                 ),
                 validator: (v) => v!.length < 8 ? "Ugyldigt nummer" : null,
@@ -201,7 +317,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 controller: _passCtrl,
                 obscureText: true,
                 decoration: const InputDecoration(
-                  labelText: "Adgangskode",
+                  labelText: "Adgangskode *",
                   prefixIcon: Icon(Icons.lock_outline),
                 ),
                 validator: (v) => v!.length < 6 ? "Mindst 6 tegn" : null,
@@ -243,12 +359,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                 hintText: "AB 12 345",
                                 filled: true,
                                 fillColor: Colors.white,
+                                labelText: "Nummerplade *",
                               ),
                             ),
                           ),
                           const SizedBox(width: 10),
                           ElevatedButton(
                             onPressed: _isFetchingCar ? null : _fetchCar,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.black,
+                              padding: const EdgeInsets.all(16),
+                            ),
                             child: _isFetchingCar
                                 ? const SizedBox(
                                     height: 20,
@@ -259,10 +380,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                     ),
                                   )
                                 : const Icon(Icons.search),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.black,
-                              padding: const EdgeInsets.all(16),
-                            ),
                           ),
                         ],
                       ),

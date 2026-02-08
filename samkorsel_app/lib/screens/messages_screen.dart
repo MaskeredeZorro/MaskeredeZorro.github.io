@@ -34,9 +34,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
             if (!isMeSender && !isMeReceiver) continue;
 
             // Find ID på "den anden part"
-            // Hvis sender_id er NULL, er det en Systembesked (HoppOn)
             String otherKey;
             if (msg['sender_id'] == null) {
+              // Systembesked har sender_id = null
               otherKey = 'system_hoppon';
             } else {
               otherKey = isMeSender
@@ -44,8 +44,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                   : msg['sender_id'];
             }
 
-            // Vi gemmer kun den FØRSTE besked vi møder for hver person
-            // (Da vi sorterer nyeste først, vil den første være den seneste besked)
+            // Vi gemmer kun den FØRSTE besked vi møder for hver person (nyeste)
             if (!uniqueChats.containsKey(otherKey)) {
               uniqueChats[otherKey] = msg;
             }
@@ -102,7 +101,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
           final chats = snapshot.data!;
 
-          // 3. Ingen beskeder (Empty State - dit oprindelige design)
+          // 3. Ingen beskeder (Empty State)
           if (chats.isEmpty) {
             return const Center(
               child: Column(
@@ -125,14 +124,16 @@ class _MessagesScreenState extends State<MessagesScreen> {
             separatorBuilder: (ctx, i) => const Divider(height: 1, indent: 82),
             itemBuilder: (context, index) {
               final chatMsg = chats[index];
-              final isSystemMessage = chatMsg['sender_id'] == null;
 
-              // Find ID på den anden bruger for at hente navn/billede
+              // Tjek om det er en systembesked
+              final bool isSystemMessage = chatMsg['sender_id'] == null;
+
+              // Find ID på den anden bruger
               final otherUserId = (chatMsg['sender_id'] == _myUserId)
                   ? chatMsg['receiver_id']
                   : chatMsg['sender_id'];
 
-              // --- SYSTEM BESKED (HoppOn) ---
+              // --- HVIS SYSTEM BESKED (HoppOn) ---
               if (isSystemMessage) {
                 return ListTile(
                   contentPadding: const EdgeInsets.symmetric(
@@ -159,27 +160,43 @@ class _MessagesScreenState extends State<MessagesScreen> {
                     style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
                   ),
                   onTap: () {
-                    // Her skal vi navigere til chatten senere
-                    print("Åbn systembesked");
+                    // Naviger til chat med systemet
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ChatDetailScreen(
+                          otherUserId: 'system_hoppon',
+                          otherUserName: 'HoppOn',
+                          rideId: null, // Ingen specifik tur tilknyttet
+                        ),
+                      ),
+                    );
                   },
                 );
               }
 
-              // --- ALMINDELIG BRUGER (Hent profil) ---
-              return FutureBuilder(
+              // --- HVIS ALMINDELIG BRUGER (Hent profil) ---
+              // --- HVIS ALMINDELIG BRUGER (Hent profil) ---
+              // Vi tilføjer '?' til typen for at tillade null (hvis brugeren er slettet)
+              return FutureBuilder<Map<String, dynamic>?>(
                 future: Supabase.instance.client
                     .from('profiles')
                     .select()
                     .eq('id', otherUserId)
-                    .single(),
+                    .maybeSingle(), // Returnerer Map<String, dynamic>?
                 builder: (context, userSnap) {
-                  // Standard data mens vi loader profilen
-                  String displayName = "Bruger";
+                  // Standard data mens vi loader eller hvis bruger mangler
+                  String displayName = "Henter...";
                   String? avatarUrl;
 
-                  if (userSnap.hasData) {
-                    displayName = userSnap.data!['first_name'] ?? "Bruger";
-                    avatarUrl = userSnap.data!['avatar_url'];
+                  if (userSnap.connectionState == ConnectionState.done) {
+                    // Tjek om data er null (slettet bruger) eller eksisterer
+                    if (userSnap.hasData && userSnap.data != null) {
+                      displayName = userSnap.data!['full_name'] ?? "Bruger";
+                      avatarUrl = userSnap.data!['avatar_url'];
+                    } else {
+                      displayName = "Slettet bruger";
+                    }
                   }
 
                   return ListTile(
@@ -221,7 +238,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              // Gør teksten fed hvis den er ulæst og jeg er modtager (valgfrit)
+                              // Gør teksten fed hvis den er ulæst og jeg er modtager
                               fontWeight:
                                   (chatMsg['is_read'] == false &&
                                       chatMsg['receiver_id'] == _myUserId)
@@ -241,31 +258,17 @@ class _MessagesScreenState extends State<MessagesScreen> {
                       ),
                     ),
                     onTap: () {
-                      if (isSystemMessage) {
-                        // Systembeskeder (HoppOn)
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const ChatDetailScreen(
-                              otherUserId: 'system_hoppon',
-                              otherUserName: 'HoppOn',
-                            ),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ChatDetailScreen(
+                            otherUserId: otherUserId,
+                            otherUserName: displayName,
+                            rideId:
+                                chatMsg['ride_id'], // Send ride_id med hvis det findes
                           ),
-                        );
-                      } else {
-                        // Almindelige samtaler
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ChatDetailScreen(
-                              otherUserId:
-                                  otherUserId, // Vi fandt dette ID tidligere i koden
-                              otherUserName:
-                                  displayName, // Navnet vi hentede fra profilen
-                            ),
-                          ),
-                        );
-                      }
+                        ),
+                      );
                     },
                   );
                 },

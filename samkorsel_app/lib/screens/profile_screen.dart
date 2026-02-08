@@ -4,12 +4,14 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'dart:typed_data';
+import 'package:flutter/cupertino.dart';
 
 // Sørg for at stierne passer til dine filer
 import '../screens/auth/welcome_screen.dart';
 import '../screens/chat_detail_screen.dart';
 import 'edit_profile_screen.dart';
 import 'payments_screen.dart';
+import 'review_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -35,9 +37,94 @@ class _ProfileScreenState extends State<ProfileScreen>
   // --- NYT: DATO FILTER ---
   DateTime? _filterDate;
 
+  // --- FUNKTION: CHAUFFØR AFLYSER PASSAGER ---
+  Future<void> _driverCancelPassenger(String bookingId, String name) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Fjern passager?"),
+        content: Text(
+          "Er du sikker på, at du vil fjerne $name fra turen?\n\nPassageren får alle sine penge tilbage.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Fortryd", style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("Fjern", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      final client = Supabase.instance.client;
+      await client.functions.invoke(
+        'driver-cancel-booking', // Navnet på din nye funktion
+        body: {'booking_id': bookingId},
+      );
+
+      if (mounted) {
+        setState(() {}); // Opdater listen
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("$name er blevet fjernet."),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Fejl: $e")));
+      }
+    }
+  }
+
   // ------------------------------------------------------------------------
   // LOGIK: AFLYS BOOKING (Med advarsler)
   // ------------------------------------------------------------------------
+  // --- NY HJÆLPER: HENT TURE TIL BOOKING-SORTERING ---
+  // Sæt denne ind i _ProfileScreenState klassen (fx før build metoden)
+  Future<List<Map<String, dynamic>>> _enrichBookingsWithRides(
+    List<Map<String, dynamic>> bookings,
+  ) async {
+    if (bookings.isEmpty) return [];
+
+    // 1. Saml alle ride_ids
+    final rideIds = bookings.map((b) => b['ride_id']).toList();
+
+    // 2. Hent alle disse rides fra databasen
+    final response = await Supabase.instance.client
+        .from('rides')
+        .select('*, profiles(*)') // Hent også chauffør info
+        .filter('id', 'in', rideIds);
+
+    final List<Map<String, dynamic>> rides = List<Map<String, dynamic>>.from(
+      response,
+    );
+
+    // 3. Kombiner Booking + Ride data i ét objekt
+    return bookings.map((booking) {
+      // Find den tur der passer til bookingen
+      final ride = rides.firstWhere(
+        (r) => r['id'] == booking['ride_id'],
+        orElse: () => {}, // Returner tomt map hvis turen er slettet
+      );
+
+      // Vi returnerer en ny map der har både booking-info og ride-info samlet
+      return {
+        ...booking, // status, id, passenger_id, seats_booked
+        'ride': ride, // departure_time, price, driver info, origin/dest
+      };
+    }).toList();
+  }
+
   Future<void> _cancelBooking(String bookingId, String departureTimeStr) async {
     // 1. Beregn advarsel (Ingen ændringer her)
     final departure = DateTime.parse(departureTimeStr).toLocal();
@@ -180,24 +267,80 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
   }
 
-  Future<void> _pickFilterDate() async {
-    final picked = await showDatePicker(
+  // --- IOS STYLE DATE PICKER ---
+  void _pickFilterDate() {
+    showModalBottomSheet(
       context: context,
-      initialDate: _filterDate ?? DateTime.now(),
-      firstDate: DateTime(2024),
-      lastDate: DateTime(2030),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(
-            context,
-          ).copyWith(colorScheme: ColorScheme.light(primary: _primaryColor)),
-          child: child!,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: SizedBox(
+            height: 300,
+            child: Column(
+              children: [
+                // 1. Header med "Færdig" knap
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(20),
+                    ),
+                    border: Border(
+                      bottom: BorderSide(color: Colors.grey.shade200),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        "Vælg dato",
+                        style: TextStyle(color: Colors.grey, fontSize: 14),
+                      ),
+                      GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: Text(
+                          "Færdig",
+                          style: TextStyle(
+                            color: _accentColor, // Bruger din lilla farve
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // 2. Selve iOS Rulle-hjulet
+                Expanded(
+                  child: CupertinoDatePicker(
+                    mode: CupertinoDatePickerMode
+                        .date, // Viser kun dato (ingen tid)
+                    initialDateTime: _filterDate ?? DateTime.now(),
+                    minimumDate: DateTime(2024),
+                    maximumDate: DateTime(2030),
+                    use24hFormat: true,
+                    // Opdaterer filteret med det samme man ruller
+                    onDateTimeChanged: (DateTime newDate) {
+                      setState(() {
+                        _filterDate = newDate;
+                      });
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
         );
       },
     );
-    if (picked != null) {
-      setState(() => _filterDate = picked);
-    }
   }
 
   bool _isSameDay(DateTime? date1, DateTime date2) {
@@ -277,7 +420,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   // ------------------------------------------------------------------------
-  // LOGIK: CO2 BEREGNING (MED TVUNGEN FÆRGE-SPLIT)
+  // LOGIK: CO2 BEREGNING (SMART FÆRGE-LOGIK)
   // ------------------------------------------------------------------------
   Future<void> _calculateAndDistributeCO2(String rideId) async {
     try {
@@ -316,50 +459,72 @@ class _ProfileScreenState extends State<ProfileScreen>
       double totalDistanceKm = 0.0;
 
       if (isFerry) {
-        // TRIN A: Prøv først at finde en direkte færgerute via API'et
-        // Vi beder om 'alternatives' og 'steps'
+        // --- SMART FÆRGE LOGIK ---
+
+        // Havne-koordinater
+        final double aarhusLng = 10.21396; // Aarhus Havn (Færge)
+        final double aarhusLat = 56.15720;
+        final double oddenLng = 11.29615; // Odden Færgehavn
+        final double oddenLat = 55.97330;
+
+        // Bestem retning: Kører vi mod Øst eller Vest?
+        // Danmark ligger ca. mellem 8.0 (Vest) og 12.6 (Øst) længdegrad.
+        // Hvis start er mindre end slut, kører vi mod Øst (Jylland -> Sjælland)
+        bool isEastbound = startLng < endLng;
+
+        double ferryStartLng, ferryStartLat, ferryEndLng, ferryEndLat;
+
+        if (isEastbound) {
+          debugPrint(
+            "Retning: ØST (Jylland -> Sjælland). Via Aarhus -> Odden.",
+          );
+          ferryStartLng = aarhusLng;
+          ferryStartLat = aarhusLat;
+          ferryEndLng = oddenLng;
+          ferryEndLat = oddenLat;
+        } else {
+          debugPrint(
+            "Retning: VEST (Sjælland -> Jylland). Via Odden -> Aarhus.",
+          );
+          ferryStartLng = oddenLng;
+          ferryStartLat = oddenLat;
+          ferryEndLng = aarhusLng;
+          ferryEndLat = aarhusLat;
+        }
+
+        // TRIN A: Prøv først at finde en direkte rute (Mapbox er nogle gange klog nok)
         final directRoute = await _fetchMapboxRoute(
           startLng,
           startLat,
           endLng,
           endLat,
-          params: '&alternatives=true&steps=true',
+          params: '&alternatives=true',
         );
 
-        // Tjek om den fundne rute er en "ægte" færgerute (under 200 km)
-        // Aarhus-Hillerød via færge er ca 125 km. Via broen er den 330 km.
+        // Hvis Mapbox finder en rute under 200km (typisk færge) for en tur tværs over landet, bruger vi den.
+        // En tur over Storebælt er typisk markant længere.
         if (directRoute != null &&
-            (directRoute['distance'] as num) / 1000.0 < 200) {
+            (directRoute['distance'] as num) / 1000.0 < 250) {
           totalDistanceKm = (directRoute['distance'] as num) / 1000.0;
           debugPrint(
-            "Succes: Direkte færgerute fundet (${totalDistanceKm.toStringAsFixed(1)} km).",
+            "Mapbox fandt selv færgeruten: ${totalDistanceKm.toStringAsFixed(1)} km",
           );
         } else {
-          // TRIN B (FALLBACK): Tving ruten via GPS koordinaterne
-          debugPrint(
-            "Info: Ingen færge fundet automatisk. Beregner splittet rute (Start->Aarhus + Odden->Slut).",
-          );
+          // TRIN B (FALLBACK): Tving ruten via de rigtige havne
+          debugPrint("Beregner splittet rute via havne...");
 
-          // Aarhus Færge GPS (Lng, Lat til Mapbox)
-          final double aarhusFerryLng = 10.252944144688946;
-          final double aarhusFerryLat = 56.15091404030663;
-
-          // Odden Færge GPS (Lng, Lat til Mapbox)
-          final double oddenFerryLng = 11.30108715834335;
-          final double oddenFerryLat = 55.97709587751027;
-
-          // 1. Kørsel: Start -> Aarhus Havn
+          // Leg 1: Start -> Færge Start
           final leg1 = await _fetchMapboxRoute(
             startLng,
             startLat,
-            aarhusFerryLng,
-            aarhusFerryLat,
+            ferryStartLng,
+            ferryStartLat,
           );
 
-          // 2. Kørsel: Odden Havn -> Slut
+          // Leg 2: Færge Slut -> Slut Destination
           final leg2 = await _fetchMapboxRoute(
-            oddenFerryLng,
-            oddenFerryLat,
+            ferryEndLng,
+            ferryEndLat,
             endLng,
             endLat,
           );
@@ -367,17 +532,22 @@ class _ProfileScreenState extends State<ProfileScreen>
           if (leg1 != null && leg2 != null) {
             final dist1 = (leg1['distance'] as num) / 1000.0;
             final dist2 = (leg2['distance'] as num) / 1000.0;
+            // Vi lægger 75 km til for selve færgeturen (ca. distancen i fugleflugt/sejlads)
+            // Dette giver en mere retvisende total "rejse-længde", selvom bilen står stille.
+            // Hvis du KUN vil have kørte kilometer, fjern + 75.
+            // Men CO2 beregningen er baseret på "sparet kørsel", så vi tæller kun det kørte.
             totalDistanceKm = dist1 + dist2;
+
             debugPrint(
-              "Splittet rute beregnet: Leg 1 ($dist1 km) + Leg 2 ($dist2 km) = $totalDistanceKm km",
+              "Splittet rute: $dist1 km (til færge) + $dist2 km (fra færge) = $totalDistanceKm km kørsel.",
             );
           } else {
-            debugPrint("Fejl: Kunne ikke beregne en af del-ruterne.");
+            debugPrint("Fejl: Kunne ikke beregne del-ruter.");
             return;
           }
         }
       } else {
-        // IKKE FÆRGE: Beregn normal rute (ekskluder færger)
+        // IKKE FÆRGE: Beregn normal rute (ekskluder færger for at tvinge broen hvis relevant)
         final route = await _fetchMapboxRoute(
           startLng,
           startLat,
@@ -393,10 +563,13 @@ class _ProfileScreenState extends State<ProfileScreen>
       if (totalDistanceKm == 0.0) return;
 
       // 4. Beregn besparelse
+      // Formel: (Distance * 0.16 kg/km) * Antal Passagerer
+      // Det antages at hver passager sparer 1 bil på vejen.
       final int passengerCount = passengers.length;
-      final double co2PerCar = totalDistanceKm * 0.16;
-      final double totalSaved = co2PerCar * passengerCount;
-      final double sharePerPerson = totalSaved / (passengerCount + 1);
+      final double co2SavedTotal = (totalDistanceKm * 0.16) * passengerCount;
+
+      // Vi fordeler "æren" for besparelsen ligeligt mellem alle i bilen (inklusiv chauffør)
+      final double sharePerPerson = co2SavedTotal / (passengerCount + 1);
 
       // 5. Opdater Chauffør
       await client.rpc(
@@ -413,7 +586,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       }
 
       debugPrint(
-        "CO2 fordelt: ${sharePerPerson.toStringAsFixed(3)} kg til hver (Distance: ${totalDistanceKm.toStringAsFixed(1)} km).",
+        "CO2 fordelt: ${sharePerPerson.toStringAsFixed(3)} kg til hver. (Total sparet: ${co2SavedTotal.toStringAsFixed(1)} kg)",
       );
     } catch (e) {
       debugPrint("Fejl i CO2 beregning: $e");
@@ -756,88 +929,120 @@ class _ProfileScreenState extends State<ProfileScreen>
             ),
           ),
 
-          // 2. TAB BAR
+          // 2. MODERN TAB BAR & FILTER HEADER
           Container(
             color: Colors.white,
-            child: TabBar(
-              controller: _tabController,
-              labelColor: _primaryColor,
-              unselectedLabelColor: Colors.grey,
-              indicatorColor: _accentColor,
-              indicatorWeight: 3,
-              labelStyle: const TextStyle(fontWeight: FontWeight.bold),
-              tabs: const [
-                Tab(text: "Jeg kører"),
-                Tab(text: "Jeg rejser"),
-              ],
-            ),
-          ),
-          // --- NYT: DATO FILTER BAR ---
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+            padding: const EdgeInsets.fromLTRB(16, 5, 16, 15),
+            child: Column(
               children: [
-                if (_filterDate != null)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8.0),
-                    child: TextButton(
-                      onPressed: () => setState(() => _filterDate = null),
-                      child: const Text(
-                        "Nulstil",
-                        style: TextStyle(color: Colors.red),
-                      ),
-                    ),
+                // Lækker "Bubble" TabBar
+                Container(
+                  height: 45,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(25),
                   ),
-                InkWell(
-                  onTap: _pickFilterDate,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
+                  child: TabBar(
+                    controller: _tabController,
+                    indicator: BoxDecoration(
+                      borderRadius: BorderRadius.circular(25),
+                      color: _primaryColor, // Den aktive fane bliver mørk
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    decoration: BoxDecoration(
-                      color: _filterDate != null
-                          ? _primaryColor
-                          : const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: _filterDate != null
-                            ? _primaryColor
-                            : Colors.grey.shade300,
+                    labelColor: Colors.white,
+                    unselectedLabelColor: Colors.grey.shade600,
+                    labelStyle: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    dividerColor: Colors.transparent, // Fjerner stregen under
+                    tabs: const [
+                      Tab(text: "Jeg kører"),
+                      Tab(text: "Jeg rejser"),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 15),
+
+                // Dato Filter (Nu mere diskret)
+                if (_filterDate != null)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _accentColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: _accentColor.withOpacity(0.3),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.calendar_today,
+                              size: 14,
+                              color: _accentColor,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              "Viser: ${DateFormat('d. MMM', 'da_DK').format(_filterDate!)}",
+                              style: TextStyle(
+                                color: _accentColor,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            InkWell(
+                              onTap: () => setState(() => _filterDate = null),
+                              child: const Icon(
+                                Icons.close,
+                                size: 16,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
+                    ],
+                  )
+                else
+                  InkWell(
+                    onTap: _pickFilterDate,
                     child: Row(
-                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          Icons.calendar_today,
+                          Icons.filter_list,
                           size: 16,
-                          color: _filterDate != null
-                              ? Colors.white
-                              : Colors.grey[700],
+                          color: Colors.grey.shade500,
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         Text(
-                          _filterDate != null
-                              ? DateFormat(
-                                  'd. MMM',
-                                  'da_DK',
-                                ).format(_filterDate!)
-                              : "Filtrer dato",
+                          "Filtrer efter dato",
                           style: TextStyle(
-                            color: _filterDate != null
-                                ? Colors.white
-                                : Colors.grey[700],
-                            fontWeight: FontWeight.bold,
+                            color: Colors.grey.shade500,
+                            fontWeight: FontWeight.w500,
                             fontSize: 13,
                           ),
                         ),
                       ],
                     ),
                   ),
-                ),
               ],
             ),
           ),
@@ -847,44 +1052,103 @@ class _ProfileScreenState extends State<ProfileScreen>
             child: TabBarView(
               controller: _tabController,
               children: [
-                // FANE 1: JEG KØRER
+                // FANE 1: JEG KØRER (Opdelt i Kommende og Historik)
                 StreamBuilder<List<Map<String, dynamic>>>(
                   stream: Supabase.instance.client
                       .from('rides')
                       .stream(primaryKey: ['id'])
                       .eq('driver_id', _userId)
-                      .order('departure_time', ascending: true),
+                      .order(
+                        'departure_time',
+                        ascending: true,
+                      ), // Kommende først
                   builder: (context, snapshot) {
                     if (!snapshot.hasData)
                       return const Center(child: CircularProgressIndicator());
 
-                    // --- FILTRERINGS LOGIK ---
-                    final rides = snapshot.data!.where((ride) {
-                      // 1. Skjul færdige ture
-                      if (ride['status'] == 'completed') return false;
+                    final allRides = snapshot.data!;
+                    final now = DateTime.now();
 
-                      // 2. Tjek Dato Filter
-                      if (_filterDate != null) {
-                        final rideDate = DateTime.parse(
-                          ride['departure_time'],
-                        ).toLocal();
-                        return _isSameDay(rideDate, _filterDate!);
+                    // 1. Split op i Aktive og Historik
+                    final activeRides = <Map<String, dynamic>>[];
+                    final historyRides = <Map<String, dynamic>>[];
+
+                    for (var ride in allRides) {
+                      final depTime = DateTime.parse(
+                        ride['departure_time'],
+                      ).toLocal();
+
+                      // Filter logik (hvis dato er valgt)
+                      if (_filterDate != null &&
+                          !_isSameDay(depTime, _filterDate!)) {
+                        continue;
                       }
-                      return true;
-                    }).toList();
-                    // -------------------------
 
-                    if (rides.isEmpty)
+                      // Historik hvis: Status er 'completed' ELLER dato er passeret
+                      if (ride['status'] == 'completed' ||
+                          now.isAfter(depTime.add(const Duration(hours: 4)))) {
+                        historyRides.add(ride);
+                      } else {
+                        activeRides.add(ride);
+                      }
+                    }
+
+                    // Sorter historik så nyeste ligger øverst
+                    historyRides.sort(
+                      (a, b) =>
+                          b['departure_time'].compareTo(a['departure_time']),
+                    );
+
+                    if (activeRides.isEmpty && historyRides.isEmpty) {
                       return _buildEmptyState("Ingen ture fundet.");
+                    }
 
-                    return ListView.builder(
+                    return ListView(
                       padding: const EdgeInsets.all(16),
-                      itemCount: rides.length,
-                      itemBuilder: (context, index) =>
-                          _buildDriverRideCard(rides[index]),
+                      children: [
+                        if (activeRides.isNotEmpty) ...[
+                          const Padding(
+                            padding: EdgeInsets.only(bottom: 10, left: 4),
+                            child: Text(
+                              "Kommende ture",
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ),
+                          ...activeRides.map(
+                            (ride) => _buildDriverRideCard(ride),
+                          ),
+                        ],
+
+                        if (historyRides.isNotEmpty) ...[
+                          const SizedBox(height: 20),
+                          const Padding(
+                            padding: EdgeInsets.only(bottom: 10, left: 4),
+                            child: Text(
+                              "Historik",
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ),
+                          // Vi gør historik-kort lidt mere utydelige/grå
+                          ...historyRides.map(
+                            (ride) => Opacity(
+                              opacity: 0.8,
+                              child: _buildDriverRideCard(ride),
+                            ),
+                          ),
+                        ],
+                      ],
                     );
                   },
                 ),
+                // FANE 2: JEG REJSER (Rettet sortering)
                 // FANE 2: JEG REJSER
                 StreamBuilder<List<Map<String, dynamic>>>(
                   stream: Supabase.instance.client
@@ -895,48 +1159,106 @@ class _ProfileScreenState extends State<ProfileScreen>
                   builder: (context, snapshot) {
                     if (!snapshot.hasData)
                       return const Center(child: CircularProgressIndicator());
-                    final bookings = snapshot.data!;
 
-                    if (bookings.isEmpty)
-                      return _buildEmptyState("Du har ikke booket nogen ture.");
+                    return FutureBuilder<List<Map<String, dynamic>>>(
+                      future: _enrichBookingsWithRides(snapshot.data!),
+                      builder: (context, enrichedSnapshot) {
+                        if (!enrichedSnapshot.hasData)
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
 
-                    return ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: bookings.length,
-                      itemBuilder: (context, index) {
-                        final booking = bookings[index];
-                        // Vi henter turen for at se datoen
-                        return FutureBuilder<Map<String, dynamic>>(
-                          future: Supabase.instance.client
-                              .from('rides')
-                              .select('*, profiles(*)')
-                              .eq('id', booking['ride_id'])
-                              .single(),
-                          builder: (context, rSnapshot) {
-                            // Vent på data eller skjul hvis fejl
-                            if (!rSnapshot.hasData) return const SizedBox();
-                            final ride = rSnapshot.data!;
+                        final allData = enrichedSnapshot.data!;
+                        final now = DateTime.now();
 
-                            // --- NYT: SKJUL HVIS TUREN ER SLUT ---
-                            // Hvis turen er completed, skal den ikke vises i "Aktive rejser"
-                            if (ride['status'] == 'completed') {
-                              return const SizedBox.shrink();
-                            }
+                        final activeTrips = <Map<String, dynamic>>[];
+                        final historyTrips = <Map<String, dynamic>>[];
 
-                            // --- FILTRERINGS LOGIK ---
-                            if (_filterDate != null) {
-                              final rideDate = DateTime.parse(
-                                ride['departure_time'],
-                              ).toLocal();
-                              // Hvis datoen ikke matcher, returnerer vi en "tom" boks, så den forsvinder fra listen
-                              if (!_isSameDay(rideDate, _filterDate!)) {
-                                return const SizedBox.shrink();
-                              }
-                            }
-                            // -------------------------
+                        for (var item in allData) {
+                          final ride = item['ride'];
+                          if (ride == null || ride.isEmpty) continue;
 
-                            return _buildPassengerRideCard(booking, ride);
-                          },
+                          final String status = item['status'] ?? '';
+                          final String rideStatus = ride['status'] ?? '';
+                          final DateTime depTime = DateTime.parse(
+                            ride['departure_time'],
+                          ).toLocal();
+
+                          // Dato filter
+                          if (_filterDate != null &&
+                              !_isSameDay(depTime, _filterDate!))
+                            continue;
+
+                          // --- LOGIK: HVAD ER HISTORIK? ---
+                          // Vi tjekker om status indeholder 'cancelled' (dækker både passenger og driver cancel)
+                          bool isHistory =
+                              status == 'rejected' ||
+                              status.contains(
+                                'cancelled',
+                              ) || // <--- Fanger 'cancelled_by_passenger'
+                              rideStatus == 'completed' ||
+                              now.isAfter(
+                                depTime.add(const Duration(hours: 4)),
+                              );
+
+                          if (isHistory) {
+                            historyTrips.add(item);
+                          } else {
+                            activeTrips.add(item);
+                          }
+                        }
+
+                        if (activeTrips.isEmpty && historyTrips.isEmpty) {
+                          return _buildEmptyState(
+                            "Du har ikke booket nogen ture.",
+                          );
+                        }
+
+                        return ListView(
+                          padding: const EdgeInsets.all(16),
+                          children: [
+                            if (activeTrips.isNotEmpty) ...[
+                              const Padding(
+                                padding: EdgeInsets.only(bottom: 10, left: 4),
+                                child: Text(
+                                  "Kommende rejser",
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ),
+                              ...activeTrips.map(
+                                (item) =>
+                                    _buildPassengerRideCard(item, item['ride']),
+                              ),
+                            ],
+
+                            if (historyTrips.isNotEmpty) ...[
+                              const SizedBox(height: 20),
+                              const Padding(
+                                padding: EdgeInsets.only(bottom: 10, left: 4),
+                                child: Text(
+                                  "Historik & Aflyste",
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ),
+                              ...historyTrips.map(
+                                (item) => Opacity(
+                                  opacity: 0.7,
+                                  child: _buildPassengerRideCard(
+                                    item,
+                                    item['ride'],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         );
                       },
                     );
@@ -1075,28 +1397,45 @@ class _ProfileScreenState extends State<ProfileScreen>
                 ),
               ),
             ),
+            // ... (Inde i _buildDriverRideCard under "Passagerer" overskriften) ...
             StreamBuilder<List<Map<String, dynamic>>>(
               stream: Supabase.instance.client
                   .from('bookings')
                   .stream(primaryKey: ['id'])
                   .eq('ride_id', ride['id']),
               builder: (context, bSnapshot) {
-                // Vi håndterer ventetid pænt, men viser tomme sæder med det samme hvis data mangler
-                final bookings = bSnapshot.data ?? [];
+                final allBookings = bSnapshot.data ?? [];
 
-                // 1. Hent total kapacitet (standard til 3 hvis null)
+                // --- VIGTIG RETTELSE HER ---
+                // Vi filtrerer bookinger, så vi KUN ser dem, der er aktive (pending/approved)
+                // Dette fjerner passageren fra listen, hvis de har aflyst.
+                final activeBookings = allBookings
+                    .where(
+                      (b) =>
+                          b['status'] == 'approved' || b['status'] == 'pending',
+                    )
+                    .toList();
+
+                // 1. Hent total kapacitet
                 final int totalCapacity = ride['seats_available'] ?? 3;
 
-                // 2. Opret en liste til at holde alle widgets (både bookede og tomme)
+                // 2. Beregn hvor mange sæder der ER taget (kun af aktive bookinger)
+                int seatsTaken = 0;
+                for (var b in activeBookings) {
+                  seatsTaken += (b['seats_booked'] as int? ?? 1);
+                }
+
+                // 3. Beregn hvor mange "Ledigt sæde" linjer vi skal vise
+                // Hvis seats_available i databasen er 4 (fordi den tæller forkert),
+                // men vi kun viser 3 rækker totalt, ser det pænere ud.
+                // Vi bruger dog databasens tal, men sikrer os at vi ikke viser negative ledige sæder.
+
                 List<Widget> seatWidgets = [];
 
-                // 3. Fyld listen med de faktiske bookinger
-                for (var booking in bookings) {
-                  // Hvor mange sæder fylder denne booking?
+                // A. Vis de AKTIVE bookinger
+                for (var booking in activeBookings) {
                   int seatsBooked = booking['seats_booked'] ?? 1;
-
                   for (int i = 0; i < seatsBooked; i++) {
-                    // Tilføj en widget for HVERT sæde denne person har booket
                     seatWidgets.add(
                       FutureBuilder<Map<String, dynamic>>(
                         future: Supabase.instance.client
@@ -1107,8 +1446,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                         builder: (context, pSnapshot) {
                           final name =
                               pSnapshot.data?['full_name'] ?? "Henter...";
-
-                          // Vis (1/2) hvis det er flersædes-booking
                           final displayName = seatsBooked > 1
                               ? "$name (${i + 1}/$seatsBooked)"
                               : name;
@@ -1153,27 +1490,48 @@ class _ProfileScreenState extends State<ProfileScreen>
                                       ),
                                     ],
                                   )
-                                : Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: _getStatusColor(
-                                        booking['status'],
-                                      ).withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      _getStatusText(booking['status']),
-                                      style: TextStyle(
-                                        color: _getStatusColor(
-                                          booking['status'],
+                                : Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
                                         ),
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
+                                        decoration: BoxDecoration(
+                                          color: _getStatusColor(
+                                            booking['status'],
+                                          ).withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          _getStatusText(booking['status']),
+                                          style: TextStyle(
+                                            color: _getStatusColor(
+                                              booking['status'],
+                                            ),
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
                                       ),
-                                    ),
+                                      // --- NYT: SLET KNAP HVIS GODKENDT ---
+                                      if (booking['status'] == 'approved')
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.remove_circle_outline,
+                                            color: Colors.red,
+                                            size: 20,
+                                          ),
+                                          onPressed: () =>
+                                              _driverCancelPassenger(
+                                                booking['id'],
+                                                name,
+                                              ),
+                                        ),
+                                    ],
                                   ),
                           );
                         },
@@ -1182,7 +1540,17 @@ class _ProfileScreenState extends State<ProfileScreen>
                   }
                 }
 
-                // 4. Fyld resten op med "Ingen passager" indtil vi rammer kapaciteten
+                // B. Fyld resten op med "Ledigt sæde" indtil vi rammer kapaciteten
+                // Vi bruger en simpel loop: Total Kapacitet (fx 3) minus Antal Taget (fx 0) = 3 ledige
+                // OBS: Hvis din 'seats_available' i DB er steget til 4 (fejl), viser vi 4 ledige linjer her.
+                // Det er "korrekt" ift. databasen, men forkert ift. bilen.
+                // Løsning: Vi stoler på 'seats_available' fra turen, men trækker aktive bookinger fra.
+
+                // For at vise det "rigtige" antal ledige sæder baseret på visningen:
+                // Antag at 'seats_available' i ride-objektet er det TOTALE antal pladser i bilen (hvis du har kodet det sådan),
+                // ELLER det er "resterende pladser".
+                // I din app virker det til at 'seats_available' er TOTAL kapacitet.
+
                 while (seatWidgets.length < totalCapacity) {
                   seatWidgets.add(
                     ListTile(
@@ -1351,19 +1719,37 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   // WIDGET: PASSENGER RIDE CARD
+  // WIDGET: PASSENGER RIDE CARD (Opdateret med Gebyr visning)
   Widget _buildPassengerRideCard(
     Map<String, dynamic> booking,
     Map<String, dynamic> ride,
   ) {
     final driver = ride['profiles'];
     final bool isCancelled = booking['status'].toString().contains('cancelled');
-
-    // TJEK OM TUREN ER STARTET
     final DateTime depTime = DateTime.parse(ride['departure_time']).toLocal();
     final bool hasStarted = DateTime.now().isAfter(depTime);
 
+    // Beregn om der var gebyr (Simpel logik baseret på status tekst eller tid)
+    // Hvis du gemte gebyret i databasen, ville vi hente det her.
+    // Her laver vi et estimat for visningen:
+    String priceText = "${ride['price_dkk']} kr.";
+    Color priceColor = _primaryColor;
+
+    if (isCancelled) {
+      // Hvis status er 'cancelled_by_passenger', tjekker vi om der var gebyr
+      // (Dette er kun visuelt. Backend har trukket pengene)
+      // Du kan evt. udvide din booking tabel med 'fee_charged' kolonne for præcision.
+      // Her antager vi, at hvis turen er aflyst, viser vi bare "Aflyst" eller evt. minus beløb hvis du vil hardcode logikken.
+
+      priceText = "Aflyst";
+      priceColor = Colors.red;
+
+      // Hvis du vil vise "-50 kr" skal du vide hvad der blev trukket.
+      // Hvis du ikke har gemt det beløb på bookingen, er det svært at vide præcist nu.
+      // Men vi kan gøre prisen rød og gennemstreget:
+    }
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -1401,7 +1787,10 @@ class _ProfileScreenState extends State<ProfileScreen>
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
-                          color: _primaryColor,
+                          color: isCancelled ? Colors.grey : _primaryColor,
+                          decoration: isCancelled
+                              ? TextDecoration.lineThrough
+                              : null,
                         ),
                       ),
                       Text(
@@ -1412,7 +1801,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                       Text(
                         _formatDate(ride['departure_time']),
                         style: TextStyle(
-                          color: _accentColor,
+                          color: isCancelled ? Colors.grey : _accentColor,
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
                         ),
@@ -1420,129 +1809,116 @@ class _ProfileScreenState extends State<ProfileScreen>
                     ],
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isCancelled
-                        ? Colors.red.withOpacity(0.1)
-                        : _getStatusColor(booking['status']).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    isCancelled ? "Aflyst" : _getStatusText(booking['status']),
-                    style: TextStyle(
-                      color: isCancelled
-                          ? Colors.red
-                          : _getStatusColor(booking['status']),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      priceText,
+                      style: TextStyle(
+                        color: priceColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        decoration: isCancelled && priceText.contains('kr')
+                            ? TextDecoration.lineThrough
+                            : null,
+                      ),
                     ),
-                  ),
+                    if (isCancelled)
+                      const Text(
+                        "Gebyr kan forekomme", // Eller "- XX kr" hvis du har dataen
+                        style: TextStyle(color: Colors.red, fontSize: 10),
+                      ),
+                    const SizedBox(height: 5),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isCancelled
+                            ? Colors.red.withOpacity(0.1)
+                            : _getStatusColor(
+                                booking['status'],
+                              ).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        isCancelled
+                            ? "Aflyst"
+                            : _getStatusText(booking['status']),
+                        style: TextStyle(
+                          color: isCancelled
+                              ? Colors.red
+                              : _getStatusColor(booking['status']),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
 
-          // KNAPPER (Vis kun hvis ikke aflyst)
-          if (booking['status'] == 'approved' && !isCancelled) ...[
+          // KNAPPER (Skjul hvis aflyst)
+          if (booking['status'] == 'approved' &&
+              !isCancelled &&
+              !hasStarted) ...[
             const Divider(height: 1),
-
-            // KONTAKT KNAP
+            // ... (Behold dine knapper her: Kontakt + Aflys) ...
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  icon: const Icon(Icons.chat_bubble_outline, size: 18),
-                  label: const Text("Kontakt Chauffør"),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: _primaryColor,
-                    side: BorderSide(color: Colors.grey.shade300),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ChatDetailScreen(
-                          otherUserId: ride['driver_id'],
-                          otherUserName: driver['full_name'] ?? 'Chauffør',
-                          rideId: ride['id'],
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                      label: const Text("Chat"),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _primaryColor,
+                        side: BorderSide(color: Colors.grey.shade300),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                    );
-                  },
-                ),
-              ),
-            ),
-
-            // AFLYS KNAP (Deaktiveret hvis startet)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  icon: Icon(
-                    hasStarted ? Icons.timer_off : Icons.cancel_outlined,
-                    size: 18,
-                  ),
-                  label: Text(hasStarted ? "Turen er startet" : "Aflys Tur"),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: hasStarted ? Colors.grey : Colors.red,
-                    side: BorderSide(
-                      color: hasStarted
-                          ? Colors.grey.shade300
-                          : Colors.red.shade200,
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      onPressed: () {
+                        // --- HER ER RETTELSEN ---
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ChatDetailScreen(
+                              otherUserId: ride['driver_id'], // Chaufførens ID
+                              otherUserName: driver['full_name'] ?? 'Chauffør',
+                              rideId: ride['id'],
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
-                  // Hvis startet = null (deaktiveret), ellers kald funktion
-                  onPressed: hasStarted
-                      ? null
-                      : () => _cancelBooking(
-                          booking['id'],
-                          ride['departure_time'],
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.cancel_outlined, size: 18),
+                      label: const Text("Aflys"),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        side: BorderSide(color: Colors.red.shade200),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                ),
-              ),
-            ),
-          ],
-
-          // VIS STATUS HVIS ALLEREDE AFLYST
-          if (isCancelled)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.05),
-                borderRadius: const BorderRadius.vertical(
-                  bottom: Radius.circular(16),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Icon(Icons.info_outline, size: 16, color: Colors.red),
-                  SizedBox(width: 8),
-                  Text(
-                    "Du har aflyst denne tur",
-                    style: TextStyle(
-                      color: Colors.red,
-                      fontWeight: FontWeight.bold,
+                      ),
+                      onPressed: () =>
+                          _cancelBooking(booking['id'], ride['departure_time']),
                     ),
                   ),
                 ],
               ),
             ),
+          ],
         ],
       ),
     );

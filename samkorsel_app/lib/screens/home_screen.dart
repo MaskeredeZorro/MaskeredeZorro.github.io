@@ -24,19 +24,37 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
+  bool _isDriver = false;
 
-  // --- SØGE STATE ---
-  String? _searchOrigin;
-  String? _searchDest;
+  @override
+  void initState() {
+    super.initState();
+    _checkDriverStatus(); // Tjek ved start
+  }
 
-  double? _originLat;
-  double? _originLng;
-  double? _destLat;
-  double? _destLng;
+  // --- NY FUNKTION: HENT CHAUFFØR STATUS ---
+  Future<void> _checkDriverStatus() async {
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) return;
 
-  DateTime? _searchDate;
-  double _searchRadius = 20.0;
+      final data = await Supabase.instance.client
+          .from('profiles')
+          .select('is_driver')
+          .eq('id', userId)
+          .single();
 
+      if (mounted) {
+        setState(() {
+          _isDriver = data['is_driver'] ?? false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Kunne ikke hente driver status: $e");
+    }
+  }
+
+  // --- SØGE LOGIK ---
   void _performSearch(
     String origin,
     String dest,
@@ -47,34 +65,56 @@ class _HomeScreenState extends State<HomeScreen> {
     DateTime date,
     double radius,
   ) {
-    setState(() {
-      _searchOrigin = origin;
-      _searchDest = dest;
-      _originLat = oLat;
-      _originLng = oLng;
-      _destLat = dLat;
-      _destLng = dLng;
-      _searchDate = date;
-      _searchRadius = radius;
-      _currentIndex = 1; // Skift til Resultat-fanen
-    });
-  }
-
-  void _clearSearch() {
-    setState(() {
-      _searchOrigin = null;
-      _searchDest = null;
-      _originLat = null;
-      _originLng = null;
-      _destLat = null;
-      _destLng = null;
-      _searchRadius = 20.0;
-      _searchDate = null;
-    });
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => RidesTab(
+          filterOrigin: origin,
+          filterDest: dest,
+          originLat: oLat,
+          originLng: oLng,
+          destLat: dLat,
+          destLng: dLng,
+          radius: radius,
+          filterDate: date,
+          onClearFilters: () => Navigator.pop(context),
+        ),
+      ),
+    );
   }
 
   void _onTabTapped(int index) async {
-    if (index == 2) {
+    if (index == 1) {
+      // 1. Tjek status
+      await _checkDriverStatus();
+
+      // 2. HVIS IKKE CHAUFFØR -> VIS POPUP
+      if (!_isDriver) {
+        if (!mounted) return;
+
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true, // Vigtigt for at tastaturet ikke dækker
+          backgroundColor: Colors.transparent,
+          builder: (context) => BecomeDriverSheet(
+            onSuccess: () async {
+              // Når de har gemt data succesfuldt:
+              Navigator.pop(context); // Luk sheet
+              await _checkDriverStatus(); // Opdater status lokalt
+              // Naviger til Opret Tur
+              if (mounted) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CreateRideScreen()),
+                );
+              }
+            },
+          ),
+        );
+        return;
+      }
+
+      // 3. HVIS ALLEREDE CHAUFFØR -> NAVIGER DIREKTE
       await Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const CreateRideScreen()),
@@ -88,61 +128,334 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final Color activeColor = const Color(0xFF0F172A);
+    final Color inactiveColor = Colors.grey.shade400;
 
     final List<Widget> pages = [
-      SearchTab(onSearch: _performSearch),
-      RidesTab(
-        filterOrigin: _searchOrigin,
-        filterDest: _searchDest,
-        originLat: _originLat,
-        originLng: _originLng,
-        destLat: _destLat,
-        destLng: _destLng,
-        filterDate: _searchDate,
-        radius: _searchRadius,
-        onClearFilters: _clearSearch,
-      ),
-      const SizedBox(), // Placeholder for 'Opret' knappen
-      const MessagesScreen(), // <--- Nu kalder den din nye fil
-      const ProfileScreen(),
+      SearchTab(onSearch: _performSearch), // Index 0
+      const SizedBox(), // Index 1 (Placeholder for Opret)
+      const MessagesScreen(), // Index 2
+      const ProfileScreen(), // Index 3
     ];
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: pages[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: _onTabTapped,
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: activeColor,
-        unselectedItemColor: Colors.grey,
-        showUnselectedLabels: true,
-        elevation: 10,
-        backgroundColor: Colors.white,
-        items: [
-          const BottomNavigationBarItem(icon: Icon(Icons.search), label: "Søg"),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.list_alt),
-            label: "Alle lift",
-          ),
-          BottomNavigationBarItem(
-            icon: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: activeColor,
-              ),
-              child: const Icon(Icons.add, color: Colors.white, size: 24),
+      bottomNavigationBar: Container(
+        // Tilføjer en fin skygge i toppen af baren for et moderne look
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -5),
             ),
-            label: "",
+          ],
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: _onTabTapped,
+          type: BottomNavigationBarType
+              .fixed, // Vigtigt for at teksten altid vises
+          backgroundColor: Colors.white,
+          elevation: 0, // Vi bruger vores egen skygge ovenover
+          // --- MODERN TYPOGRAFI ---
+          selectedItemColor: activeColor,
+          unselectedItemColor: inactiveColor,
+          selectedLabelStyle: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
           ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline),
-            label: "Beskeder",
+          unselectedLabelStyle: const TextStyle(
+            fontWeight: FontWeight.normal,
+            fontSize: 12,
           ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            label: "Profil",
+
+          items: [
+            // 1. SØG
+            const BottomNavigationBarItem(
+              icon: Icon(Icons.search),
+              activeIcon: Icon(Icons.search, size: 26), // Lidt større når aktiv
+              label: "Søg",
+            ),
+
+            // 2. OPRET (Nu ren og pæn)
+            BottomNavigationBarItem(
+              // Vi bruger et "Add Circle" ikon for at vise handling
+              icon: Icon(Icons.add_circle_outline, size: 28),
+              activeIcon: Icon(Icons.add_circle, size: 28),
+              label: "Opret",
+            ),
+
+            // 3. BESKEDER
+            const BottomNavigationBarItem(
+              icon: Icon(Icons.chat_bubble_outline),
+              activeIcon: Icon(Icons.chat_bubble),
+              label: "Beskeder",
+            ),
+
+            // 4. PROFIL
+            const BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline),
+              activeIcon: Icon(Icons.person),
+              label: "Profil",
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ==========================================
+// NY WIDGET: BECOME DRIVER POPUP
+// ==========================================
+class BecomeDriverSheet extends StatefulWidget {
+  final VoidCallback onSuccess;
+  const BecomeDriverSheet({super.key, required this.onSuccess});
+
+  @override
+  State<BecomeDriverSheet> createState() => _BecomeDriverSheetState();
+}
+
+class _BecomeDriverSheetState extends State<BecomeDriverSheet> {
+  bool _isDriverToggle = false; // Starter som false, brugeren skal slå den til
+  bool _isLoading = false;
+  bool _isFetchingCar = false;
+
+  final _plateCtrl = TextEditingController();
+  final _makeCtrl = TextEditingController();
+  final _modelCtrl = TextEditingController();
+  final _yearCtrl = TextEditingController();
+  final _colorCtrl = TextEditingController();
+
+  // API Opslag (Genbrugt logik)
+  Future<void> _fetchCarFromApi() async {
+    String plate = _plateCtrl.text.replaceAll(' ', '').trim();
+    if (plate.length < 2) return;
+
+    setState(() => _isFetchingCar = true);
+    try {
+      const String apiKey = "7dzgmx0qvnjtwwza0bkpu307k47yrjyq";
+      final url = Uri.parse("https://v1.motorapi.dk/vehicles/$plate");
+      final response = await http.get(url, headers: {'X-Auth-Token': apiKey});
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          _makeCtrl.text = (data['make'] ?? "").toString();
+          _modelCtrl.text = (data['model'] ?? "").toString();
+          _yearCtrl.text = (data['model_year'] ?? "").toString();
+          _colorCtrl.text = (data['color'] ?? "").toString();
+          if (data['registration_number'] != null) {
+            _plateCtrl.text = data['registration_number'];
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint("Fejl: $e");
+    } finally {
+      setState(() => _isFetchingCar = false);
+    }
+  }
+
+  Future<void> _saveAndContinue() async {
+    if (!_isDriverToggle) return; // Skal være slået til
+    if (_makeCtrl.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Hent venligst din biloplysninger først."),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final userId = Supabase.instance.client.auth.currentUser!.id;
+
+      // Byg Car JSON
+      final carJson = {
+        'make': _makeCtrl.text,
+        'model': _modelCtrl.text,
+        'year': _yearCtrl.text,
+        'color': _colorCtrl.text,
+        'plate': _plateCtrl.text,
+        'details':
+            "${_yearCtrl.text} • ${_colorCtrl.text} • ${_plateCtrl.text}",
+        'display_name': "${_makeCtrl.text} ${_modelCtrl.text}",
+      };
+
+      // Opdater profil i DB
+      await Supabase.instance.client
+          .from('profiles')
+          .update({
+            'is_driver': true,
+            'license_plate': _plateCtrl.text,
+            'car_details': carJson,
+          })
+          .eq('id', userId);
+
+      // Kald success callback (lukker vinduet og går videre)
+      widget.onSuccess();
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Fejl: $e")));
+      setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: EdgeInsets.fromLTRB(
+        24,
+        24,
+        24,
+        MediaQuery.of(context).viewInsets.bottom + 24, // Håndterer tastatur
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Bliv Chauffør 🚘",
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            "For at oprette ture skal du registrere din bil.",
+            style: TextStyle(color: Colors.grey),
+          ),
+          const SizedBox(height: 20),
+
+          // --- SWITCH ROW ---
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                "Vil du blive chauffør?",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              Switch(
+                value: _isDriverToggle,
+                onChanged: (val) => setState(() => _isDriverToggle = val),
+                activeColor: const Color(0xFF6366F1),
+              ),
+            ],
+          ),
+          const Text(
+            "Slå til for at tilføje din bil og tilbyde lift.",
+            style: TextStyle(color: Colors.grey, fontSize: 12),
+          ),
+
+          // --- FORMULAR (Vises kun hvis switch er true) ---
+          if (_isDriverToggle) ...[
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _plateCtrl,
+                    textCapitalization: TextCapitalization.characters,
+                    decoration: InputDecoration(
+                      labelText: "Nummerplade",
+                      filled: true,
+                      fillColor: Colors.grey[100],
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                SizedBox(
+                  height: 56,
+                  child: ElevatedButton.icon(
+                    onPressed: _isFetchingCar ? null : _fetchCarFromApi,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    icon: _isFetchingCar
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.search, size: 18),
+                    label: const Text("Hent"),
+                  ),
+                ),
+              ],
+            ),
+
+            if (_makeCtrl.text.isNotEmpty) ...[
+              const SizedBox(height: 15),
+              // Bil Info Preview
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.green.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle, color: Colors.green),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        "${_makeCtrl.text} ${_modelCtrl.text} (${_yearCtrl.text})",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+
+          const SizedBox(height: 30),
+
+          // --- KNAP ---
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton(
+              onPressed: _isDriverToggle && !_isLoading
+                  ? _saveAndContinue
+                  : null, // Deaktiver hvis ikke driver
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0F172A),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: _isLoading
+                  ? const CircularProgressIndicator(color: Colors.white)
+                  : const Text(
+                      "Gem & Opret Tur",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+            ),
           ),
         ],
       ),
@@ -308,6 +621,19 @@ class _SearchTabState extends State<SearchTab> {
   }
 
   Future<void> _handleSearch() async {
+    // --- RETTELSE START: Tjek om felterne er udfyldt ---
+    if (_originController.text.trim().isEmpty ||
+        _destController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Du skal udfylde både Fra og Til"),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    // --- RETTELSE SLUT ---
+
     final results = await Future.wait([
       _fetchCityCoords(_originController.text),
       _fetchCityCoords(_destController.text),
@@ -1396,21 +1722,48 @@ class _RidesTabState extends State<RidesTab> {
   List<Map<String, dynamic>> _rides = [];
   bool _isLoading = true;
   late DateTime _displayDate;
+  String? _myGender;
 
   @override
   void initState() {
     super.initState();
+    // Sætter startdatoen til det man søgte på, eller NU.
     _displayDate = widget.filterDate ?? DateTime.now();
-    _fetchRides();
+    _initData();
+  }
+
+  // --- NY FUNKTION: HENT KØN FØRST ---
+  Future<void> _initData() async {
+    setState(() => _isLoading = true);
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId != null) {
+        final data = await Supabase.instance.client
+            .from('profiles')
+            .select('gender')
+            .eq('id', userId)
+            .single();
+        _myGender = data['gender']; // Fx "Kvinde" eller "Mand"
+      }
+    } catch (e) {
+      debugPrint("Kunne ikke hente køn: $e");
+    }
+    await _fetchRides();
   }
 
   @override
   void didUpdateWidget(covariant RidesTab old) {
     super.didUpdateWidget(old);
+    // Hvis søgekriterierne udefra ændrer sig (ny søgning), skal vi nulstille _displayDate
     if (old.filterOrigin != widget.filterOrigin ||
         old.filterDest != widget.filterDest ||
-        old.radius != widget.radius) {
-      _displayDate = widget.filterDate ?? DateTime.now();
+        old.radius != widget.radius ||
+        old.filterDate != widget.filterDate) {
+      // <--- Tjek også datoen
+
+      setState(() {
+        _displayDate = widget.filterDate ?? DateTime.now();
+      });
       _fetchRides();
     }
   }
@@ -1418,10 +1771,12 @@ class _RidesTabState extends State<RidesTab> {
   void _changeDate(int days) {
     setState(() {
       _displayDate = _displayDate.add(Duration(days: days));
+      // Vi kalder fetch igen, og nu bruger den den nye _displayDate
       _fetchRides();
     });
   }
 
+  // ... (Behold _calculateDistance, _parsePostGISHex og _hexToDouble som de er) ...
   double _calculateDistance(
     double lat1,
     double lon1,
@@ -1444,7 +1799,6 @@ class _RidesTabState extends State<RidesTab> {
       String hexLat = hex.substring(34, 50);
       return [_hexToDouble(hexLat), _hexToDouble(hexLng)];
     } catch (e) {
-      debugPrint("Hex fejl: $e");
       return null;
     }
   }
@@ -1458,24 +1812,30 @@ class _RidesTabState extends State<RidesTab> {
       Uint8List.fromList(bytes),
     ).getFloat64(0, Endian.little);
   }
+  // ... (Slut på hjælpemetoder) ...
 
   Future<void> _fetchRides() async {
     setState(() => _isLoading = true);
     try {
-      // 1. Find det lokale tidspunkt vi vil søge fra (nu eller valgt dato)
-      final DateTime searchThresholdLocal = widget.filterDate ?? DateTime.now();
+      // --- RETTELSE HER: Brug _displayDate i stedet for widget.filterDate ---
+      // Før brugte du widget.filterDate, som altid var den oprindelige søgedato.
+      // Nu bruger vi _displayDate, som opdateres af pilene.
+      final DateTime searchThresholdLocal = _displayDate;
 
-      // 2. Find slutningen af det lokale døgn (så vi kun ser ture for den valgte dag)
-      final DateTime endOfDayLocal = DateTime(
+      // 2. Find slutningen af det lokale døgn for den viste dato
+      final DateTime startOfDayLocal = DateTime(
         searchThresholdLocal.year,
         searchThresholdLocal.month,
         searchThresholdLocal.day,
-      ).add(const Duration(days: 1));
+      );
 
-      // 3. VIGTIGT: Konverter til UTC før vi sender til Databasen
-      // Databasen gemmer i UTC (+00). Hvis vi sender dansk tid (+01/+02) uden at konvertere,
-      // tror databasen det er UTC tid, og vi mister ture der ligger "mellem" tidszonerne.
-      final String startUTC = searchThresholdLocal.toUtc().toIso8601String();
+      final DateTime endOfDayLocal = startOfDayLocal.add(
+        const Duration(days: 1),
+      );
+
+      // 3. Konverter til UTC til databasen
+      // Vi søger fra start af dagen (00:00) til slut af dagen (23:59) for den valgte dato
+      final String startUTC = startOfDayLocal.toUtc().toIso8601String();
       final String endUTC = endOfDayLocal.toUtc().toIso8601String();
 
       final res = await Supabase.instance.client
@@ -1483,8 +1843,8 @@ class _RidesTabState extends State<RidesTab> {
           .select(
             '*, profiles(*), origin_location::text, destination_location::text',
           )
-          .gte('departure_time', startUTC) // Søg med UTC tid
-          .lt('departure_time', endUTC) // Søg med UTC tid
+          .gte('departure_time', startUTC)
+          .lt('departure_time', endUTC)
           .order('departure_time', ascending: true);
 
       List<Map<String, dynamic>> allRides = List<Map<String, dynamic>>.from(
@@ -1494,8 +1854,15 @@ class _RidesTabState extends State<RidesTab> {
 
       bool hasSearchCoords = widget.originLat != null && widget.destLat != null;
 
-      if (hasSearchCoords) {
-        for (var ride in allRides) {
+      for (var ride in allRides) {
+        // 1. LADIES ONLY TJEK
+        bool isLadiesOnly = ride['ladies_only'] ?? false;
+        if (isLadiesOnly && _myGender != 'Kvinde') {
+          continue; // Spring over hvis du er mand og turen er ladies only
+        }
+
+        // 2. GEOGRAFI TJEK (Hvis søgt)
+        if (hasSearchCoords) {
           List<double>? rideOrigin = _parsePostGISHex(ride['origin_location']);
           List<double>? rideDest = _parsePostGISHex(
             ride['destination_location'],
@@ -1519,16 +1886,18 @@ class _RidesTabState extends State<RidesTab> {
               filteredRides.add(ride);
             }
           }
+        } else {
+          // Hvis ingen geografi-søgning, tilføj bare (køn er tjekket)
+          filteredRides.add(ride);
         }
-      } else {
-        filteredRides = allRides;
       }
 
-      if (mounted)
+      if (mounted) {
         setState(() {
           _rides = filteredRides;
           _isLoading = false;
         });
+      }
     } catch (e) {
       debugPrint("Fejl: $e");
       if (mounted) setState(() => _isLoading = false);
@@ -1542,22 +1911,30 @@ class _RidesTabState extends State<RidesTab> {
 
     String headerDateText = DateFormat('dd/MM/yyyy').format(_displayDate);
     final now = DateTime.now();
-    if (DateTime(now.year, now.month, now.day) ==
-        DateTime(_displayDate.year, _displayDate.month, _displayDate.day))
+
+    // Tjek for "I dag" og "I morgen" logik
+    final today = DateTime(now.year, now.month, now.day);
+    final displayDay = DateTime(
+      _displayDate.year,
+      _displayDate.month,
+      _displayDate.day,
+    );
+
+    if (displayDay == today) {
       headerDateText = "I dag";
-    else if (DateTime(
-          now.year,
-          now.month,
-          now.day,
-        ).add(const Duration(days: 1)) ==
-        DateTime(_displayDate.year, _displayDate.month, _displayDate.day))
+    } else if (displayDay == today.add(const Duration(days: 1))) {
       headerDateText = "I morgen";
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
+        automaticallyImplyLeading: true,
+        iconTheme: IconThemeData(color: primaryColor),
         title: Text(
-          isSearching ? "Resultater (${widget.radius.round()}km)" : "Alle Lift",
+          isSearching
+              ? "Resultater (${widget.radius.round()}km)"
+              : "Søgeresultater",
           style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.white,
@@ -1566,7 +1943,7 @@ class _RidesTabState extends State<RidesTab> {
           if (isSearching)
             TextButton(
               onPressed: widget.onClearFilters,
-              child: const Text("Nulstil", style: TextStyle(color: Colors.red)),
+              child: const Text("Luk", style: TextStyle(color: Colors.red)),
             ),
         ],
       ),
@@ -1610,7 +1987,7 @@ class _RidesTabState extends State<RidesTab> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _rides.isEmpty
-                ? const Center(child: Text("Ingen lift fundet"))
+                ? const Center(child: Text("Ingen lift fundet på denne dato"))
                 : ListView.builder(
                     padding: const EdgeInsets.all(20),
                     itemCount: _rides.length,
@@ -1623,10 +2000,14 @@ class _RidesTabState extends State<RidesTab> {
     );
   }
 
+  // ... (Behold _buildRideCard præcis som den var i din gamle kode) ...
   Widget _buildRideCard(Map<String, dynamic> ride, Color primaryColor) {
     final depTime = DateTime.parse(ride['departure_time']).toLocal();
     final driver = ride['profiles'];
     final accentColor = const Color(0xFF6366F1);
+
+    // Tjek om det er ladies only
+    final bool isLadiesOnly = ride['ladies_only'] ?? false;
 
     return GestureDetector(
       onTap: () => Navigator.push(
@@ -1645,13 +2026,49 @@ class _RidesTabState extends State<RidesTab> {
               offset: const Offset(0, 4),
             ),
           ],
-          border: Border.all(color: Colors.grey.shade100),
+          // --- NYT: Lyserød kant hvis Ladies Only ---
+          border: isLadiesOnly
+              ? Border.all(color: Colors.pink.shade200, width: 1.5)
+              : Border.all(color: Colors.grey.shade100),
         ),
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // --- NYT: LADIES ONLY SKILT ---
+              if (isLadiesOnly)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.pink.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.pink.shade200),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.female, size: 16, color: Colors.pink),
+                        const SizedBox(width: 4),
+                        const Text(
+                          "Ladies Only",
+                          style: TextStyle(
+                            color: Colors.pink,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              // -----------------------------
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -1674,6 +2091,7 @@ class _RidesTabState extends State<RidesTab> {
                 ],
               ),
               const SizedBox(height: 20),
+              // ... (Resten er uændret - Rute visning) ...
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

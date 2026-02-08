@@ -1,5 +1,6 @@
 import 'dart:convert';
-import 'dart:math'; // VIGTIGT: Til Random()
+import 'dart:math'; // Til SMS kode generering
+import 'dart:io'; // VIGTIGT: Til filhåndtering (File)
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
@@ -25,6 +26,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _bioController = TextEditingController();
+
+  // --- NYT: KØN STYRING ---
+  String? _selectedGender;
+  final List<String> _genderOptions = ['Mand', 'Kvinde', 'Andet'];
 
   // Variabel til at huske det oprindelige nummer for at tjekke for ændringer
   String _originalPhone = "";
@@ -64,18 +69,26 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       setState(() {
         _nameController.text = (data['full_name'] ?? "").toString();
 
-        // Vi gemmer både i controlleren og i _originalPhone
+        // Hent telefonnummer
         String phoneFromDb = (data['phone_number'] ?? "").toString();
         _phoneController.text = phoneFromDb;
         _originalPhone = phoneFromDb;
 
+        // Hent bio og avatar
         _bioController.text = (data['bio'] ?? "").toString();
         _avatarUrl = (data['avatar_url'] ?? "").toString();
 
-        // ROBUST TJEK: Er brugeren chauffør?
+        // --- NYT: HENT KØN ---
+        _selectedGender = data['gender'];
+        if (_selectedGender != null &&
+            !_genderOptions.contains(_selectedGender)) {
+          // Fallback hvis kønnet i databasen er noget mærkeligt
+          _selectedGender = null;
+        }
+
+        // Tjek om chauffør
         bool isDriverFlag = data['is_driver'] as bool? ?? false;
         bool hasCarDetails = data['car_details'] != null;
-
         _isDriver = isDriverFlag || hasCarDetails;
 
         if (data['car_details'] != null) {
@@ -97,6 +110,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               _yearController.text = (carData['year'] ?? "").toString();
               _colorController.text = (carData['color'] ?? "").toString();
             } else if (carData['details'] != null) {
+              // Gammel data struktur fallback
               String fullMake = (carData['make'] ?? "").toString();
               String details = (carData['details'] ?? "").toString();
 
@@ -144,16 +158,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final fileExt = imageFile.path.split('.').last;
       final fileName =
           '$userId-profile-${DateTime.now().millisecondsSinceEpoch}.$fileExt';
+      final file = File(imageFile.path); // Konverter til File objekt
 
-      final bytes = await imageFile.readAsBytes();
-
+      // Upload med File objekt (mere stabilt på mobil)
       await Supabase.instance.client.storage
           .from('avatars')
-          .uploadBinary(
+          .upload(
             fileName,
-            bytes,
-            fileOptions: FileOptions(contentType: imageFile.mimeType),
-          );
+            file,
+          ); // uploadBinary kan drille, .upload er bedre til File
 
       final imageUrl = Supabase.instance.client.storage
           .from('avatars')
@@ -227,9 +240,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
-  // --- OPDATERING AF PROFIL (MED SIKKERT NUMMERSKIFTE) ---
+  // --- OPDATERING AF PROFIL ---
   Future<void> _updateProfile() async {
     if (!_formKey.currentState!.validate()) return;
+
+    // Tjek om køn er valgt
+    if (_selectedGender == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Vælg venligst køn")));
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
@@ -256,26 +278,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final String newPhone = _phoneController.text.trim();
       final bool hasPhoneChanged = newPhone != _originalPhone;
 
-      // 1. Opdater alt det basale først (navn, bio, bil, etc.)
-      // Vi opdaterer IKKE phone_number her, hvis det er ændret.
+      // 1. Opdater alt det basale først
       final Map<String, dynamic> updates = {
         'full_name': _nameController.text,
         'bio': _bioController.text,
         'avatar_url': _avatarUrl,
+        'gender': _selectedGender, // <--- NYT: Gemmer køn
         'is_driver': _isDriver,
         'car_details': carJson,
         'license_plate': _isDriver ? _plateController.text : null,
         'updated_at': DateTime.now().toIso8601String(),
       };
 
-      // Hvis nummeret IKKE er ændret, gemmer vi det bare som normalt for en sikkerheds skyld
       if (!hasPhoneChanged) {
         updates['phone_number'] = newPhone;
-      } else {
-        // Hvis nummeret ER ændret, sætter vi status til 'ikke verificeret' i databasen midlertidigt,
-        // ELLER vi venter med at gemme nummeret til VerificationScreen.
-        // Strategi her: Vi gemmer IKKE det nye nummer i 'profiles' endnu.
-        // Det sker først i VerificationScreen efter succes.
       }
 
       await Supabase.instance.client
@@ -285,10 +301,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       // 2. Håndter Nummerskifte Logik
       if (hasPhoneChanged) {
-        // Generer kode
         final String code = (Random().nextInt(900000) + 100000).toString();
 
-        // Gem kode i DB
         await Supabase.instance.client.from('sms_verifications').insert({
           'user_id': user.id,
           'code': code,
@@ -297,7 +311,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               .toIso8601String(),
         });
 
-        // Send SMS til det NYE nummer
         final smsService = SmsService();
         await smsService.sendVerificationCode(newPhone, code);
 
@@ -308,19 +321,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ),
           );
 
-          // Send til VerificationScreen med det NYE nummer
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => VerificationScreen(
-                phoneNumber: newPhone,
-                email: _email, // <--- Brug _email variablen fra din state
-              ),
+              builder: (_) =>
+                  VerificationScreen(phoneNumber: newPhone, email: _email),
             ),
           );
         }
       } else {
-        // Hvis intet nummer-skifte, er vi færdige
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -443,6 +452,35 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       _phoneController,
                       Icons.phone,
                       isNumber: true,
+                    ),
+
+                    const SizedBox(height: 15),
+
+                    // --- NYT: KØN DROPDOWN ---
+                    DropdownButtonFormField<String>(
+                      value: _selectedGender,
+                      decoration: InputDecoration(
+                        labelText: "Køn",
+                        prefixIcon: const Icon(Icons.wc, color: Colors.grey),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                      items: _genderOptions.map((String gender) {
+                        return DropdownMenuItem<String>(
+                          value: gender,
+                          child: Text(gender),
+                        );
+                      }).toList(),
+                      onChanged: (String? newValue) {
+                        setState(() {
+                          _selectedGender = newValue;
+                        });
+                      },
+                      validator: (v) => v == null ? "Vælg venligst køn" : null,
                     ),
 
                     const SizedBox(height: 30),
