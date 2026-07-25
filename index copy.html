@@ -1,0 +1,2641 @@
+<!DOCTYPE html>
+<html lang="da" class="no-js">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Standardize. | Procesoptimering, systemopbygning og oplæring</title>
+
+<meta name="description" content="Vi omstrukturerer jeres spaghetti-regneark til robuste systemer – og træner jeres eget team i at drive dem videre uden os. Fast pris, fuld dokumentation, I ejer alt.">
+<meta name="author" content="Standardize Consulting">
+<meta name="theme-color" content="#FF4F00">
+
+<link rel="canonical" href="https://standardize.dk/">
+<link rel="alternate" hreflang="da" href="https://standardize.dk/">
+<link rel="alternate" hreflang="en" href="https://standardize.dk/en/">
+<link rel="alternate" hreflang="x-default" href="https://standardize.dk/">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Standardize.">
+<meta property="og:locale" content="da_DK">
+<meta property="og:locale:alternate" content="en_US">
+<meta property="og:url" content="https://standardize.dk/">
+<meta property="og:title" content="Standardize. | Procesoptimering, systemopbygning og oplæring">
+<meta property="og:description" content="Vi omstrukturerer jeres spaghetti-regneark til robuste systemer – og træner jeres eget team i at drive dem videre uden os.">
+<!-- og:image is still intentionally absent: no raster asset exists in the repo, and a
+     broken image reference previews worse than no image at all. Add a 1200x630 PNG at
+     /og.png and one <meta property="og:image" content="https://standardize.dk/og.png">
+     line here when you have one. -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Standardize. | Procesoptimering og systemopbygning">
+<meta name="twitter:description" content="Vi omstrukturerer jeres spaghetti-regneark til robuste systemer – og træner jeres eget team i at drive dem videre uden os.">
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23FF4F00' stroke='%231a1a1a' stroke-width='10'/%3E%3C/svg%3E">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="dns-prefetch" href="https://play.gumlet.io">
+
+<!-- Weights trimmed to the five actually used (Inter 400/500/700, Space Grotesk 500/700).
+     Each weight is a separate woff2 file, so unused weights are pure download cost.
+     The Material Symbols icon font is gone entirely — see the SVG sprite below. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&amp;family=Space+Grotesk:wght@500;700&amp;display=swap">
+
+<script>document.documentElement.className = 'js';</script>
+
+<style>
+/* =============================================================================
+   STANDARDIZE — design system
+   -----------------------------------------------------------------------------
+   Hand-authored. There is deliberately NO build step and NO Tailwind CDN.
+
+   Why: the CDN build shipped a ~400KB compiler that recompiled the stylesheet in
+   every visitor's browser before the page could paint, and the previous attempt to
+   replace it left a pre-compiled block that silently went stale — any class added
+   to the markup afterwards simply had no CSS. Both failure modes disappear if the
+   stylesheet is the source of truth and is edited by hand alongside the markup.
+
+   Layered in this order: tokens -> reset -> base -> layout -> components -> sections
+   -> motion -> responsive -> print. Add new rules to the section they belong to.
+   ============================================================================= */
+
+/* --- tokens --------------------------------------------------------------- */
+:root {
+  --ink:      #1a1a1a;
+  --paper:    #ffffff;
+  --wash:     #f4f4f4;
+  --orange:   #FF4F00;
+  --slate:    #64748b;
+  --muted:    #5c5f66;
+  --muted-lo: #8b8e95;
+  --hairline: #e3e3e3;
+
+  --rule: 2px solid var(--ink);
+  --pop: 8px 8px 0 var(--ink);
+  --pop-sm: 4px 4px 0 var(--ink);
+  --pop-hover: 4px 4px 0 var(--ink);
+
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --display: 'Space Grotesk', var(--font);
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+
+  --nav-h: 76px;
+  --wrap: 1240px;
+  --pad: clamp(1.25rem, 4vw, 2.5rem);
+  --sec-y: clamp(4rem, 9vw, 7.5rem);
+}
+
+/* --- reset ---------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+img, svg, canvas, iframe { display: block; max-width: 100%; }
+button, input, textarea, select { font: inherit; color: inherit; }
+button { background: none; border: 0; cursor: pointer; }
+ul, ol { list-style: none; padding: 0; }
+a { color: inherit; text-decoration: none; }
+summary::-webkit-details-marker { display: none; }
+
+/* --- base ----------------------------------------------------------------- */
+body {
+  font-family: var(--font);
+  background: var(--wash);
+  color: var(--ink);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv11", "ss01";
+  overflow-x: hidden;
+}
+::selection { background: var(--orange); color: #fff; }
+
+h1, h2, h3, h4 {
+  font-family: var(--display);
+  font-weight: 700;
+  line-height: 1.04;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+/* Capped at 5.25rem rather than 6.5rem: two lines at the larger size pushed the
+   primary call to action below the fold on a 900px-tall laptop viewport. */
+h1 { font-size: clamp(2.75rem, 7.5vw, 5.25rem); letter-spacing: -0.05em; }
+h2 { font-size: clamp(2rem, 5vw, 3.25rem); }
+h3 { font-size: clamp(1.125rem, 2vw, 1.375rem); letter-spacing: -0.02em; }
+p  { text-wrap: pretty; }
+
+/* Every animated readout uses lining, fixed-width digits so the numbers do not
+   visibly jitter as glyph widths change mid-count. */
+.tnum, .mono, input[type=number] { font-variant-numeric: tabular-nums; }
+
+.mono {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Restores the keyboard affordance. Mouse clicks stay ring-free. */
+:focus-visible {
+  outline: 3px solid var(--orange);
+  outline-offset: 3px;
+}
+.sec--dark :focus-visible, .sec--orange :focus-visible { outline-color: #fff; }
+
+.skip-link {
+  position: fixed; left: 0; top: 0; z-index: 200;
+  transform: translateY(-120%);
+  background: var(--ink); color: #fff;
+  padding: 14px 22px;
+  font-family: var(--display); font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.skip-link:focus { transform: none; }
+
+.vh {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* The fixed navbar would otherwise cover the heading of every anchor target. */
+[id] { scroll-margin-top: calc(var(--nav-h) + 1.5rem); }
+
+/* --- icons ---------------------------------------------------------------- */
+/* Inline SVG sprite. This replaces the Material Symbols webfont, which was a second
+   render-blocking stylesheet plus a large ligature font that cannot be meaningfully
+   subset by unicode-range — and which flashed raw words ("grid_view") before it
+   loaded. These cost zero requests and inherit currentColor. */
+.ico {
+  width: 1em; height: 1em;
+  fill: none; stroke: currentColor;
+  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+  flex: none;
+  vertical-align: -0.125em;
+}
+.ico--fill { fill: currentColor; stroke: none; }
+
+/* --- layout --------------------------------------------------------------- */
+.wrap { width: 100%; max-width: var(--wrap); margin-inline: auto; padding-inline: var(--pad); }
+.sec { padding-block: var(--sec-y); border-bottom: var(--rule); position: relative; }
+.sec--wash   { background: var(--wash); }
+.sec--paper  { background: var(--paper); }
+.sec--dark   { background: var(--ink); color: #fff; }
+.sec--orange { background: var(--orange); color: #fff; }
+.sec--tight  { padding-block: clamp(2.5rem, 5vw, 4rem); }
+
+.sec-head { max-width: 46rem; margin-bottom: clamp(2.5rem, 5vw, 4rem); }
+.sec-head--wide { max-width: 60rem; }
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 0.6875rem; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--orange); font-weight: 700;
+  margin-bottom: 1rem;
+  display: flex; align-items: center; gap: 0.6rem;
+}
+.eyebrow::before { content: ''; width: 28px; height: 2px; background: currentColor; flex: none; }
+.sec--dark .eyebrow, .sec--orange .eyebrow { color: #fff; }
+.lede { font-size: clamp(1rem, 1.5vw, 1.1875rem); color: var(--muted); margin-top: 1.25rem; max-width: 44rem; }
+.sec--dark .lede, .sec--orange .lede { color: rgba(255,255,255,0.78); }
+
+.grid { display: grid; gap: 1.5rem; }
+.grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+/* Hairline mesh: children sit on a black bed with 2px gaps, so the dividing lines
+   are the background showing through rather than 40 individual borders. */
+.mesh {
+  display: grid; gap: 2px;
+  background: var(--ink); border: var(--rule);
+}
+.mesh > * { background: var(--paper); }
+
+.flow > * + * { margin-top: 1rem; }
+.cluster { display: flex; flex-wrap: wrap; gap: 0.875rem; align-items: center; }
+
+/* --- buttons -------------------------------------------------------------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.6rem;
+  font-family: var(--display); font-weight: 700; font-size: 0.8125rem;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  padding: 0.9375rem 1.5rem;
+  border: var(--rule); background: var(--paper); color: var(--ink);
+  transition: background-color .18s ease, color .18s ease, border-color .18s ease,
+              transform .18s ease, box-shadow .18s ease;
+  text-align: center;
+}
+.btn .ico { font-size: 1.15em; }
+.btn:hover { background: var(--orange); border-color: var(--orange); color: #fff; }
+.btn--dark { background: var(--ink); color: #fff; }
+.btn--dark:hover { background: var(--orange); border-color: var(--orange); }
+.btn--orange { background: var(--orange); border-color: var(--orange); color: #fff; }
+.btn--orange:hover { background: var(--ink); border-color: var(--ink); }
+.btn--ghost { background: transparent; }
+.sec--dark .btn--ghost, .sec--orange .btn--ghost { border-color: #fff; color: #fff; }
+.btn--lift:hover { transform: translate(-3px, -3px); box-shadow: var(--pop-hover); }
+.btn--lg { font-size: 0.9375rem; padding: 1.125rem 2rem; }
+.btn--block { display: flex; width: 100%; }
+.btn[disabled] { opacity: .55; cursor: progress; }
+
+.link-arrow {
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  font-family: var(--display); font-weight: 700; font-size: 0.8125rem;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  border-bottom: 2px solid currentColor; padding-bottom: 2px;
+  color: var(--orange);
+}
+.link-arrow .ico { transition: transform .18s ease; }
+.link-arrow:hover .ico { transform: translateX(4px); }
+
+/* --- surfaces ------------------------------------------------------------- */
+.card { background: var(--paper); border: var(--rule); padding: clamp(1.5rem, 2.5vw, 2rem); }
+.card--pop { box-shadow: var(--pop); }
+.card--lift { transition: transform .2s ease, box-shadow .2s ease; }
+.card--lift:hover { transform: translate(-4px, -4px); box-shadow: var(--pop); }
+
+.tag {
+  display: inline-block;
+  font-family: var(--mono); font-size: 0.625rem;
+  letter-spacing: 0.16em; text-transform: uppercase; font-weight: 700;
+  background: var(--ink); color: #fff; padding: 0.3rem 0.6rem;
+}
+.tag--orange { background: var(--orange); }
+.tag--out { background: transparent; color: var(--ink); border: 2px solid var(--ink); }
+
+.iconbox {
+  width: 3rem; height: 3rem; flex: none;
+  display: grid; place-items: center;
+  border: var(--rule); background: var(--wash);
+  font-size: 1.375rem;
+}
+
+.grid-bg {
+  background-image: linear-gradient(var(--hairline) 1px, transparent 1px),
+                    linear-gradient(90deg, var(--hairline) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+.grid-bg--dark {
+  background-image: linear-gradient(#272727 1px, transparent 1px),
+                    linear-gradient(90deg, #272727 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+/* --- navigation ----------------------------------------------------------- */
+.nav {
+  position: fixed; inset: 0 0 auto; z-index: 90;
+  background: var(--paper); border-bottom: var(--rule);
+}
+.nav__bar {
+  height: var(--nav-h);
+  display: flex; align-items: center; justify-content: space-between; gap: 1.5rem;
+}
+.brand { display: inline-flex; align-items: center; gap: 0.5rem; font-family: var(--display); font-weight: 700; font-size: 1.375rem; letter-spacing: -0.04em; }
+.brand__mark { width: 1.125rem; height: 1.125rem; background: var(--orange); border: 1px solid var(--ink); flex: none; }
+.brand__dot { color: var(--orange); }
+
+.nav__links { display: flex; align-items: center; gap: 1.75rem; }
+.nav__link {
+  font-family: var(--display); font-weight: 500; font-size: 0.78125rem;
+  text-transform: uppercase; letter-spacing: 0.07em;
+  padding: 0.35rem 0; position: relative;
+  transition: color .18s ease;
+}
+.nav__link::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -2px; height: 2px;
+  background: var(--orange); transform: scaleX(0); transform-origin: left;
+  transition: transform .2s ease;
+}
+.nav__link:hover { color: var(--orange); }
+.nav__link:hover::after, .nav__link.is-active::after { transform: scaleX(1); }
+.nav__link.is-active { color: var(--orange); }
+
+.nav__toggle { display: none; width: 2.75rem; height: 2.75rem; place-items: center; border: var(--rule); font-size: 1.375rem; }
+.nav__panel { display: none; }
+
+/* --- hero ----------------------------------------------------------------- */
+.hero {
+  position: relative;
+  padding-top: calc(var(--nav-h) + clamp(2.25rem, 4.5vw, 3.5rem));
+  padding-bottom: clamp(2.5rem, 5vw, 4rem);
+  background: var(--wash);
+  overflow: hidden;
+}
+.hero__bg, .hero__canvas { position: absolute; inset: 0; z-index: 0; }
+.hero__canvas { width: 100%; height: 100%; opacity: 0.45; }
+.hero__inner { position: relative; z-index: 1; display: grid; gap: clamp(2rem, 4vw, 3.5rem); align-items: center; }
+/* 44rem, not 40: at 40rem the two hero buttons totalled 562px inside a 544px
+   content box and wrapped onto separate lines. */
+.hero__panel { background: var(--paper); border: var(--rule); box-shadow: var(--pop); padding: clamp(1.75rem, 3.5vw, 3rem); max-width: 44rem; }
+.hero__status {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  font-family: var(--display); font-weight: 700; font-size: 0.6875rem;
+  text-transform: uppercase; letter-spacing: 0.14em;
+  background: var(--ink); color: #fff; padding: 0.4rem 0.75rem; margin-bottom: 1.5rem;
+  transition: background-color .3s ease;
+}
+.hero__status.is-ok { background: var(--orange); }
+.hero__status .dot { width: 7px; height: 7px; background: var(--orange); flex: none; transition: background-color .3s ease; }
+.hero__status.is-ok .dot { background: #fff; }
+.hero h1 { margin-bottom: 1.5rem; }
+.hero h1 .accent { color: var(--orange); }
+.hero__lede { font-size: clamp(1.0625rem, 1.7vw, 1.25rem); color: var(--muted); max-width: 34rem; }
+.hero__proof { margin: 1.75rem 0; display: grid; gap: 0.625rem; }
+.hero__proof li { display: flex; gap: 0.625rem; align-items: flex-start; font-size: 0.9375rem; }
+.hero__proof .ico { color: var(--orange); margin-top: 0.28em; }
+.hero__cta { display: flex; flex-wrap: wrap; gap: 0.875rem; }
+.hero__micro { margin-top: 1.5rem; font-family: var(--mono); font-size: 0.6875rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted-lo); }
+
+/* --- marquee -------------------------------------------------------------- */
+.marquee {
+  background: var(--orange); color: #fff;
+  border-block: var(--rule); border-bottom-color: var(--ink);
+  overflow: hidden; padding-block: 0.75rem;
+  position: relative; z-index: 2;
+}
+.marquee__track {
+  display: flex; width: max-content; white-space: nowrap;
+  font-family: var(--display); font-weight: 700; font-size: 0.8125rem;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  animation: marquee 45s linear infinite;
+  will-change: transform;
+}
+/* Content is duplicated in the markup, hence -50%: exactly one copy scrolls past
+   before the transform resets, so the loop has no visible seam. */
+@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+/* --- stat strip ----------------------------------------------------------- */
+.stats { display: grid; gap: 2px; background: var(--ink); border-block: var(--rule); grid-template-columns: repeat(4, 1fr); }
+.stats > div { background: var(--paper); padding: clamp(1.25rem, 2.5vw, 1.75rem) var(--pad); }
+.stats dt { font-family: var(--mono); font-size: 0.625rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted-lo); margin-bottom: 0.4rem; }
+.stats dd { font-family: var(--display); font-weight: 700; font-size: clamp(1.25rem, 2.4vw, 1.75rem); letter-spacing: -0.03em; line-height: 1.1; }
+
+/* --- problem -------------------------------------------------------------- */
+.pain { display: grid; gap: 2px; background: var(--ink); border: var(--rule); grid-template-columns: repeat(3, 1fr); }
+.pain li { background: var(--paper); padding: clamp(1.5rem, 2.5vw, 2rem); display: flex; gap: 1rem; align-items: flex-start; }
+.pain .ico { color: var(--orange); font-size: 1.25rem; margin-top: 0.1em; }
+.pain p { font-size: 0.9375rem; color: var(--muted); }
+.pain strong { display: block; color: var(--ink); font-family: var(--display); font-weight: 700; font-size: 1rem; margin-bottom: 0.35rem; letter-spacing: -0.02em; }
+.verdict {
+  margin-top: 2.5rem; padding: clamp(1.5rem, 3vw, 2.25rem);
+  background: var(--ink); color: #fff;
+  display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: center; justify-content: space-between;
+}
+.verdict p { font-family: var(--display); font-weight: 700; font-size: clamp(1.125rem, 2.2vw, 1.625rem); letter-spacing: -0.03em; max-width: 34rem; line-height: 1.2; }
+.verdict .accent { color: var(--orange); }
+
+/* --- selectable cards (services + courses) -------------------------------- */
+/* These are real <button>s with aria-pressed. Previously they were <div onclick>,
+   which meant 19 of the page's controls could not be reached or operated by
+   keyboard at all and were announced to screen readers as plain text. */
+.pick {
+  display: block; width: 100%; text-align: left;
+  background: var(--paper); border: var(--rule); box-shadow: var(--pop-sm);
+  padding: 1.5rem;
+  transition: transform .18s ease, box-shadow .18s ease, background-color .18s ease, color .18s ease;
+}
+.pick:hover { transform: translate(-3px, -3px); box-shadow: 7px 7px 0 var(--ink); }
+.pick__top { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 1.25rem; }
+.pick__check { font-size: 1.375rem; color: var(--orange); opacity: 0; transition: opacity .18s ease; }
+/* A <span>, not an <h3>: a button's content model is phrasing content only, so a
+   heading inside one is invalid and lands in screen-reader heading navigation as a
+   control. Styled identically. */
+.pick__h {
+  display: block;
+  font-family: var(--display); font-weight: 700;
+  font-size: clamp(1.0625rem, 1.8vw, 1.25rem); line-height: 1.1;
+  letter-spacing: -0.025em; text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+.pick p { font-size: 0.8125rem; color: var(--muted); font-family: var(--mono); text-transform: none; letter-spacing: 0.01em; line-height: 1.55; }
+.pick[aria-pressed="true"] { background: var(--ink); color: #fff; }
+.pick[aria-pressed="true"] p { color: rgba(255,255,255,0.72); }
+.pick[aria-pressed="true"] .iconbox { background: var(--orange); border-color: var(--orange); color: #fff; }
+.pick[aria-pressed="true"] .pick__check { opacity: 1; }
+
+/* --- method --------------------------------------------------------------- */
+.step { padding: clamp(1.5rem, 2.5vw, 2rem); position: relative; overflow: hidden; }
+.step__n { font-family: var(--mono); font-size: 0.625rem; font-weight: 700; letter-spacing: 0.16em; color: var(--orange); margin-bottom: 1rem; }
+.step h3 { text-transform: uppercase; margin-bottom: 0.75rem; }
+.step p { font-size: 0.875rem; color: var(--muted); }
+.step__out { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px dashed #cfcfcf; font-family: var(--mono); font-size: 0.625rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted-lo); }
+.step__out b { color: var(--ink); font-weight: 700; }
+.step__ghost { position: absolute; right: -0.75rem; bottom: -1rem; font-size: 6rem; opacity: 0.05; pointer-events: none; }
+
+/* --- simulator ------------------------------------------------------------ */
+.sim { display: grid; gap: 2rem; grid-template-columns: 2fr 1fr; align-items: stretch; }
+.sim__stage { position: relative; background: var(--paper); border: 2px solid #fff; box-shadow: var(--pop); height: clamp(340px, 52vh, 500px); overflow: hidden; }
+.sim__canvas { width: 100%; height: 100%; }
+.sim__readout, .sim__legend {
+  position: absolute; z-index: 2; background: var(--paper); border: var(--rule);
+  font-family: var(--mono); font-size: 0.6875rem; letter-spacing: 0.05em; color: var(--ink);
+}
+.sim__readout { top: 1rem; left: 1rem; padding: 0.875rem; box-shadow: var(--pop-sm); display: grid; gap: 0.4rem; min-width: 15rem; }
+.sim__readout div { display: flex; justify-content: space-between; gap: 1rem; }
+.sim__readout b { font-weight: 700; }
+.sim__legend { bottom: 1rem; right: 1rem; padding: 0.75rem; display: grid; gap: 0.4rem; }
+.sim__legend span { display: flex; align-items: center; gap: 0.5rem; }
+.sim__legend i { width: 10px; height: 10px; display: block; flex: none; }
+.sim__panel { background: var(--paper); color: var(--ink); border: 2px solid #fff; padding: clamp(1.5rem, 3vw, 2rem); display: flex; flex-direction: column; }
+.sim__eff { font-family: var(--display); font-weight: 700; font-size: clamp(2.5rem, 5vw, 3.25rem); letter-spacing: -0.04em; line-height: 1; color: var(--muted-lo); transition: color .3s ease; }
+.sim__eff.is-good { color: var(--orange); }
+.sim__modes { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 1.25rem; }
+.sim__modes .btn { padding: 0.8125rem 0.75rem; font-size: 0.75rem; }
+.sim__modes .btn[aria-pressed="true"] { background: var(--orange); border-color: var(--orange); color: #fff; }
+.sim__modes .btn[aria-pressed="false"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+.sim__modes .btn[aria-pressed="false"]:hover { background: var(--orange); border-color: var(--orange); }
+
+/* --- proof / quotes ------------------------------------------------------- */
+.quote { position: relative; padding: clamp(1.5rem, 3vw, 2rem); }
+.quote__mark { font-size: 2rem; color: var(--orange); margin-bottom: 0.75rem; }
+.quote p { font-family: var(--display); font-weight: 700; font-size: clamp(1.0625rem, 1.9vw, 1.3125rem); letter-spacing: -0.025em; line-height: 1.3; margin-bottom: 1.5rem; }
+.quote footer { display: flex; align-items: center; gap: 0.75rem; padding-top: 1rem; border-top: 2px solid rgba(0,0,0,0.1); }
+.quote cite { font-style: normal; font-weight: 700; font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.02em; display: block; }
+.quote .org { font-family: var(--mono); font-size: 0.625rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted-lo); }
+.quote--dark { background: var(--ink); color: #fff; border: 2px solid #fff; box-shadow: 8px 8px 0 #fff; }
+.quote--dark footer { border-top-color: rgba(255,255,255,0.2); }
+
+/* --- calculator ----------------------------------------------------------- */
+.calc { display: grid; gap: clamp(2rem, 4vw, 3.5rem); grid-template-columns: 1fr 1fr; align-items: center; }
+.field { display: block; }
+.field__row { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin-bottom: 0.625rem; }
+.field__label { font-family: var(--display); font-weight: 700; font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.field__val { font-family: var(--display); font-weight: 700; font-size: 1.125rem; color: var(--orange); }
+
+input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; background: transparent; margin: 0.75rem 0; }
+input[type=range]::-webkit-slider-runnable-track { height: 4px; background: var(--ink); }
+input[type=range]::-moz-range-track { height: 4px; background: var(--ink); }
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 26px; height: 26px; margin-top: -11px;
+  background: var(--orange); border: 2px solid var(--ink); cursor: pointer;
+  transition: transform .12s ease;
+}
+input[type=range]::-moz-range-thumb {
+  width: 22px; height: 22px; border-radius: 0;
+  background: var(--orange); border: 2px solid var(--ink); cursor: pointer;
+}
+input[type=range]:hover::-webkit-slider-thumb { transform: scale(1.12); }
+
+.readout { background: var(--wash); border: var(--rule); box-shadow: var(--pop); padding: clamp(1.75rem, 3.5vw, 2.5rem); position: relative; }
+.readout__fig { position: absolute; top: 1rem; left: 1rem; font-family: var(--mono); font-size: 0.625rem; letter-spacing: 0.12em; color: var(--muted-lo); }
+.readout__big { font-family: var(--display); font-weight: 700; font-size: clamp(2.5rem, 6.5vw, 4.25rem); letter-spacing: -0.045em; line-height: 1; }
+.readout__big .cur { color: var(--orange); font-size: 0.42em; letter-spacing: 0.02em; display: block; margin-bottom: 0.35rem; }
+.readout__mid { font-family: var(--display); font-weight: 700; font-size: clamp(1.5rem, 3vw, 2.25rem); letter-spacing: -0.03em; }
+.readout__k { font-family: var(--mono); font-size: 0.625rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted-lo); margin-bottom: 0.5rem; }
+.readout hr { border: 0; border-top: 2px solid rgba(0,0,0,0.12); margin: 1.75rem 0; }
+.readout__note { margin-top: 1.75rem; padding-top: 1.25rem; border-top: var(--rule); font-size: 0.8125rem; color: var(--muted); }
+
+/* --- pricing -------------------------------------------------------------- */
+.plan { display: flex; flex-direction: column; background: var(--paper); border: var(--rule); padding: clamp(1.75rem, 3vw, 2.25rem); position: relative; }
+.plan--feature { background: var(--ink); color: #fff; box-shadow: var(--pop); }
+.plan--feature .plan__price, .plan--feature h3 { color: #fff; }
+.plan--feature li { color: rgba(255,255,255,0.82); }
+.plan__flag { position: absolute; top: -0.85rem; left: clamp(1.75rem, 3vw, 2.25rem); }
+.plan__n { font-family: var(--mono); font-size: 0.625rem; letter-spacing: 0.16em; color: var(--orange); font-weight: 700; margin-bottom: 0.875rem; }
+.plan h3 { font-size: clamp(1.375rem, 2.4vw, 1.75rem); text-transform: uppercase; margin-bottom: 0.625rem; }
+.plan__price { font-family: var(--display); font-weight: 700; font-size: 1.0625rem; color: var(--orange); margin-bottom: 1.25rem; }
+.plan__desc { font-size: 0.9375rem; color: var(--muted); margin-bottom: 1.5rem; }
+.plan--feature .plan__desc { color: rgba(255,255,255,0.75); }
+.plan ul { display: grid; gap: 0.75rem; margin-bottom: 2rem; font-size: 0.875rem; color: var(--muted); }
+.plan li { display: flex; gap: 0.625rem; align-items: flex-start; }
+.plan li .ico { color: var(--orange); margin-top: 0.24em; font-size: 1rem; }
+.plan .btn { margin-top: auto; }
+.plan__foot { margin-top: 2.5rem; text-align: center; font-size: 0.9375rem; color: var(--muted); }
+
+/* --- courses -------------------------------------------------------------- */
+.track { padding: clamp(1.5rem, 2.5vw, 2rem); }
+.track__head { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; }
+.track__head .ico { color: var(--orange); font-size: 1.625rem; }
+.track__head h3 { text-transform: uppercase; }
+.course { display: flex; align-items: stretch; border: 1px solid var(--hairline); background: var(--paper); }
+.course + .course { margin-top: 0.75rem; }
+.course__tick {
+  width: 3.25rem; flex: none;
+  display: grid; place-items: center;
+  border-right: var(--rule); background: var(--wash);
+  font-size: 1.375rem;
+  transition: background-color .18s ease, color .18s ease;
+}
+/* A ghosted check rather than opacity:0. Fully hidden, the control was an empty grey
+   block with no indication it could be clicked at all. */
+.course__tick .ico { opacity: 0.22; transition: opacity .15s ease; }
+.course__tick:hover { background: var(--orange); color: #fff; }
+.course__tick:hover .ico { opacity: 0.55; }
+.course__tick[aria-pressed="true"] { background: var(--orange); color: #fff; }
+.course__tick[aria-pressed="true"] .ico { opacity: 1; }
+.course__open { flex: 1; padding: 0.9375rem 1rem; text-align: left; display: block; transition: background-color .18s ease; }
+.course__open:hover { background: var(--wash); }
+.course__title { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+.course__title b { font-size: 1rem; font-weight: 700; }
+.course__lang { font-family: var(--mono); font-size: 0.625rem; letter-spacing: 0.1em; color: var(--muted-lo); flex: none; }
+.course__code { font-family: var(--mono); font-size: 0.625rem; letter-spacing: 0.06em; color: var(--muted-lo); margin-top: 0.2rem; }
+
+.planbar {
+  margin-top: 2rem; background: var(--ink); color: #fff;
+  padding: clamp(1.5rem, 3vw, 2rem);
+  display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: center; justify-content: space-between;
+}
+.planbar__n { font-family: var(--display); font-weight: 700; font-size: 1.25rem; letter-spacing: -0.02em; }
+.planbar__n .accent { color: var(--orange); }
+.planbar p { font-size: 0.875rem; color: rgba(255,255,255,0.7); margin-top: 0.35rem; max-width: 34rem; }
+
+/* --- modal ---------------------------------------------------------------- */
+.modal { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; padding: 1rem; background: rgba(0,0,0,0.62); backdrop-filter: blur(3px); }
+.modal[hidden] { display: none; }
+.modal__box { width: 100%; max-width: 52rem; background: var(--paper); border: var(--rule); box-shadow: var(--pop); max-height: 90vh; overflow: auto; }
+.modal__head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; background: var(--ink); color: #fff; padding: 1rem 1.25rem; position: sticky; top: 0; }
+.modal__head h2 { font-size: 1.125rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.modal__close { font-size: 1.5rem; color: #fff; display: grid; place-items: center; width: 2rem; height: 2rem; }
+.modal__close:hover { color: var(--orange); }
+.modal__body { padding: 1.5rem; }
+.modal__desc { font-family: var(--mono); font-size: 0.8125rem; text-transform: none; letter-spacing: 0.01em; color: var(--muted); line-height: 1.6; margin-bottom: 1.5rem; }
+.modal__video { aspect-ratio: 16 / 9; background: #000; border: var(--rule); }
+.modal__video iframe { width: 100%; height: 100%; border: 0; }
+
+/* --- faq ------------------------------------------------------------------ */
+.faq { max-width: 52rem; border-top: var(--rule); }
+.faq details { border-bottom: var(--rule); }
+.faq summary {
+  display: flex; justify-content: space-between; align-items: center; gap: 1.5rem;
+  padding: 1.375rem 0; cursor: pointer; list-style: none;
+  font-family: var(--display); font-weight: 700; font-size: clamp(1rem, 1.7vw, 1.1875rem);
+  letter-spacing: -0.02em;
+}
+.faq summary:hover { color: var(--orange); }
+.faq summary .ico { color: var(--orange); font-size: 1.25rem; transition: transform .2s ease; }
+.faq details[open] summary .ico { transform: rotate(45deg); }
+.faq__a { padding: 0 0 1.5rem; color: var(--muted); max-width: 44rem; }
+
+/* --- contact -------------------------------------------------------------- */
+.contact { display: grid; gap: clamp(2rem, 4vw, 3.5rem); grid-template-columns: 1fr 1.25fr; align-items: start; }
+.contact__aside .ico { color: var(--orange); }
+.direct { display: grid; gap: 1rem; margin-top: 2rem; }
+.direct a { display: flex; align-items: center; gap: 0.875rem; border: var(--rule); background: var(--paper); padding: 1rem 1.125rem; transition: background-color .18s ease, color .18s ease; }
+.direct a:hover { background: var(--ink); color: #fff; }
+.direct a:hover .ico, .direct a:hover .direct__k { color: inherit; }
+.direct .ico { font-size: 1.25rem; color: var(--orange); }
+.direct__k { font-family: var(--mono); font-size: 0.5625rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted-lo); display: block; }
+.direct__v { font-family: var(--display); font-weight: 700; font-size: 1rem; letter-spacing: -0.01em; }
+.assure { display: grid; gap: 0.875rem; margin-top: 2rem; padding-top: 1.75rem; border-top: 2px solid var(--hairline); }
+.assure li { display: flex; gap: 0.75rem; align-items: flex-start; font-size: 0.875rem; color: var(--muted); }
+.assure .ico { color: var(--orange); margin-top: 0.18em; }
+
+.form { display: grid; gap: 1.25rem; }
+.form label { display: block; font-family: var(--display); font-weight: 700; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.5rem; }
+.form .opt { color: var(--muted-lo); font-weight: 500; }
+.form input, .form textarea, .form select {
+  width: 100%; padding: 0.875rem 1rem;
+  background: var(--wash); border: var(--rule); color: var(--ink);
+  transition: border-color .18s ease, background-color .18s ease;
+}
+.form input:hover, .form textarea:hover, .form select:hover { background: #ededed; }
+.form textarea { min-height: 8rem; resize: vertical; }
+.form ::placeholder { color: var(--muted-lo); }
+.form__two { display: grid; gap: 1.25rem; grid-template-columns: 1fr 1fr; }
+.form__err { font-size: 0.8125rem; color: #b3200a; font-weight: 500; min-height: 0; }
+.form input[aria-invalid="true"], .form textarea[aria-invalid="true"] { border-color: #b3200a; }
+.form__consent { font-size: 0.75rem; color: var(--muted-lo); line-height: 1.5; }
+.form__status { padding: 1rem 1.125rem; border: var(--rule); font-size: 0.875rem; font-weight: 500; }
+.form__status[hidden] { display: none; }
+.form__status--ok { background: var(--ink); color: #fff; }
+.form__status--ok b { color: var(--orange); }
+.form__status--bad { background: #fff2ef; border-color: #b3200a; color: #8a1907; }
+
+/* --- footer --------------------------------------------------------------- */
+.foot { background: var(--ink); color: #fff; border-top: 4px solid var(--orange); padding-block: clamp(2.5rem, 5vw, 4rem); }
+.foot__top { display: grid; gap: 2rem; grid-template-columns: 1.5fr 1fr 1fr; padding-bottom: 2.5rem; border-bottom: 1px solid #333; }
+.foot__blurb { color: rgba(255,255,255,0.6); font-size: 0.875rem; max-width: 22rem; margin-top: 1rem; }
+.foot h2 { font-size: 0.6875rem; font-family: var(--mono); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted-lo); margin-bottom: 1rem; }
+.foot ul { display: grid; gap: 0.125rem; font-size: 0.875rem; }
+/* Padded to a 33px hit area. As bare inline links these were 17px tall, well under
+   the ~32px minimum a thumb can hit reliably. */
+.foot li a { display: inline-block; padding: 0.5rem 0; }
+.foot a:hover { color: var(--orange); }
+.foot__bot { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; align-items: center; padding-top: 1.75rem; font-family: var(--mono); font-size: 0.625rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted-lo); }
+
+/* --- sticky mobile CTA ---------------------------------------------------- */
+.dock { display: none; }
+
+/* --- motion --------------------------------------------------------------- */
+.js .reveal { opacity: 0; transform: translateY(18px); }
+.js .reveal.is-in { opacity: 1; transform: none; transition: opacity .55s ease, transform .55s cubic-bezier(.2,.7,.3,1); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  html { scroll-behavior: auto !important; }
+  /* A 45s infinite marquee is precisely what this setting exists to stop. */
+  .marquee__track { animation: none !important; transform: none !important; }
+  .js .reveal { opacity: 1 !important; transform: none !important; }
+}
+
+/* --- responsive ----------------------------------------------------------- */
+@media (max-width: 1024px) {
+  .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sim { grid-template-columns: 1fr; }
+  .calc, .contact { grid-template-columns: 1fr; }
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .pain { grid-template-columns: repeat(2, 1fr); }
+  .foot__top { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 860px) {
+  :root { --nav-h: 68px; }
+
+  .nav__links { display: none; }
+  .nav__cta { display: none; }
+  .nav__toggle { display: grid; }
+
+  /* Below 860px the page previously had NO navigation at all: the link row was
+     hidden and nothing replaced it, so the only way to reach any section on a
+     phone was to scroll the entire page. */
+  .nav__panel {
+    display: block; border-top: var(--rule);
+    max-height: calc(100dvh - var(--nav-h)); overflow-y: auto;
+    padding: 1.25rem var(--pad) 1.75rem;
+    background: var(--paper);
+  }
+  .nav__panel[hidden] { display: none; }
+  .nav__panel a.nav__link { display: block; font-size: 1rem; padding: 0.75rem 0; border-bottom: 1px solid var(--hairline); }
+  .nav__panel a.nav__link::after { display: none; }
+  .nav__panel .btn { margin-top: 1.25rem; width: 100%; }
+
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  .pain { grid-template-columns: 1fr; }
+  .form__two { grid-template-columns: 1fr; }
+  .hero__panel { box-shadow: var(--pop-sm); }
+  .verdict, .planbar { flex-direction: column; align-items: flex-start; }
+  .quote--dark { box-shadow: 4px 4px 0 #fff; }
+  .card--pop, .readout, .plan--feature { box-shadow: var(--pop-sm); }
+  .sim__readout { min-width: 0; left: 0.75rem; top: 0.75rem; padding: 0.625rem; font-size: 0.625rem; }
+  .sim__legend { right: 0.75rem; bottom: 0.75rem; padding: 0.5rem; font-size: 0.5625rem; }
+
+  /* A persistent primary action. On a phone the nav CTA is behind a menu tap,
+     and the contact form is the full length of the page away. */
+  .dock {
+    display: flex; gap: 0.625rem;
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 80;
+    padding: 0.625rem var(--pad) calc(0.625rem + env(safe-area-inset-bottom));
+    background: var(--paper); border-top: var(--rule);
+    transform: translateY(120%); transition: transform .28s ease;
+  }
+  .dock.is-up { transform: none; }
+  .dock .btn { flex: 1; padding: 0.8125rem 0.5rem; font-size: 0.75rem; }
+  body { padding-bottom: 0; }
+  .foot { padding-bottom: 5.5rem; }
+}
+
+@media (max-width: 520px) {
+  .stats { grid-template-columns: 1fr; }
+  .foot__top { grid-template-columns: 1fr; }
+  .hero__cta .btn { width: 100%; }
+  /* "Book gratis gennemgang" wrapped to two lines inside the button at the default
+     large size once the panel narrowed to a phone. */
+  .btn--lg { font-size: 0.8125rem; letter-spacing: 0.05em; padding: 1rem 1.125rem; }
+}
+
+/* --- print ---------------------------------------------------------------- */
+/* The export renders a one-page A4 project plan from the visitor's own selections. */
+@media print {
+  @page { size: A4 portrait; margin: 0; }
+  html, body { height: 100%; overflow: hidden !important; background: #fff; }
+  body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  #app, .dock, .skip-link { display: none !important; }
+  #report {
+    display: flex !important; flex-direction: column;
+    width: 100%; height: 100vh; padding: 18px 34px; zoom: 0.85;
+  }
+}
+
+#report { display: none; }
+#report h2 { font-size: 1.125rem; text-transform: uppercase; background: #000; color: #fff; display: inline-block; padding: 0.1rem 0.5rem; margin-bottom: 0.35rem; }
+#report .rep__head { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 4px solid #000; padding-bottom: 0.5rem; margin-bottom: 1rem; }
+#report .rep__logo { font-family: var(--display); font-weight: 700; font-size: 2.75rem; letter-spacing: -0.045em; line-height: 1; display: flex; align-items: center; gap: 0.6rem; }
+#report .rep__logo i { width: 1.75rem; height: 1.75rem; background: var(--orange); border: 2px solid #000; display: block; }
+#report .rep__sub { font-family: var(--mono); font-size: 0.6875rem; letter-spacing: 0.14em; text-transform: uppercase; margin-top: 0.35rem; }
+#report .rep__body { display: flex; flex-direction: column; gap: 0.75rem; height: calc(100% - 108px); }
+#report .rep__block { flex: 1; min-height: 0; overflow: hidden; border-bottom: 2px dashed #ccc; padding-bottom: 0.5rem; }
+#report .rep__block:last-child { border-bottom: 0; }
+#report .rep__note { font-size: 0.75rem; color: #555; margin-bottom: 0.5rem; }
+#report ul { display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem 1.5rem; font-family: var(--mono); font-size: 0.6875rem; }
+#report li { break-inside: avoid; border-bottom: 1px solid #eee; padding-bottom: 0.25rem; }
+#report .rep__kpi { border: 2px solid #000; background: #fafafa; padding: 1rem; display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
+#report .rep__big { font-family: var(--display); font-weight: 700; font-size: 2.5rem; letter-spacing: -0.04em; }
+#report .rep__big .cur { color: var(--orange); }
+#report .rep__mid { font-family: var(--display); font-weight: 700; font-size: 1.5rem; }
+#report .rep__k { font-family: var(--mono); font-size: 0.625rem; letter-spacing: 0.1em; text-transform: uppercase; color: #666; }
+#report .rep__foot { text-align: center; font-family: var(--mono); font-size: 0.5625rem; letter-spacing: 0.14em; color: #999; margin-top: 0.5rem; }
+</style>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "ProfessionalService",
+      "@id": "https://standardize.dk/#org",
+      "name": "Standardize",
+      "legalName": "Standardize Consulting",
+      "url": "https://standardize.dk/",
+      "description": "Procesoptimering og systemopbygning: vi omdanner rodede regneark til robuste systemer og træner personalet i at bruge dem.",
+      "email": "ask@standardize.dk",
+      "telephone": "+4526477774",
+      "inLanguage": "da",
+      "knowsLanguage": ["da", "en"],
+      "areaServed": { "@type": "Country", "name": "Denmark" },
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "contactType": "sales",
+        "email": "ask@standardize.dk",
+        "telephone": "+4526477774",
+        "availableLanguage": ["Danish", "English"]
+      },
+      "serviceType": [
+        "Procesoptimering",
+        "Systemopbygning",
+        "Excel- og dataautomatisering",
+        "Lagersimulering",
+        "Oplæring og kompetenceudvikling"
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://standardize.dk/#site",
+      "url": "https://standardize.dk/",
+      "name": "Standardize.",
+      "inLanguage": "da",
+      "publisher": { "@id": "https://standardize.dk/#org" }
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://standardize.dk/#faq",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Hvad koster et forløb?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Det afhænger af omfanget. Vi starter altid med en gratis gennemgang af den proces eller fil, der koster jer mest tid. Derefter får I et fast tilbud på en afgrænset leverance, så I ved præcis hvad I betaler for, inden vi går i gang." }
+        },
+        {
+          "@type": "Question",
+          "name": "Hvor lang tid tager det?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Vi arbejder i afgrænsede forløb frem for åbne engagementer. I får en konkret tidsplan sammen med tilbuddet, så I ved hvornår løsningen står klar, og hvornår jeres folk skal være til rådighed." }
+        },
+        {
+          "@type": "Question",
+          "name": "Hvad sker der, hvis I stopper, og filen går i stykker?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Det er den bekymring, hele vores metode er bygget op om. Alt hvad vi leverer, følges af dokumentation, og løsningen bygges i tæt samarbejde med de medarbejdere, der skal bruge den. Målet er, at I kan drive systemet videre uden os." }
+        },
+        {
+          "@type": "Question",
+          "name": "Ejer vi det, I bygger?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Ja. Kode, formler, datamodeller og dokumentation tilhører jer. Der er ingen løbende licens og ingen platform, I bindes til." }
+        },
+        {
+          "@type": "Question",
+          "name": "Kan I arbejde i vores IT-miljø?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Vi bygger i de værktøjer, I allerede har: Excel, Power Query, Power BI, Power Automate, SQL, SAP og VBA. Det holder IT-godkendelsen enkel og betyder, at jeres folk arbejder videre i noget, de kender." }
+        },
+        {
+          "@type": "Question",
+          "name": "Er oplæring nødvendig, hvis I bygger systemet?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Nej, men det er der, effekten holder. Et system, ingen internt forstår, er blot en ny afhængighed. Derfor er oplæring en del af metoden og ikke et tilkøb." }
+        },
+        {
+          "@type": "Question",
+          "name": "Underskriver I en fortrolighedsaftale?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Ja. Vi arbejder rutinemæssigt med drifts- og økonomidata og underskriver gerne jeres NDA, inden vi ser noget som helst." }
+        },
+        {
+          "@type": "Question",
+          "name": "Foregår det på dansk eller engelsk?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Begge dele. Alle kursusmoduler og al dokumentation leveres på dansk eller engelsk." }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+
+<body>
+
+<a class="skip-link" href="#main">Spring til indhold</a>
+
+<!-- Icon sprite. Hidden from layout and from assistive tech; referenced by <use>. -->
+<svg width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute">
+  <symbol id="i-check" viewBox="0 0 24 24"><polyline points="4 12.5 9.5 18 20 6.5"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="M4 12h15M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v15M6 13l6 6 6-6"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14"/><polyline points="3 6.5 12 13 21 6.5"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M6 3h4l2 5-2.5 1.5a12 12 0 0 0 5 5L16 12l5 2v4a2 2 0 0 1-2.2 2A17 17 0 0 1 4 5.2 2 2 0 0 1 6 3z"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><polygon points="13 2 4 14 11 14 10 22 20 9 13 9"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><polyline points="8 6 2 12 8 18"/><polyline points="16 6 22 12 16 18"/></symbol>
+  <symbol id="i-sync" viewBox="0 0 24 24"><path d="M3.6 12A8.4 8.4 0 0 1 18 6"/><polyline points="18 2 18 6.4 13.6 6.4"/><path d="M20.4 12A8.4 8.4 0 0 1 6 18"/><polyline points="6 22 6 17.6 10.4 17.6"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><polyline points="3 3 3 20 21 20"/><polyline points="6.5 16 10.5 10 14 12.8 19.5 5.5"/></symbol>
+  <symbol id="i-warehouse" viewBox="0 0 24 24"><path d="M3 21V9l9-5 9 5v12"/><path d="M8.5 21v-7.5h7V21"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="M3 7.2l9-4.2 9 4.2v9.6l-9 4.2-9-4.2z"/><polyline points="3 7.2 12 11.4 21 7.2"/><line x1="12" y1="11.4" x2="12" y2="21"/></symbol>
+  <symbol id="i-flask" viewBox="0 0 24 24"><path d="M9.5 2.5v6.2L4.6 18.6A2 2 0 0 0 6.4 21.5h11.2a2 2 0 0 0 1.8-2.9L14.5 8.7V2.5"/><line x1="8.5" y1="2.5" x2="15.5" y2="2.5"/><line x1="7.1" y1="15" x2="16.9" y2="15"/></symbol>
+  <symbol id="i-terminal" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16"/><polyline points="6 9.5 9.2 12 6 14.5"/><line x1="12" y1="14.8" x2="17" y2="14.8"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M12 2.5a6.6 6.6 0 0 0-3.8 12v3h7.6v-3A6.6 6.6 0 0 0 12 2.5z"/><line x1="9.6" y1="21" x2="14.4" y2="21"/></symbol>
+  <symbol id="i-transform" viewBox="0 0 24 24"><polyline points="2.5 8 17 8"/><polyline points="13 4 17 8 13 12"/><polyline points="21.5 16 7 16"/><polyline points="11 12 7 16 11 20"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2.5l8 3.3v5.6c0 4.8-3.3 9-8 10.1-4.7-1.1-8-5.3-8-10.1V5.8z"/><polyline points="8.4 11.8 11 14.4 15.6 9.4"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.8"/><line x1="15.4" y1="15.4" x2="21" y2="21"/></symbol>
+  <symbol id="i-rocket" viewBox="0 0 24 24"><path d="M12 2.2s4.8 3.2 4.8 8.8c0 2.9-1.4 5.4-1.4 5.4H8.6S7.2 13.9 7.2 11c0-5.6 4.8-8.8 4.8-8.8z"/><circle cx="12" cy="9.6" r="1.9"/><path d="M8.8 18.4 6.4 21.8l3.4-1.2M15.2 18.4l2.4 3.4-3.4-1.2"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.6"/><path d="M2.6 20a6.4 6.4 0 0 1 12.8 0"/><path d="M16.2 5.2a3.6 3.6 0 0 1 0 6.6"/><path d="M17.6 14.4A6.4 6.4 0 0 1 21.4 20"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 6.4 12 12 16 14"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M13.8 2.8H7a2 2 0 0 0-2 2v14.4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><polyline points="13.8 2.8 13.8 8 19 8"/><line x1="8.4" y1="13" x2="15" y2="13"/><line x1="8.4" y1="17" x2="15" y2="17"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.2 1.9 20.6h20.2z"/><line x1="12" y1="9.6" x2="12" y2="14.2"/><line x1="12" y1="17.2" x2="12" y2="17.3"/></symbol>
+  <symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3.2"/><path d="M4 6v12c0 1.8 3.6 3.2 8 3.2s8-1.4 8-3.2V6"/><path d="M4 12c0 1.8 3.6 3.2 8 3.2s8-1.4 8-3.2"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12"/><polyline points="7 10.5 12 15.5 17 10.5"/><path d="M4 20h16"/></symbol>
+  <symbol id="i-quote" viewBox="0 0 24 24" class="ico--fill"><path d="M9.4 5.6C6.1 7.4 4.4 10 4.4 13.2c0 2.9 1.8 4.8 4.3 4.8 2.2 0 3.9-1.6 3.9-3.7 0-2.1-1.5-3.6-3.5-3.6-.4 0-.8.1-1.1.2.4-1.6 1.6-2.9 3.4-3.8zM20.4 5.6C17.1 7.4 15.4 10 15.4 13.2c0 2.9 1.8 4.8 4.3 4.8 2.2 0 3.9-1.6 3.9-3.7 0-2.1-1.5-3.6-3.5-3.6-.4 0-.8.1-1.1.2.4-1.6 1.6-2.9 3.4-3.8z"/></symbol>
+</svg>
+
+<div id="app">
+
+<!-- ==================== NAV ==================== -->
+<nav class="nav" aria-label="Primær">
+  <div class="wrap nav__bar">
+    <a class="brand" href="#top" aria-label="Standardize – til toppen">
+      <span class="brand__mark" aria-hidden="true"></span>
+      <span>Standardize<span class="brand__dot">.</span></span>
+    </a>
+
+    <div class="nav__links" id="navLinks">
+      <a class="nav__link" href="#problem">Udfordringen</a>
+      <a class="nav__link" href="#Competences">Ydelser</a>
+      <a class="nav__link" href="#framework">Metode</a>
+      <a class="nav__link" href="#roi">Besparelse</a>
+      <a class="nav__link" href="#priser">Forløb</a>
+      <a class="nav__link" href="#training">Kurser</a>
+      <a class="nav__link" href="#faq">FAQ</a>
+    </div>
+
+    <a class="btn btn--dark nav__cta" href="#contact">Book gratis gennemgang</a>
+
+    <button class="nav__toggle" id="navToggle" type="button"
+            aria-expanded="false" aria-controls="navPanel" aria-label="Åbn menu">
+      <svg class="ico" aria-hidden="true"><use href="#i-menu"/></svg>
+    </button>
+  </div>
+
+  <div class="nav__panel" id="navPanel" hidden>
+    <a class="nav__link" href="#problem">Udfordringen</a>
+    <a class="nav__link" href="#Competences">Ydelser</a>
+    <a class="nav__link" href="#framework">Metode</a>
+    <a class="nav__link" href="#roi">Besparelse</a>
+    <a class="nav__link" href="#priser">Forløb</a>
+    <a class="nav__link" href="#training">Kurser</a>
+    <a class="nav__link" href="#faq">FAQ</a>
+    <a class="btn btn--dark" href="#contact">Book gratis gennemgang</a>
+  </div>
+</nav>
+
+<main id="main">
+
+<!-- ==================== HERO ==================== -->
+<header class="hero" id="top">
+  <div class="hero__bg grid-bg" aria-hidden="true"></div>
+  <canvas class="hero__canvas" id="heroCanvas" aria-hidden="true"></canvas>
+
+  <div class="wrap hero__inner">
+    <div class="hero__panel">
+      <p class="hero__status" id="heroStatus">
+        <span class="dot" aria-hidden="true"></span>
+        <span id="heroStatusText">Systemfejl: Ikke standardiseret</span>
+      </p>
+
+      <h1>Byg. Oplær.<br><span class="accent">Standardize.</span></h1>
+
+      <p class="hero__lede">
+        Vi omstrukturerer jeres &bdquo;spaghetti&ldquo;-regneark til robuste systemer &ndash;
+        og træner jeres eget team i at drive dem videre uden os.
+      </p>
+
+      <ul class="hero__proof">
+        <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span>Fast pris på en afgrænset leverance, aftalt før vi går i gang</span></li>
+        <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span>Fuld dokumentation følger med &ndash; ingen sort boks</span></li>
+        <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span>I ejer alt, vi bygger. Ingen licens, ingen platformsbinding</span></li>
+      </ul>
+
+      <div class="hero__cta">
+        <a class="btn btn--dark btn--lg btn--lift" href="#contact">
+          Book gratis gennemgang
+          <svg class="ico" aria-hidden="true"><use href="#i-right"/></svg>
+        </a>
+        <a class="btn btn--lg" href="#roi">Beregn besparelsen</a>
+      </div>
+
+      <p class="hero__micro">
+        Gratis og uforpligtende &middot; Vi vender tilbage inden for én arbejdsdag
+      </p>
+    </div>
+  </div>
+</header>
+
+<div class="marquee">
+  <div class="marquee__track">
+    <span>Genindvind FTE-kapacitet /// Filer der bare virker /// Færre hovedpiner /// Stop manuel indtastning /// Rapporter der opdateres med ét klik /// Nul-fejl formler /// Hurtigere mandage /// Pålidelige tal /// Slut med copy-pasting /// Mindre manuelt arbejde ///&nbsp;</span>
+    <!-- Presentational duplicate: it exists purely so the loop has no visible seam. -->
+    <span aria-hidden="true">Genindvind FTE-kapacitet /// Filer der bare virker /// Færre hovedpiner /// Stop manuel indtastning /// Rapporter der opdateres med ét klik /// Nul-fejl formler /// Hurtigere mandage /// Pålidelige tal /// Slut med copy-pasting /// Mindre manuelt arbejde ///&nbsp;</span>
+  </div>
+</div>
+
+<!-- ==================== AT A GLANCE ==================== -->
+<dl class="stats">
+  <div><dt>Kursusmoduler</dt><dd>11 moduler</dd></div>
+  <div><dt>Metode</dt><dd>4 faste trin</dd></div>
+  <div><dt>Leverance</dt><dd>Altid dokumenteret</dd></div>
+  <div><dt>Sprog</dt><dd>Dansk &amp; engelsk</dd></div>
+</dl>
+
+<!-- ==================== PROBLEM ==================== -->
+<section class="sec sec--paper" id="problem">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">Udfordringen</p>
+      <h2>Genkender I det?</h2>
+      <p class="lede">
+        Næsten alle organisationer, vi møder, har de samme fem-seks problemer.
+        De ser ud som Excel-problemer. Det er de sjældent.
+      </p>
+    </div>
+
+    <ul class="pain reveal">
+      <li>
+        <svg class="ico" aria-hidden="true"><use href="#i-clock"/></svg>
+        <p><strong>Rapporten tager to dage</strong>Og den skal laves helt forfra igen næste måned. Hver måned.</p>
+      </li>
+      <li>
+        <svg class="ico" aria-hidden="true"><use href="#i-users"/></svg>
+        <p><strong>Kun én person forstår filen</strong>Og vedkommende holder ferie i juli. Eller finder et andet job.</p>
+      </li>
+      <li>
+        <svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg>
+        <p><strong>Tallene passer ikke</strong>Ingen kan sige præcis hvorfor, så alle regner lidt efter i hånden.</p>
+      </li>
+      <li>
+        <svg class="ico" aria-hidden="true"><use href="#i-transform"/></svg>
+        <p><strong>Halvdelen er copy-paste</strong>Data flyttes manuelt mellem systemer, der aldrig blev talt sammen.</p>
+      </li>
+      <li>
+        <svg class="ico" aria-hidden="true"><use href="#i-code"/></svg>
+        <p><strong>Filen knækker</strong>Hver gang nogen tilføjer en kolonne, brydes tre formler et andet sted.</p>
+      </li>
+      <li>
+        <svg class="ico" aria-hidden="true"><use href="#i-doc"/></svg>
+        <p><strong>Der findes ingen dokumentation</strong>Det har der aldrig gjort. Logikken bor i hovedet på nogen.</p>
+      </li>
+    </ul>
+
+    <div class="verdict reveal">
+      <p>Det er ikke et regnearksproblem.<br>Det er et <span class="accent">strukturproblem</span> &ndash; og det kan løses én gang.</p>
+      <a class="btn btn--orange btn--lg" href="#framework">
+        Se vores metode
+        <svg class="ico" aria-hidden="true"><use href="#i-down"/></svg>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== SERVICES ==================== -->
+<section class="sec sec--wash" id="Competences">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">Ydelser</p>
+      <h2>Vores kernekompetencer</h2>
+      <p class="lede">
+        Vælg de kompetencer, I er interesserede i at få opbygget.
+        Jeres valg samles i en projektplan, I kan tage med videre internt.
+      </p>
+    </div>
+
+    <div class="grid grid-4" id="services-grid">
+      <!-- Rendered by JS. This static copy is the no-JS fallback and is replaced on load. -->
+      <button type="button" class="pick" aria-pressed="true">
+        <span class="pick__top">
+          <span class="iconbox" aria-hidden="true"><svg class="ico"><use href="#i-mail"/></svg></span>
+          <svg class="ico pick__check" aria-hidden="true"><use href="#i-check"/></svg>
+        </span>
+        <span class="pick__h">Planlagte e-mailrapporter</span>
+        <p>Automatiseret PDF- og Excel-generering samt distribution.</p>
+      </button>
+      <button type="button" class="pick" aria-pressed="true">
+        <span class="pick__top">
+          <span class="iconbox" aria-hidden="true"><svg class="ico"><use href="#i-bolt"/></svg></span>
+          <svg class="ico pick__check" aria-hidden="true"><use href="#i-check"/></svg>
+        </span>
+        <span class="pick__h">Power Automate</span>
+        <p>Logik på tværs af systemer: &bdquo;Hvis lager &lt; 100, bestil&ldquo;.</p>
+      </button>
+      <button type="button" class="pick" aria-pressed="true">
+        <span class="pick__top">
+          <span class="iconbox" aria-hidden="true"><svg class="ico"><use href="#i-code"/></svg></span>
+          <svg class="ico pick__check" aria-hidden="true"><use href="#i-check"/></svg>
+        </span>
+        <span class="pick__h">VBA-automatisering</span>
+        <p>Makro-refactoring til kompleks logik og filhåndtering.</p>
+      </button>
+      <button type="button" class="pick" aria-pressed="false">
+        <span class="pick__top">
+          <span class="iconbox" aria-hidden="true"><svg class="ico"><use href="#i-sync"/></svg></span>
+          <svg class="ico pick__check" aria-hidden="true"><use href="#i-check"/></svg>
+        </span>
+        <span class="pick__h">Auto-opdaterende systemer</span>
+        <p>Live SQL-, web- og CSV-forbindelser der opdaterer ved trigger.</p>
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== METHOD ==================== -->
+<section class="sec sec--paper" id="framework">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">Metode</p>
+      <h2>Vi fikser ikke filen. Vi fikser flowet.</h2>
+      <p class="lede">
+        Fire faste trin, designet til kontinuitet frem for afhængighed.
+        Hvert trin har en konkret leverance, I kan holde os op på.
+      </p>
+    </div>
+
+    <div class="mesh grid-4 reveal">
+      <div class="step">
+        <p class="step__n">TRIN_01</p>
+        <h3>Scoping</h3>
+        <p>Vi kortlægger jeres nuværende logik og finder redundans, brudte links og de manuelle flaskehalse, der koster mest tid.</p>
+        <p class="step__out">Leverance: <b>Prioriteret liste + fast tilbud</b></p>
+        <svg class="ico step__ghost" aria-hidden="true"><use href="#i-search"/></svg>
+      </div>
+      <div class="step">
+        <p class="step__n">TRIN_02</p>
+        <h3>Omstrukturering</h3>
+        <p>Logikken genopbygges fra bunden i professionelle datastrukturer &ndash; SQL, Power Query eller VBA &ndash; frem for lag på lag af formler.</p>
+        <p class="step__out">Leverance: <b>Fungerende system + dokumentation</b></p>
+        <svg class="ico step__ghost" aria-hidden="true"><use href="#i-transform"/></svg>
+      </div>
+      <div class="step">
+        <p class="step__n">TRIN_03</p>
+        <h3>Implementering</h3>
+        <p>Systemet rulles ud i jeres eget IT-miljø. Opdateringer med ét klik og automatiseret rapportering går i drift.</p>
+        <p class="step__out">Leverance: <b>Drift + overdragelse</b></p>
+        <svg class="ico step__ghost" aria-hidden="true"><use href="#i-rocket"/></svg>
+      </div>
+      <div class="step">
+        <p class="step__n">TRIN_04</p>
+        <h3>Oplæring</h3>
+        <p>Vi træner jeres medarbejdere i at mestre værktøjerne, så standarden overlever både ferier og fremtidige omorganiseringer.</p>
+        <p class="step__out">Leverance: <b>Kompetencen bliver hos jer</b></p>
+        <svg class="ico step__ghost" aria-hidden="true"><use href="#i-users"/></svg>
+      </div>
+    </div>
+
+    <div class="card card--pop reveal" style="margin-top:2.5rem;display:flex;gap:1.5rem;align-items:flex-start;flex-wrap:wrap">
+      <span class="iconbox" aria-hidden="true"><svg class="ico"><use href="#i-shield"/></svg></span>
+      <div style="flex:1;min-width:16rem">
+        <p class="mono" style="color:var(--muted-lo);margin-bottom:.4rem">Dokumentationsprotokol</p>
+        <h3 style="text-transform:uppercase;margin-bottom:.625rem">Bygget til kontinuitet</h3>
+        <p style="color:var(--muted);font-size:.9375rem;max-width:52rem">
+          Den største bekymring ved at bruge konsulenter er
+          <em>&bdquo;hvad sker der, hvis I stopper, og filen går i stykker?&ldquo;</em>
+          Derfor leveres enhver løsning med dokumentation og udarbejdes i tæt samarbejde
+          med de medarbejdere, der skal bruge den bagefter.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== PROOF ==================== -->
+<section class="sec sec--orange sec--tight">
+  <div class="wrap">
+    <div class="grid grid-2" style="align-items:stretch">
+      <div class="card card--pop quote reveal">
+        <svg class="ico quote__mark ico--fill" aria-hidden="true"><use href="#i-quote"/></svg>
+        <p>Vi eliminerede 24 timers manuel dataindtastning om ugen. Gevinsten var øjeblikkelig.</p>
+        <footer>
+          <span class="iconbox" style="width:2.25rem;height:2.25rem;font-size:1rem;background:var(--orange);border-color:var(--ink);color:#fff" aria-hidden="true"><svg class="ico"><use href="#i-chart"/></svg></span>
+          <span><cite>Controllingchef</cite><span class="org">Global logistik</span></span>
+        </footer>
+      </div>
+      <div class="quote quote--dark reveal">
+        <svg class="ico quote__mark ico--fill" aria-hidden="true"><use href="#i-quote"/></svg>
+        <p>De gav vores folk kompetencerne til aldrig at få brug for &bdquo;spaghetti&ldquo;-ark igen.</p>
+        <footer>
+          <span class="iconbox" style="width:2.25rem;height:2.25rem;font-size:1rem;background:#fff;border-color:#fff;color:var(--orange)" aria-hidden="true"><svg class="ico"><use href="#i-bulb"/></svg></span>
+          <span><cite style="color:#fff">Driftsdirektør</cite><span class="org">Retail supply chain</span></span>
+        </footer>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== ROI ==================== -->
+<section class="sec sec--paper" id="roi">
+  <div class="wrap">
+    <div class="calc">
+      <div>
+        <div class="sec-head" style="margin-bottom:2.5rem">
+          <p class="eyebrow">Årlig besparelse</p>
+          <h2>Hvad koster det manuelle arbejde jer?</h2>
+          <p class="lede">
+            Justér de tre tal, så de ligner jeres virkelighed.
+            Beregningen er bevidst konservativ: den tæller kun den tid, der bruges i dag.
+          </p>
+        </div>
+
+        <div class="flow" style="display:grid;gap:2rem">
+          <div class="field">
+            <div class="field__row">
+              <label class="field__label" for="hoursInput">Manuelle rapporteringstimer / uge</label>
+              <output class="field__val tnum" id="hoursDisplay" for="hoursInput" aria-live="polite">7 t</output>
+            </div>
+            <input id="hoursInput" type="range" min="1" max="37" value="7" step="1">
+          </div>
+
+          <div class="field">
+            <div class="field__row">
+              <label class="field__label" for="empInput">Medarbejdere involveret</label>
+              <output class="field__val tnum" id="empDisplay" for="empInput" aria-live="polite">2 personer</output>
+            </div>
+            <input id="empInput" type="range" min="1" max="25" value="2" step="1">
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="rateInput" style="display:block;margin-bottom:.625rem">Driftsomkostning pr. time (DKK)</label>
+            <input id="rateInput" type="number" min="150" max="2000" step="10" value="300" inputmode="numeric" style="width:100%;padding:.875rem 1rem;background:var(--wash);border:var(--rule);font-family:var(--mono);font-weight:700;font-size:1rem">
+          </div>
+        </div>
+      </div>
+
+      <div class="readout reveal">
+        <p class="readout__fig">FIG 1.0 // FORVENTET_EFFEKT</p>
+        <div style="text-align:center;padding-block:2rem">
+          <p class="readout__k">Årlig besparelse</p>
+          <p class="readout__big tnum" id="savingsResult"><span class="cur">DKK</span>218.400</p>
+          <hr>
+          <p class="readout__k">Timer frigivet om året</p>
+          <p class="readout__mid tnum" id="timeResult">728 t</p>
+        </div>
+        <p class="readout__note">
+          <strong>Sådan regnes der:</strong> timer &times; medarbejdere &times; 52 uger &times; timepris.
+          Tallet er den tid, der i dag bruges på manuelt arbejde &ndash; ikke et løfte om
+          fuld automatisering. Hvor stor en del der reelt kan frigives, afgør vi
+          sammen i den gratis gennemgang.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== SIMULATOR ==================== -->
+<section class="sec sec--dark grid-bg--dark" id="simulation">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">Simulator</p>
+      <h2 style="color:#fff">Plukkesimulator</h2>
+      <p class="lede">
+        Stop med at gætte, hvilket lagerlayout der er bedst. Skift mellem en tilfældig
+        placering og et datadrevet layout, og se forskellen på gangafstand pr. plukketur.
+      </p>
+    </div>
+
+    <div class="sim reveal">
+      <div class="sim__stage">
+        <div class="sim__readout">
+          <div><span>STRATEGI:</span><b style="color:var(--orange)" id="simStrategyDisplay">TILFÆLDIG</b></div>
+          <div><span>SNIT_AFSTAND:</span><b id="stat-distance">-- px</b></div>
+          <div><span>TURE:</span><b id="stat-trips">0</b></div>
+        </div>
+        <div class="sim__legend" aria-hidden="true">
+          <span><i style="background:var(--orange)"></i> Høj frekvens</span>
+          <span><i style="background:var(--slate)"></i> Mellem frekvens</span>
+          <span><i style="background:#d1d5db"></i> Lav frekvens</span>
+          <span><i style="background:var(--ink);border-radius:50%"></i> Plukker</span>
+        </div>
+        <canvas class="sim__canvas" id="warehouseCanvas" role="img"
+                aria-label="Animeret visualisering af et lagerlayout, hvor en plukker henter varer og returnerer til udsendelsesområdet. Den gennemsnitlige gangafstand vises som tal ved siden af."></canvas>
+      </div>
+
+      <div class="sim__panel">
+        <svg class="ico" style="font-size:2.25rem;color:var(--orange);margin-bottom:1rem" aria-hidden="true"><use href="#i-flask"/></svg>
+        <h3 style="margin-bottom:.75rem">Logikmotor</h3>
+        <p style="color:var(--muted);font-size:.875rem">
+          Simulatoren sammenligner en tilfældig opsætning med et frekvensbaseret layout,
+          hvor de hyppigst plukkede varer placeres tættest på udsendelsen. Hvert lager har
+          sit eget flow, så kontakt os for at se tallene på jeres faktiske data.
+        </p>
+
+        <div style="margin-top:auto;padding-top:1.75rem;border-top:var(--rule)">
+          <p class="mono" style="color:var(--muted-lo);margin-bottom:.35rem" id="effLabel">Effektivitet vs. optimeret layout</p>
+          <p class="sim__eff tnum" id="stat-efficiency" aria-live="polite">--%</p>
+          <div class="sim__modes" role="group" aria-label="Vælg lagerstrategi">
+            <button class="btn" type="button" id="btn-random" aria-pressed="true">Tilfældig</button>
+            <button class="btn" type="button" id="btn-optimized" aria-pressed="false">Optimeret</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== PRICING / ENGAGEMENT ==================== -->
+<section class="sec sec--wash" id="priser">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">Forløb</p>
+      <h2>Tre måder at komme i gang på</h2>
+      <p class="lede">
+        Alle forløb starter samme sted: en gratis gennemgang af den proces, der koster
+        jer mest tid. Derfra vælger I selv, hvor langt vi går.
+      </p>
+    </div>
+
+    <div class="grid grid-3 reveal" style="align-items:stretch;row-gap:2rem">
+      <div class="plan">
+        <p class="plan__n">FORLØB_01</p>
+        <h3>Gennemgang</h3>
+        <!-- Prices are deliberately not invented. When you settle on figures, replace
+             the text in .plan__price on each of the three cards. -->
+        <p class="plan__price">Gratis &amp; uforpligtende</p>
+        <p class="plan__desc">Vi ser på den fil eller proces, der gør mest ondt, og siger ærligt hvad der kan gøres.</p>
+        <ul>
+          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span>Samtale om jeres nuværende flow</span></li>
+          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span>Kortlægning af de tungeste manuelle trin</span></li>
+          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span>Prioriteret liste over hvad der bør løses først</span></li>
+          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span>Et fast tilbud &ndash; eller besked om at I ikke behøver os</span></li>
+        </ul>
+        <a class="btn btn--block" href="#contact">Book gennemgang</a>
+      </div>
+
+      <div class="plan plan--feature">
+        <span class="tag tag--orange plan__flag">Mest valgt</span>
+        <p class="plan__n">FORLØB_02</p>
+        <h3>Byg + oplær</h3>
+        <p class="plan__price">Fast pris efter gennemgang</p>
+        <p class="plan__desc">Systemet bygges, og jeres folk læres op til at drive det videre selv.</p>
+        <ul>
+          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span>Alt i Systembyg</span></li>
+          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span>Kursusmoduler tilpasset jeres faktiske opgaver</span></li>
+          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span>Oplæring afholdt på dansk eller engelsk</span></li>
+          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span>Sparring i indkøringsperioden</span></li>
+          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span>Kompetencen bliver hos jer, ikke hos os</span></li>
+        </ul>
+        <a class="btn btn--orange btn--block" href="#contact">Få et tilbud</a>
+      </div>
+
+      <div class="plan">
+        <p class="plan__n">FORLØB_03</p>
+        <h3>Systembyg</h3>
+        <p class="plan__price">Fast pris efter gennemgang</p>
+        <p class="plan__desc">Én konkret proces genopbygges fra bunden og overdrages færdig.</p>
+        <ul>
+          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span>Logikken omstruktureret i rigtige datastrukturer</span></li>
+          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span>De manuelle trin automatiseret</span></li>
+          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span>Fuld dokumentation af logik og datakilder</span></li>
+          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span>Overdragelse til jeres eget team</span></li>
+          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span>Afgrænset leverance uden åbne timer</span></li>
+        </ul>
+        <a class="btn btn--block" href="#contact">Få et tilbud</a>
+      </div>
+    </div>
+
+    <p class="plan__foot reveal">
+      Alle forløb prissættes fast efter den gratis gennemgang.
+      I betaler for en afgrænset leverance &ndash; ikke for åbne timer.
+    </p>
+  </div>
+</section>
+
+<!-- ==================== COURSES ==================== -->
+<section class="sec sec--paper" id="training">
+  <div class="wrap">
+    <div class="sec-head sec-head--wide reveal">
+      <p class="eyebrow">Kursuskatalog</p>
+      <h2>Lej ikke kompetencen. Tag ejerskab.</h2>
+      <p class="lede">
+        Elleve moduler, alle på dansk eller engelsk. Klik på et modul for at se pensum,
+        eller markér det med afkrydsningsfeltet for at tilføje det til jeres projektplan.
+      </p>
+    </div>
+
+    <div class="mesh grid-2 reveal">
+      <div class="track">
+        <div class="track__head">
+          <svg class="ico" aria-hidden="true"><use href="#i-grid"/></svg>
+          <h3>Excel-mestring</h3>
+        </div>
+        <ul>
+          <li class="course">
+            <button class="course__tick" type="button" aria-pressed="false"
+                    data-course="Excel 1 – Grundlæggende" data-code="ALL_EXCEL_BASIC">
+              <svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>
+              <span class="vh">Tilføj Excel 1 – Grundlæggende til projektplanen</span>
+            </button>
+            <button class="course__open" type="button"
+                    data-title="Excel 1 – Grundlæggende"
+                    data-desc="Mestr fundamentet i Excel. Fra navigation til basale formler og formatering."
+                    data-video="69550523d73a53e69e3f14a3">
+              <span class="course__title"><b>Excel 1 &ndash; Grundlæggende</b><span class="course__lang">DA / EN</span></span>
+              <span class="course__code">ALL_EXCEL_BASIC</span>
+            </button>
+          </li>
+          <li class="course">
+            <button class="course__tick" type="button" aria-pressed="false"
+                    data-course="Excel 2 – Øvet" data-code="ALL_EXCEL_INTER">
+              <svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>
+              <span class="vh">Tilføj Excel 2 – Øvet til projektplanen</span>
+            </button>
+            <button class="course__open" type="button"
+                    data-title="Excel 2 – Øvet"
+                    data-desc="Dybdegående gennemgang af pivottabeller, LOPSLAG (VLOOKUP) og essentiel datahåndtering."
+                    data-video="69550523d73a53e69e3f14a3">
+              <span class="course__title"><b>Excel 2 &ndash; Øvet</b><span class="course__lang">DA / EN</span></span>
+              <span class="course__code">ALL_EXCEL_INTER</span>
+            </button>
+          </li>
+          <li class="course">
+            <button class="course__tick" type="button" aria-pressed="false"
+                    data-course="Excel 3 – Avanceret" data-code="ALL_EXCEL_ADVAN">
+              <svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>
+              <span class="vh">Tilføj Excel 3 – Avanceret til projektplanen</span>
+            </button>
+            <button class="course__open" type="button"
+                    data-title="Excel 3 – Avanceret"
+                    data-desc="Komplekse matrixformler, datamodellering og professionel rapportering."
+                    data-video="69550523d73a53e69e3f14a3">
+              <span class="course__title"><b>Excel 3 &ndash; Avanceret</b><span class="course__lang">DA / EN</span></span>
+              <span class="course__code">ALL_EXCEL_ADVAN</span>
+            </button>
+          </li>
+        </ul>
+      </div>
+
+      <div class="track">
+        <div class="track__head">
+          <svg class="ico" aria-hidden="true"><use href="#i-transform"/></svg>
+          <h3>Data engineering</h3>
+        </div>
+        <ul>
+          <li class="course">
+            <button class="course__tick" type="button" aria-pressed="false"
+                    data-course="Intro til Power Query" data-code="POWER_QUERY">
+              <svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>
+              <span class="vh">Tilføj Intro til Power Query til projektplanen</span>
+            </button>
+            <button class="course__open" type="button"
+                    data-title="Intro til Power Query"
+                    data-desc="Automatisér dataoprydning uden kode. Den moderne måde at håndtere CSV-filer på."
+                    data-video="69550523d73a53e69e3f14a3">
+              <span class="course__title"><b>Intro til Power Query</b><span class="course__lang">DA / EN</span></span>
+              <span class="course__code">POWER_QUERY</span>
+            </button>
+          </li>
+          <li class="course">
+            <button class="course__tick" type="button" aria-pressed="false"
+                    data-course="Automatiseret fakturering" data-code="AUTO_INVOICE">
+              <svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>
+              <span class="vh">Tilføj Automatiseret fakturering til projektplanen</span>
+            </button>
+            <button class="course__open" type="button"
+                    data-title="Automatiseret fakturering"
+                    data-desc="Lær at bygge fuldt automatiserede værktøjer til fakturagenerering."
+                    data-video="69550523d73a53e69e3f14a3">
+              <span class="course__title"><b>Automatiseret fakturering</b><span class="course__lang">DA / EN</span></span>
+              <span class="course__code">AUTO_INVOICE</span>
+            </button>
+          </li>
+          <li class="course">
+            <button class="course__tick" type="button" aria-pressed="false"
+                    data-course="Analysis for Office" data-code="INTRO_ANALYSIS_OFFICE">
+              <svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>
+              <span class="vh">Tilføj Analysis for Office til projektplanen</span>
+            </button>
+            <button class="course__open" type="button"
+                    data-title="Analysis for Office"
+                    data-desc="Direkte SAP-forbindelse fra Excel. Guldstandarden for controllere."
+                    data-video="69550523d73a53e69e3f14a3">
+              <span class="course__title"><b>Analysis for Office</b><span class="course__lang">DA / EN</span></span>
+              <span class="course__code">INTRO_ANALYSIS_OFFICE</span>
+            </button>
+          </li>
+        </ul>
+      </div>
+
+      <div class="track">
+        <div class="track__head">
+          <svg class="ico" aria-hidden="true"><use href="#i-terminal"/></svg>
+          <h3>Enterprise scripting</h3>
+        </div>
+        <ul>
+          <li class="course">
+            <button class="course__tick" type="button" aria-pressed="false"
+                    data-course="SAP Scripting" data-code="SAP_SCRIPTING">
+              <svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>
+              <span class="vh">Tilføj SAP Scripting til projektplanen</span>
+            </button>
+            <button class="course__open" type="button"
+                    data-title="SAP Scripting"
+                    data-desc="Automatisér klik og dataindtastning i SAP GUI ved hjælp af VBA."
+                    data-video="69550523d73a53e69e3f14a3">
+              <span class="course__title"><b>SAP Scripting</b><span class="course__lang">DA / EN</span></span>
+              <span class="course__code">SAP_SCRIPTING</span>
+            </button>
+          </li>
+          <li class="course">
+            <button class="course__tick" type="button" aria-pressed="false"
+                    data-course="Power Automate" data-code="POW_AUT_BASIC">
+              <svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>
+              <span class="vh">Tilføj Power Automate til projektplanen</span>
+            </button>
+            <button class="course__open" type="button"
+                    data-title="Power Automate"
+                    data-desc="Cloud flows til at forbinde Outlook, SharePoint og Teams."
+                    data-video="69550523d73a53e69e3f14a3">
+              <span class="course__title"><b>Power Automate</b><span class="course__lang">DA / EN</span></span>
+              <span class="course__code">POW_AUT_BASIC</span>
+            </button>
+          </li>
+          <li class="course">
+            <button class="course__tick" type="button" aria-pressed="false"
+                    data-course="Excel VBA x AI" data-code="REDUCE_SUPPORT_DEPENDENCY">
+              <svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>
+              <span class="vh">Tilføj Excel VBA x AI til projektplanen</span>
+            </button>
+            <button class="course__open" type="button"
+                    data-title="Excel VBA x AI"
+                    data-desc="Brug af sprogmodeller inde i Excel til at kategorisere tekst og formulere e-mails."
+                    data-video="69550523d73a53e69e3f14a3">
+              <span class="course__title"><b>Excel VBA x AI</b><span class="course__lang">DA / EN</span></span>
+              <span class="course__code">REDUCE_SUPPORT_DEPENDENCY</span>
+            </button>
+          </li>
+        </ul>
+      </div>
+
+      <div class="track">
+        <div class="track__head">
+          <svg class="ico" aria-hidden="true"><use href="#i-bulb"/></svg>
+          <h3>AI &amp; arbejdsplads</h3>
+        </div>
+        <ul>
+          <li class="course">
+            <button class="course__tick" type="button" aria-pressed="false"
+                    data-course="Grundlæggende AI" data-code="ALL_GRUND_AI">
+              <svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>
+              <span class="vh">Tilføj Grundlæggende AI til projektplanen</span>
+            </button>
+            <button class="course__open" type="button"
+                    data-title="Grundlæggende AI"
+                    data-desc="Forståelse af sprogmodeller og prompt engineering til forretningsbrug."
+                    data-video="69550523d73a53e69e3f14a3">
+              <span class="course__title"><b>Grundlæggende AI</b><span class="course__lang">DA / EN</span></span>
+              <span class="course__code">ALL_GRUND_AI</span>
+            </button>
+          </li>
+          <li class="course">
+            <button class="course__tick" type="button" aria-pressed="false"
+                    data-course="MS Teams" data-code="MS_TEAMS_ESSENTIALS">
+              <svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>
+              <span class="vh">Tilføj MS Teams til projektplanen</span>
+            </button>
+            <button class="course__open" type="button"
+                    data-title="MS Teams"
+                    data-desc="Effektivt samarbejde, kanaler og mødeledelse."
+                    data-video="69550523d73a53e69e3f14a3">
+              <span class="course__title"><b>MS Teams</b><span class="course__lang">DA / EN</span></span>
+              <span class="course__code">MS_TEAMS_ESSENTIALS</span>
+            </button>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="planbar reveal">
+      <div>
+        <p class="planbar__n">
+          Jeres projektplan: <span class="accent tnum" id="planCount">0</span> valg
+        </p>
+        <p>
+          Valgte kompetencer, kursusmoduler og besparelsesberegningen samles i ét
+          A4-ark, I kan printe eller gemme som PDF og tage med internt.
+        </p>
+      </div>
+      <button class="btn btn--orange btn--lg" type="button" id="exportBtn">
+        <svg class="ico" aria-hidden="true"><use href="#i-download"/></svg>
+        Eksportér projektplan
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== FAQ ==================== -->
+<section class="sec sec--wash" id="faq">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">FAQ</p>
+      <h2>Det, I plejer at spørge om</h2>
+    </div>
+
+    <div class="faq reveal">
+      <details>
+        <summary>Hvad koster et forløb?<svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+        <p class="faq__a">Det afhænger af omfanget. Vi starter altid med en gratis gennemgang af den proces eller fil, der koster jer mest tid. Derefter får I et fast tilbud på en afgrænset leverance, så I ved præcis hvad I betaler for, inden vi går i gang.</p>
+      </details>
+      <details>
+        <summary>Hvor lang tid tager det?<svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+        <p class="faq__a">Vi arbejder i afgrænsede forløb frem for åbne engagementer. I får en konkret tidsplan sammen med tilbuddet, så I ved hvornår løsningen står klar, og hvornår jeres folk skal være til rådighed.</p>
+      </details>
+      <details>
+        <summary>Hvad sker der, hvis I stopper, og filen går i stykker?<svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+        <p class="faq__a">Det er den bekymring, hele vores metode er bygget op om. Alt hvad vi leverer, følges af dokumentation, og løsningen bygges i tæt samarbejde med de medarbejdere, der skal bruge den. Målet er, at I kan drive systemet videre uden os.</p>
+      </details>
+      <details>
+        <summary>Ejer vi det, I bygger?<svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+        <p class="faq__a">Ja. Kode, formler, datamodeller og dokumentation tilhører jer. Der er ingen løbende licens og ingen platform, I bindes til.</p>
+      </details>
+      <details>
+        <summary>Kan I arbejde i vores IT-miljø?<svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+        <p class="faq__a">Vi bygger i de værktøjer, I allerede har: Excel, Power Query, Power BI, Power Automate, SQL, SAP og VBA. Det holder IT-godkendelsen enkel og betyder, at jeres folk arbejder videre i noget, de kender.</p>
+      </details>
+      <details>
+        <summary>Er oplæring nødvendig, hvis I bygger systemet?<svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+        <p class="faq__a">Nej, men det er der, effekten holder. Et system, ingen internt forstår, er blot en ny afhængighed. Derfor er oplæring en del af metoden og ikke et tilkøb.</p>
+      </details>
+      <details>
+        <summary>Underskriver I en fortrolighedsaftale?<svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+        <p class="faq__a">Ja. Vi arbejder rutinemæssigt med drifts- og økonomidata og underskriver gerne jeres NDA, inden vi ser noget som helst.</p>
+      </details>
+      <details>
+        <summary>Foregår det på dansk eller engelsk?<svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+        <p class="faq__a">Begge dele. Alle kursusmoduler og al dokumentation leveres på dansk eller engelsk.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== CONTACT ==================== -->
+<section class="sec sec--paper" id="contact" style="border-bottom:0">
+  <div class="wrap">
+    <div class="contact">
+      <div class="contact__aside">
+        <div class="sec-head" style="margin-bottom:0">
+          <p class="eyebrow">Kontakt</p>
+          <h2>Klar til at optimere?</h2>
+          <p class="lede">
+            Første samtale er gratis og indeholder en gennemgang af jeres mest rodede
+            regneark. Vi siger også til, hvis I ikke har brug for os.
+          </p>
+        </div>
+
+        <div class="direct">
+          <a href="mailto:ask@standardize.dk">
+            <svg class="ico" aria-hidden="true"><use href="#i-mail"/></svg>
+            <span><span class="direct__k">Skriv til os</span><span class="direct__v">ask@standardize.dk</span></span>
+          </a>
+          <a href="tel:+4526477774">
+            <svg class="ico" aria-hidden="true"><use href="#i-phone"/></svg>
+            <span><span class="direct__k">Ring direkte</span><span class="direct__v">+45 26 47 77 74</span></span>
+          </a>
+        </div>
+
+        <ul class="assure">
+          <li><svg class="ico" aria-hidden="true"><use href="#i-clock"/></svg><span>Vi vender tilbage inden for én arbejdsdag</span></li>
+          <li><svg class="ico" aria-hidden="true"><use href="#i-shield"/></svg><span>Vi underskriver gerne jeres NDA, før vi ser noget</span></li>
+          <li><svg class="ico" aria-hidden="true"><use href="#i-doc"/></svg><span>Gennemgangen er gratis &ndash; også hvis I takker nej</span></li>
+        </ul>
+      </div>
+
+      <div class="card card--pop">
+        <form class="form" id="contactForm" novalidate>
+          <div class="form__two">
+            <div>
+              <label for="cFirst">Fornavn</label>
+              <input id="cFirst" name="firstName" type="text" autocomplete="given-name" required placeholder="Lars">
+            </div>
+            <div>
+              <label for="cLast">Efternavn</label>
+              <input id="cLast" name="lastName" type="text" autocomplete="family-name" required placeholder="Pedersen">
+            </div>
+          </div>
+
+          <div>
+            <label for="cEmail">Arbejdsmail</label>
+            <input id="cEmail" name="email" type="email" autocomplete="email" inputmode="email" required
+                   placeholder="lars@firma.dk" aria-describedby="cEmailErr">
+            <p class="form__err" id="cEmailErr" role="alert"></p>
+          </div>
+
+          <div class="form__two">
+            <div>
+              <label for="cCompany">Virksomhed</label>
+              <input id="cCompany" name="company" type="text" autocomplete="organization" placeholder="Firma A/S">
+            </div>
+            <div>
+              <label for="cPhone">Telefon <span class="opt">(valgfri)</span></label>
+              <input id="cPhone" name="phone" type="tel" autocomplete="tel" placeholder="12 34 56 78">
+            </div>
+          </div>
+
+          <div>
+            <label for="cTopic">Hvad handler det om?</label>
+            <select id="cTopic" name="topic">
+              <option>Gratis gennemgang af en proces</option>
+              <option>Systembyg / automatisering</option>
+              <option>Oplæring og kursusforløb</option>
+              <option>Lager- og logistikanalyse</option>
+              <option>Noget helt andet</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="cMessage">Kontekst <span class="opt">(valgfri)</span></label>
+            <textarea id="cMessage" name="message" placeholder="Beskriv kort den proces eller fil, der koster jer mest tid."></textarea>
+          </div>
+
+          <!-- Honeypot: bots fill every field they find. Hidden from humans and from
+               assistive tech, so a value here means the submission is automated. -->
+          <div aria-hidden="true" style="position:absolute;left:-9999px" >
+            <label for="cCompanyUrl">Lad dette felt stå tomt</label>
+            <input id="cCompanyUrl" name="_gotcha" type="text" tabindex="-1" autocomplete="off">
+          </div>
+
+          <button class="btn btn--dark btn--lg btn--block" type="submit" id="cSubmit">
+            <span id="cSubmitText">Start dialogen</span>
+            <svg class="ico" aria-hidden="true"><use href="#i-right"/></svg>
+          </button>
+
+          <p class="form__status" id="cStatus" role="status" hidden></p>
+
+          <p class="form__consent">
+            Vi bruger udelukkende dine oplysninger til at besvare din henvendelse.
+            Ingen nyhedsbreve, ingen videregivelse.
+          </p>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ==================== FOOTER ==================== -->
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot__top">
+      <div>
+        <a class="brand" href="#top" style="color:#fff">
+          <span class="brand__mark" style="border-color:#fff" aria-hidden="true"></span>
+          <span>Standardize<span class="brand__dot">.</span></span>
+        </a>
+        <p class="foot__blurb">
+          Procesoptimering, systemopbygning og oplæring. Vi bygger systemer, jeres eget
+          team kan drive videre &ndash; og efterlader dokumentationen til at bevise det.
+        </p>
+      </div>
+
+      <div>
+        <h2>Sektioner</h2>
+        <ul>
+          <li><a href="#problem">Udfordringen</a></li>
+          <li><a href="#Competences">Ydelser</a></li>
+          <li><a href="#framework">Metode</a></li>
+          <li><a href="#roi">Beregn besparelse</a></li>
+          <li><a href="#priser">Forløb</a></li>
+          <li><a href="#training">Kursuskatalog</a></li>
+          <li><a href="#faq">FAQ</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h2>Kontakt</h2>
+        <ul>
+          <li><a href="mailto:ask@standardize.dk">ask@standardize.dk</a></li>
+          <li><a href="tel:+4526477774">+45 26 47 77 74</a></li>
+          <li><a href="/en/" hreflang="en" lang="en">English version</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="foot__bot">
+      <p>&copy; 2026 Standardize Consulting</p>
+      <p>System version 3.0.0</p>
+    </div>
+  </div>
+</footer>
+
+</div><!-- /#app -->
+
+<!-- Sticky primary action, phones only. -->
+<div class="dock" id="dock">
+  <a class="btn" href="tel:+4526477774" aria-label="Ring til Standardize">
+    <svg class="ico" aria-hidden="true"><use href="#i-phone"/></svg> Ring
+  </a>
+  <!-- Shorter than the hero label on purpose: the full wording wraps to two lines in
+       a half-width bar at 390px. -->
+  <a class="btn btn--dark" href="#contact">Book gratis møde</a>
+</div>
+
+<!-- ==================== COURSE MODAL ==================== -->
+<div class="modal" id="courseModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" hidden>
+  <div class="modal__box">
+    <div class="modal__head">
+      <h2 id="modalTitle">Kursus</h2>
+      <button class="modal__close" type="button" id="modalClose" aria-label="Luk">
+        <svg class="ico" aria-hidden="true"><use href="#i-close"/></svg>
+      </button>
+    </div>
+    <div class="modal__body">
+      <p class="modal__desc" id="modalDesc"></p>
+      <div class="modal__video" id="videoContainer"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== PRINT-ONLY REPORT ==================== -->
+<div id="report">
+  <div class="rep__head">
+    <div>
+      <div class="rep__logo"><i></i>Standardize<span style="color:var(--orange)">.</span></div>
+      <p class="rep__sub">Forslag til processtandardisering</p>
+    </div>
+    <div style="text-align:right">
+      <p class="rep__k">Genereret den</p>
+      <p class="rep__mid" id="reportDate">--</p>
+    </div>
+  </div>
+
+  <div class="rep__body">
+    <div class="rep__block">
+      <h2>01 // Valgte kurser</h2>
+      <p class="rep__note">Træningspensum der skal afholdes.</p>
+      <ul id="reportCoursesList"></ul>
+    </div>
+
+    <div class="rep__block">
+      <h2>02 // Valgte moduler</h2>
+      <p class="rep__note">Kernekompetencer vi skal opbygge.</p>
+      <ul id="reportServices"></ul>
+    </div>
+
+    <div class="rep__block">
+      <h2>03 // Årlig besparelse</h2>
+      <div class="rep__kpi">
+        <div>
+          <p class="rep__k">Manuelle timer i dag</p>
+          <p class="rep__mid" id="reportManual">--</p>
+          <p class="rep__k" style="margin-top:.6rem">Medarbejdere involveret</p>
+          <p class="rep__mid" id="reportTeam">--</p>
+        </div>
+        <div style="text-align:right;border-left:2px solid #ddd;padding-left:1.5rem">
+          <p class="rep__k">Forventet årlig besparelse</p>
+          <p class="rep__big" id="reportSavings"><span class="cur">DKK</span> 0</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="rep__foot">ask@standardize.dk &middot; +45 26 47 77 74 &middot; standardize.dk</p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* =========================================================================
+     0. CONFIG
+     -------------------------------------------------------------------------
+     >>> ACTION REQUIRED <<<
+     Create a form at https://formspree.io (free tier is enough), then paste the
+     endpoint it gives you below, replacing the whole placeholder string. It looks
+     like: https://formspree.io/f/xdkoqwer
+
+     Until you do, the form does NOT silently discard submissions the way the old
+     alert() did — it falls back to opening the visitor's mail client with every
+     field pre-filled and addressed to ask@standardize.dk.
+     ========================================================================= */
+  var FORM_ENDPOINT = 'https://formspree.io/f/PASTE_YOUR_FORM_ID_HERE';
+  var FALLBACK_EMAIL = 'ask@standardize.dk';
+
+  var $  = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* =========================================================================
+     1. NAVIGATION — mobile panel + scroll spy
+     ========================================================================= */
+  var navToggle = $('#navToggle');
+  var navPanel  = $('#navPanel');
+
+  function setNav(open) {
+    navPanel.hidden = !open;
+    navToggle.setAttribute('aria-expanded', String(open));
+    navToggle.setAttribute('aria-label', open ? 'Luk menu' : 'Åbn menu');
+    navToggle.innerHTML = '<svg class="ico" aria-hidden="true"><use href="#' +
+      (open ? 'i-close' : 'i-menu') + '"/></svg>';
+  }
+
+  navToggle.addEventListener('click', function () {
+    setNav(navPanel.hidden);
+  });
+
+  // Tapping a link inside the panel should close it, or the destination is hidden
+  // behind the menu that was just used to reach it.
+  $$('#navPanel a').forEach(function (a) {
+    a.addEventListener('click', function () { setNav(false); });
+  });
+
+  // Reset when the panel stops being the active navigation, so an open panel does
+  // not linger as a stray block after a rotate or resize to desktop.
+  var mqDesktop = window.matchMedia('(min-width: 861px)');
+  var onBreak = function (e) { if (e.matches) setNav(false); };
+  if (mqDesktop.addEventListener) mqDesktop.addEventListener('change', onBreak);
+  else if (mqDesktop.addListener) mqDesktop.addListener(onBreak);
+
+  // Scroll spy: highlight the section currently occupying the upper viewport.
+  var spyLinks = $$('.nav__links .nav__link');
+  var spyMap = {};
+  spyLinks.forEach(function (a) { spyMap[a.getAttribute('href').slice(1)] = a; });
+  var spyTargets = Object.keys(spyMap)
+    .map(function (id) { return document.getElementById(id); })
+    .filter(Boolean);
+
+  if ('IntersectionObserver' in window && spyTargets.length) {
+    // Track the live set rather than reacting to individual entries. Reacting to
+    // entries alone left the last-entered link highlighted after scrolling back to
+    // the hero, because leaving a section fires no "isIntersecting" event to undo it.
+    var inView = [];
+    var spy = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        var i = inView.indexOf(en.target);
+        if (en.isIntersecting && i === -1) inView.push(en.target);
+        else if (!en.isIntersecting && i > -1) inView.splice(i, 1);
+      });
+      var top = inView.slice().sort(function (a, b) {
+        return a.getBoundingClientRect().top - b.getBoundingClientRect().top;
+      })[0];
+      spyLinks.forEach(function (a) { a.classList.remove('is-active'); });
+      if (top && spyMap[top.id]) spyMap[top.id].classList.add('is-active');
+    }, { rootMargin: '-20% 0px -70% 0px', threshold: 0 });
+    spyTargets.forEach(function (t) { spy.observe(t); });
+  }
+
+  /* =========================================================================
+     2. REVEAL ON SCROLL
+     ========================================================================= */
+  var revealables = $$('.reveal');
+  if (reduced || !('IntersectionObserver' in window)) {
+    revealables.forEach(function (el) { el.classList.add('is-in'); });
+  } else {
+    var revealer = new IntersectionObserver(function (entries, obs) {
+      entries.forEach(function (en) {
+        // Also reveal anything already scrolled past. Landing on a deep link such as
+        // standardize.dk#faq skips every section above it, and those never intersect,
+        // so without this they stay transparent until the visitor scrolls back up.
+        var passed = en.boundingClientRect.bottom <= 0;
+        if (!en.isIntersecting && !passed) return;
+        en.target.classList.add('is-in');
+        obs.unobserve(en.target);
+      });
+    }, { rootMargin: '0px 0px -12% 0px', threshold: 0.05 });
+    revealables.forEach(function (el) { revealer.observe(el); });
+  }
+
+  /* =========================================================================
+     3. STICKY MOBILE CTA — appears once the hero CTA has scrolled away
+     ========================================================================= */
+  var dock = $('#dock');
+  var hero = $('#top');
+  var contactSec = $('#contact');
+  if ('IntersectionObserver' in window && hero && dock) {
+    var pastHero = false;
+    var atContact = false;
+    var syncDock = function () { dock.classList.toggle('is-up', pastHero && !atContact); };
+
+    new IntersectionObserver(function (e) {
+      pastHero = !e[0].isIntersecting; syncDock();
+    }, { threshold: 0 }).observe(hero);
+
+    // Retract once the form itself is on screen — the bar would otherwise cover the
+    // bottom of the very form it exists to point at.
+    new IntersectionObserver(function (e) {
+      atContact = e[0].isIntersecting; syncDock();
+    }, { threshold: 0.12 }).observe(contactSec);
+  }
+
+  /* =========================================================================
+     4. CORE COMPETENCES — selectable cards
+     ========================================================================= */
+  var services = [
+    { id: 's1', icon: 'i-mail',      title: 'Planlagte e-mailrapporter',   desc: 'Automatiseret PDF- og Excel-generering samt distribution.',            selected: true  },
+    { id: 's2', icon: 'i-bolt',      title: 'Power Automate',              desc: 'Logik på tværs af systemer: "Hvis lager < 100, bestil".',              selected: true  },
+    { id: 's3', icon: 'i-code',      title: 'VBA-automatisering',          desc: 'Makro-refactoring til kompleks logik og filhåndtering.',               selected: true  },
+    { id: 's4', icon: 'i-sync',      title: 'Auto-opdaterende systemer',   desc: 'Live SQL-, web- og CSV-forbindelser der opdaterer ved trigger.',       selected: false },
+    { id: 's5', icon: 'i-flask',     title: 'Løsningssimulering',          desc: 'Monte Carlo-modeller til test af "hvad nu hvis"-scenarier.',           selected: true  },
+    { id: 's6', icon: 'i-chart',     title: 'Power BI-dashboards',         desc: 'Visuelle ledelsessuiter der erstatter statiske tabeller.',             selected: false },
+    { id: 's7', icon: 'i-warehouse', title: 'Lageroptimering',             desc: 'Heat-map-analyse af logikken bag lokationsplacering.',                 selected: false },
+    { id: 's8', icon: 'i-box',       title: 'Lagerintelligens',            desc: 'Indkøbsplanlægning baseret på faktisk forbrugshastighed.',             selected: false },
+    { id: 's9', icon: 'i-db',        title: 'Datamodellering',             desc: 'Én kilde til sandheden i stedet for fjorten versioner af samme ark.',  selected: false }
+  ];
+
+  var grid = $('#services-grid');
+
+  // Text from the data array is written into the DOM as text nodes, never as HTML,
+  // so a stray < or & in a title cannot break the markup.
+  function serviceCard(s) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'pick';
+    btn.setAttribute('aria-pressed', String(s.selected));
+
+    var top = document.createElement('span');
+    top.className = 'pick__top';
+    top.innerHTML =
+      '<span class="iconbox" aria-hidden="true"><svg class="ico"><use href="#' + s.icon + '"/></svg></span>' +
+      '<svg class="ico pick__check" aria-hidden="true"><use href="#i-check"/></svg>';
+
+    var h = document.createElement('span');
+    h.className = 'pick__h';
+    h.textContent = s.title;
+
+    var p = document.createElement('p');
+    p.textContent = s.desc;
+
+    btn.appendChild(top);
+    btn.appendChild(h);
+    btn.appendChild(p);
+    btn.addEventListener('click', function () {
+      s.selected = !s.selected;
+      btn.setAttribute('aria-pressed', String(s.selected));
+      updatePlanCount();
+    });
+    return btn;
+  }
+
+  function renderServices() {
+    grid.textContent = '';
+    services.forEach(function (s) { grid.appendChild(serviceCard(s)); });
+  }
+  renderServices();
+
+  /* =========================================================================
+     5. COURSE SELECTION + MODAL
+     ========================================================================= */
+  var selectedCourses = [];
+
+  $$('.course__tick').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var name = btn.dataset.course;
+      var on = btn.getAttribute('aria-pressed') === 'true';
+      btn.setAttribute('aria-pressed', String(!on));
+      var i = selectedCourses.indexOf(name);
+      if (on) { if (i > -1) selectedCourses.splice(i, 1); }
+      else if (i === -1) { selectedCourses.push(name); }
+      updatePlanCount();
+    });
+  });
+
+  var planCount = $('#planCount');
+  function updatePlanCount() {
+    var n = selectedCourses.length + services.filter(function (s) { return s.selected; }).length;
+    planCount.textContent = String(n);
+  }
+
+  var modal      = $('#courseModal');
+  var modalTitle = $('#modalTitle');
+  var modalDesc  = $('#modalDesc');
+  var modalVideo = $('#videoContainer');
+  var lastTrigger = null;
+
+  function openModal(title, desc, videoId) {
+    modalTitle.textContent = title;
+    modalDesc.textContent = desc;
+
+    var frame = document.createElement('iframe');
+    frame.src = 'https://play.gumlet.io/embed/' + encodeURIComponent(videoId) + '?autoplay=false&preload=none';
+    frame.title = 'Videopræsentation: ' + title;
+    frame.loading = 'lazy';
+    frame.allow = 'accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen';
+    frame.referrerPolicy = 'origin';
+    modalVideo.textContent = '';
+    modalVideo.appendChild(frame);
+
+    lastTrigger = document.activeElement;
+    modal.hidden = false;
+    document.body.style.overflow = 'hidden';
+    $('#modalClose').focus();
+  }
+
+  function closeModal() {
+    // Clearing the container is what actually stops playback and audio.
+    modalVideo.textContent = '';
+    modal.hidden = true;
+    document.body.style.overflow = '';
+    if (lastTrigger && document.contains(lastTrigger)) lastTrigger.focus();
+    lastTrigger = null;
+  }
+
+  $$('.course__open').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      openModal(btn.dataset.title, btn.dataset.desc, btn.dataset.video);
+    });
+  });
+
+  $('#modalClose').addEventListener('click', closeModal);
+  modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(); });
+
+  // Escape closes; Tab is trapped. Without the trap, tabbing out of the dialog put
+  // focus on the page behind it while the dialog was still covering the screen.
+  document.addEventListener('keydown', function (e) {
+    if (modal.hidden) return;
+    if (e.key === 'Escape') { closeModal(); return; }
+    if (e.key !== 'Tab') return;
+
+    var focusables = $$('a[href], button:not([disabled]), iframe, [tabindex]:not([tabindex="-1"])', modal)
+      .filter(function (el) { return el.offsetParent !== null || el === document.activeElement; });
+    if (!focusables.length) return;
+
+    var first = focusables[0];
+    var last = focusables[focusables.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
+
+  /* =========================================================================
+     6. ROI CALCULATOR
+     ========================================================================= */
+  var hoursInput = $('#hoursInput');
+  var empInput   = $('#empInput');
+  var rateInput  = $('#rateInput');
+  var kr = new Intl.NumberFormat('da-DK');
+
+  function calcROI() {
+    var hours = parseInt(hoursInput.value, 10) || 0;
+    var emps  = parseInt(empInput.value, 10) || 0;
+    var rate  = parseFloat(rateInput.value);
+    if (!isFinite(rate) || rate < 0) rate = 0;
+
+    $('#hoursDisplay').textContent = hours + ' t';
+    $('#empDisplay').textContent = emps + (emps === 1 ? ' person' : ' personer');
+
+    var annualHours = hours * emps * 52;
+    $('#savingsResult').innerHTML = '<span class="cur">DKK</span>' + kr.format(Math.round(annualHours * rate));
+    $('#timeResult').textContent = kr.format(annualHours) + ' t';
+  }
+
+  [hoursInput, empInput, rateInput].forEach(function (el) {
+    el.addEventListener('input', calcROI);
+  });
+  // Run once on load. The static markup previously claimed 1.560 timer while the
+  // default inputs (7 × 2 × 52) produce 728, so the panel was wrong until touched.
+  calcROI();
+
+  /* =========================================================================
+     7. HERO CANVAS
+     ========================================================================= */
+  var heroCanvas = $('#heroCanvas');
+  var hCtx = heroCanvas.getContext('2d');
+  var particles = [];
+  var heroMode = 'chaos';
+  var heroRAF = null;
+  var heroVisible = false;
+
+  function sizeHero() {
+    var box = heroCanvas.parentElement;
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    heroCanvas.width = Math.max(1, Math.floor(box.offsetWidth * dpr));
+    heroCanvas.height = Math.max(1, Math.floor(box.offsetHeight * dpr));
+    hCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function heroW() { return heroCanvas.parentElement.offsetWidth; }
+  function heroH() { return heroCanvas.parentElement.offsetHeight; }
+
+  function seedParticles() {
+    particles = [];
+    var n = heroW() < 700 ? 42 : 80;
+    for (var i = 0; i < n; i++) {
+      particles.push({
+        x: Math.random() * heroW(),
+        y: Math.random() * heroH(),
+        vx: (Math.random() - 0.5) * 1.7,
+        vy: (Math.random() - 0.5) * 1.7
+      });
+    }
+  }
+
+  function drawHero() {
+    var w = heroW(), h = heroH();
+    hCtx.clearRect(0, 0, w, h);
+    var cols = 10;
+    var gap = w / cols;
+
+    hCtx.fillStyle = '#1a1a1a';
+    particles.forEach(function (p, i) {
+      if (heroMode === 'chaos') {
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < 0 || p.x > w) p.vx *= -1;
+        if (p.y < 0 || p.y > h) p.vy *= -1;
+      } else {
+        var tx = ((i % cols) * gap) + (gap / 2);
+        var ty = (Math.floor(i / cols) * gap) + (gap / 2);
+        p.x += (tx - p.x) * 0.1;
+        p.y += (ty - p.y) * 0.1;
+      }
+      hCtx.fillRect(p.x, p.y, 4, 4);
+    });
+  }
+
+  function heroLoop() {
+    drawHero();
+    heroRAF = requestAnimationFrame(heroLoop);
+  }
+
+  /* Both canvases previously ran an unconditional requestAnimationFrame loop for the
+     entire life of the page — the hero kept repainting 60 times a second while the
+     visitor read the FAQ two screens below, and both kept running in a background
+     tab. They are now driven only while on screen and while the tab is visible. */
+  function syncHero() {
+    var run = heroVisible && !document.hidden;
+    if (run && !heroRAF) heroLoop();
+    if (!run && heroRAF) { cancelAnimationFrame(heroRAF); heroRAF = null; }
+  }
+
+  sizeHero();
+  seedParticles();
+  drawHero();
+
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(function (e) {
+      heroVisible = e[0].isIntersecting;
+      syncHero();
+    }, { threshold: 0 }).observe(heroCanvas);
+  } else {
+    heroVisible = true;
+    syncHero();
+  }
+
+  var heroStatus = $('#heroStatus');
+  var heroStatusText = $('#heroStatusText');
+  function standardiseHero() {
+    if (heroMode === 'order') return;
+    heroMode = 'order';
+    heroStatus.classList.add('is-ok');
+    heroStatusText.textContent = 'Systemstatus: Standardiseret';
+  }
+  // The hero animation resolving from chaos into a grid is the page's core metaphor.
+  // It now plays on its own shortly after arrival rather than hiding behind a button
+  // that competed with the primary call to action.
+  if (reduced) { standardiseHero(); }
+  else { window.setTimeout(standardiseHero, 2600); }
+
+  /* =========================================================================
+     8. WAREHOUSE SIMULATION
+     ========================================================================= */
+  var canvas = $('#warehouseCanvas');
+  var ctx = canvas.getContext('2d');
+  var ROWS = 8, COLS = 11, CELL = 40, GAP = 10, SPEED = 6;
+
+  var simMode = 'random';
+  var inventory = [];
+  var dock2 = { x: 0, y: 0 };
+  var picker = { x: 0, y: 0, target: null, state: 'idle' };
+  var eff = { avg: 0, trips: 0, total: 0 };
+  var simRAF = null;
+  var simVisible = false;
+
+  function simW() { return canvas.parentElement.offsetWidth; }
+  function simH() { return canvas.parentElement.offsetHeight; }
+
+  function sizeSim() {
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.max(1, Math.floor(simW() * dpr));
+    // The old resize handler set width but never height, so the drawing surface kept
+    // its original 500px while the CSS box changed — every redraw came out stretched.
+    canvas.height = Math.max(1, Math.floor(simH() * dpr));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    dock2 = { x: simW() / 2, y: simH() - 40 };
+  }
+
+  function coords(r, c) {
+    // Scale to whichever axis is tighter. Scaling to width alone let the rack grid
+    // run past the dock and out of the stage on short viewports, where the CSS
+    // clamp() drops the stage to 340px but eight rows still needed 434px.
+    var scale = Math.min(
+      1,
+      (simW() - 32) / (COLS * (CELL + GAP)),
+      (simH() - 90) / (ROWS * (CELL + GAP))
+    );
+    var cw = (CELL + GAP) * scale;
+    var totalW = COLS * cw;
+    var offX = (simW() - totalW) / 2;
+    var offY = 34;
+    return { x: offX + c * cw + cw / 2, y: offY + r * cw + cw / 2, s: CELL * scale };
+  }
+
+  function seedInventory() {
+    inventory = [];
+    var r, c;
+    for (r = 0; r < ROWS; r++) {
+      for (c = 0; c < COLS; c++) {
+        inventory.push({ r: r, c: c, x: 0, y: 0, freq: 5 + Math.random() * 25, id: r * COLS + c });
+      }
+    }
+    var hi = 0;
+    while (hi < 16) {
+      var a = inventory[Math.floor(Math.random() * inventory.length)];
+      if (a.freq < 80) { a.freq = 85 + Math.random() * 15; hi++; }
+    }
+    var mid = 0;
+    while (mid < 20) {
+      var b = inventory[Math.floor(Math.random() * inventory.length)];
+      if (b.freq < 40) { b.freq = 45 + Math.random() * 30; mid++; }
+    }
+    inventory.forEach(function (it) {
+      it.color = it.freq > 80 ? '#FF4F00' : (it.freq > 40 ? '#64748b' : '#d1d5db');
+      var p = coords(it.r, it.c);
+      it.x = p.x; it.y = p.y;
+    });
+    randomiseLayout();
+    picker.x = dock2.x; picker.y = dock2.y;
+  }
+
+  function drawSim() {
+    var w = simW(), h = simH();
+    ctx.clearRect(0, 0, w, h);
+
+    var r, c;
+    for (r = 0; r < ROWS; r++) {
+      for (c = 0; c < COLS; c++) {
+        var p = coords(r, c);
+        ctx.fillStyle = '#f8fafc';
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 1;
+        ctx.fillRect(p.x - p.s / 2, p.y - p.s / 2, p.s, p.s);
+        ctx.strokeRect(p.x - p.s / 2, p.y - p.s / 2, p.s, p.s);
+      }
+    }
+
+    inventory.forEach(function (it) {
+      var t = coords(it.r, it.c);
+      it.x += (t.x - it.x) * 0.12;
+      it.y += (t.y - it.y) * 0.12;
+      ctx.beginPath();
+      ctx.arc(it.x, it.y, Math.max(5, t.s * 0.2), 0, Math.PI * 2);
+      ctx.fillStyle = it.color;
+      ctx.fill();
+    });
+
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(dock2.x - 50, dock2.y, 100, 24);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 9px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('UDSENDELSE', dock2.x, dock2.y + 16);
+
+    if (picker.state !== 'idle' && picker.target) {
+      var tp = coords(picker.target.r, picker.target.c);
+      ctx.beginPath();
+      ctx.moveTo(picker.x, picker.y);
+      ctx.lineTo(tp.x, tp.y);
+      ctx.strokeStyle = 'rgba(26,26,26,0.18)';
+      ctx.setLineDash([4, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.beginPath();
+      ctx.arc(picker.x, picker.y, 7, 0, Math.PI * 2);
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fill();
+    }
+  }
+
+  var effEl = $('#stat-efficiency');
+  var distEl = $('#stat-distance');
+  var tripsEl = $('#stat-trips');
+
+  function stepSim() {
+    if (picker.state === 'idle') {
+      var total = inventory.reduce(function (s, i) { return s + i.freq; }, 0);
+      var rand = Math.random() * total;
+      for (var i = 0; i < inventory.length; i++) {
+        rand -= inventory[i].freq;
+        if (rand <= 0) { picker.target = inventory[i]; break; }
+      }
+      if (!picker.target) picker.target = inventory[0];
+      picker.state = 'to';
+    }
+
+    var tp = coords(picker.target.r, picker.target.c);
+    var dx = (picker.state === 'to' ? tp.x : dock2.x) - picker.x;
+    var dy = (picker.state === 'to' ? tp.y : dock2.y) - picker.y;
+    var d = Math.sqrt(dx * dx + dy * dy);
+
+    if (d < SPEED) {
+      picker.x += dx; picker.y += dy;
+      if (picker.state === 'to') {
+        picker.state = 'back';
+      } else {
+        eff.total += Math.abs(dock2.x - tp.x) + Math.abs(dock2.y - tp.y);
+        eff.trips++;
+        eff.avg = eff.total / eff.trips;
+
+        distEl.textContent = eff.avg.toFixed(0) + ' px';
+        tripsEl.textContent = String(eff.trips);
+
+        // Each strategy is scored against the other one's steady-state average, so
+        // "optimeret" reads as a gain and "tilfældig" as the penalty it is.
+        var baseline = (simMode === 'optimized') ? 361 : 271.5;
+        var pct = (1 - (eff.avg / baseline)) * 100;
+        effEl.textContent = (pct > 0 ? '+' : '') + pct.toFixed(1) + '%';
+        effEl.classList.toggle('is-good', pct > 0);
+
+        picker.state = 'idle';
+      }
+    } else {
+      picker.x += (dx / d) * SPEED;
+      picker.y += (dy / d) * SPEED;
+    }
+
+    drawSim();
+    simRAF = requestAnimationFrame(stepSim);
+  }
+
+  function syncSim() {
+    var run = simVisible && !document.hidden;
+    if (run && !simRAF) stepSim();
+    if (!run && simRAF) { cancelAnimationFrame(simRAF); simRAF = null; }
+  }
+
+  function optimiseLayout() {
+    var sorted = inventory.slice().sort(function (a, b) { return b.freq - a.freq; });
+    var slots = [];
+    for (var r = 0; r < ROWS; r++) {
+      for (var c = 0; c < COLS; c++) {
+        var p = coords(r, c);
+        slots.push({ r: r, c: c, d: Math.abs(p.x - dock2.x) + Math.abs(p.y - dock2.y) });
+      }
+    }
+    slots.sort(function (a, b) { return a.d - b.d; });
+    // Index by id: the previous version called sorted.indexOf(find(...)) inside a
+    // forEach, an O(n²) scan repeated on every layout change.
+    var rank = {};
+    sorted.forEach(function (s, i) { rank[s.id] = i; });
+    inventory.forEach(function (it) {
+      var slot = slots[rank[it.id]];
+      it.r = slot.r; it.c = slot.c;
+    });
+  }
+
+  function randomiseLayout() {
+    var pos = [];
+    for (var r = 0; r < ROWS; r++) {
+      for (var c = 0; c < COLS; c++) pos.push({ r: r, c: c });
+    }
+    for (var i = pos.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = pos[i]; pos[i] = pos[j]; pos[j] = t;
+    }
+    inventory.forEach(function (it, idx) { it.r = pos[idx].r; it.c = pos[idx].c; });
+  }
+
+  var btnRandom = $('#btn-random');
+  var btnOptimized = $('#btn-optimized');
+
+  function setSimMode(mode) {
+    if (mode === simMode) return;
+    simMode = mode;
+
+    eff.trips = 0; eff.total = 0; eff.avg = 0;
+    distEl.textContent = '-- px';
+    tripsEl.textContent = '0';
+    effEl.textContent = '--%';
+    effEl.classList.remove('is-good');
+
+    $('#simStrategyDisplay').textContent = mode === 'optimized' ? 'OPTIMERET' : 'TILFÆLDIG';
+
+    // Each mode is scored against the other, so the sign only makes sense if the
+    // label says what the comparison is. Labelled "Effektivitetsgevinst", the random
+    // layout rendered a large grey "-29.3%" under the word "gain".
+    $('#effLabel').textContent = mode === 'optimized'
+      ? 'Effektivitet vs. tilfældigt layout'
+      : 'Effektivitet vs. optimeret layout';
+
+    if (mode === 'optimized') optimiseLayout(); else randomiseLayout();
+
+    btnOptimized.setAttribute('aria-pressed', String(mode === 'optimized'));
+    btnRandom.setAttribute('aria-pressed', String(mode === 'random'));
+  }
+
+  btnRandom.addEventListener('click', function () { setSimMode('random'); });
+  btnOptimized.addEventListener('click', function () { setSimMode('optimized'); });
+
+  sizeSim();
+  seedInventory();
+  drawSim();
+
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(function (e) {
+      simVisible = e[0].isIntersecting;
+      syncSim();
+    }, { threshold: 0 }).observe(canvas);
+  } else {
+    simVisible = true;
+    syncSim();
+  }
+
+  document.addEventListener('visibilitychange', function () { syncHero(); syncSim(); });
+
+  /* =========================================================================
+     9. RESIZE — debounced
+     ========================================================================= */
+  var resizeTimer;
+  window.addEventListener('resize', function () {
+    window.clearTimeout(resizeTimer);
+    // The old handler re-seeded 80 particles and rebuilt the canvas on every single
+    // resize event, which fires continuously while a window is being dragged.
+    resizeTimer = window.setTimeout(function () {
+      sizeHero(); seedParticles(); drawHero();
+      sizeSim();
+      picker.x = dock2.x; picker.y = dock2.y;
+      drawSim();
+    }, 180);
+  });
+
+  // Both canvases are measured from their parent boxes, and those boxes are sized by
+  // text that is still rendering in the fallback face at first paint. Re-measure once
+  // the real faces are in, or the hero canvas keeps the fallback's height.
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(function () {
+      sizeHero(); drawHero();
+      sizeSim(); drawSim();
+    });
+  }
+
+  /* =========================================================================
+     10. PROJECT PLAN EXPORT
+     ========================================================================= */
+  function li(main, sub) {
+    var el = document.createElement('li');
+    var b = document.createElement('div');
+    b.style.fontWeight = '700';
+    b.style.textTransform = 'uppercase';
+    b.textContent = main;
+    el.appendChild(b);
+    if (sub) {
+      var s = document.createElement('div');
+      s.style.color = '#777';
+      s.textContent = sub;
+      el.appendChild(s);
+    }
+    return el;
+  }
+
+  function emptyLi(text) {
+    var el = document.createElement('li');
+    el.style.color = '#999';
+    el.style.fontStyle = 'italic';
+    el.style.gridColumn = '1 / -1';
+    el.textContent = text;
+    return el;
+  }
+
+  $('#exportBtn').addEventListener('click', function () {
+    var now = new Date();
+    var pad = function (n) { return String(n).padStart(2, '0'); };
+    $('#reportDate').textContent = pad(now.getDate()) + '/' + pad(now.getMonth() + 1) + '/' + now.getFullYear();
+
+    $('#reportManual').textContent = $('#hoursDisplay').textContent + '/uge';
+    $('#reportTeam').textContent = String(parseInt(empInput.value, 10) || 0);
+    $('#reportSavings').innerHTML = $('#savingsResult').innerHTML;
+
+    var cl = $('#reportCoursesList');
+    cl.textContent = '';
+    if (selectedCourses.length) {
+      selectedCourses.forEach(function (name) {
+        // Read the code off the button's own dataset rather than walking to a
+        // sibling element, which broke whenever the markup was rearranged.
+        var btn = $('.course__tick[data-course="' + name.replace(/"/g, '\\"') + '"]');
+        cl.appendChild(li(name, btn ? btn.dataset.code : ''));
+      });
+    } else {
+      cl.appendChild(emptyLi('Ingen specifikke kurser valgt.'));
+    }
+
+    var sl = $('#reportServices');
+    sl.textContent = '';
+    var chosen = services.filter(function (s) { return s.selected; });
+    if (chosen.length) {
+      chosen.forEach(function (s) { sl.appendChild(li(s.title, '')); });
+    } else {
+      sl.appendChild(emptyLi('Ingen kernemoduler valgt.'));
+    }
+
+    window.print();
+  });
+
+  updatePlanCount();
+
+  /* =========================================================================
+     11. CONTACT FORM
+     -------------------------------------------------------------------------
+     The previous handler called event.preventDefault() and then alert()ed that an
+     engineer would be in touch — while discarding every field. On a lead-generation
+     page that was the single most expensive defect present.
+     ========================================================================= */
+  var form = $('#contactForm');
+  var statusEl = $('#cStatus');
+  var submitBtn = $('#cSubmit');
+  var submitText = $('#cSubmitText');
+  var emailEl = $('#cEmail');
+  var emailErr = $('#cEmailErr');
+
+  function showStatus(kind, html) {
+    statusEl.hidden = false;
+    statusEl.className = 'form__status form__status--' + kind;
+    statusEl.innerHTML = html;
+  }
+
+  function validEmail(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v); }
+
+  emailEl.addEventListener('blur', function () {
+    if (emailEl.value && !validEmail(emailEl.value)) {
+      emailEl.setAttribute('aria-invalid', 'true');
+      emailErr.textContent = 'Det ser ikke ud til at være en gyldig mailadresse.';
+    } else {
+      emailEl.removeAttribute('aria-invalid');
+      emailErr.textContent = '';
+    }
+  });
+
+  function mailtoFallback(data) {
+    var body =
+      'Navn: ' + data.firstName + ' ' + data.lastName + '\n' +
+      'Mail: ' + data.email + '\n' +
+      'Virksomhed: ' + (data.company || '-') + '\n' +
+      'Telefon: ' + (data.phone || '-') + '\n' +
+      'Emne: ' + data.topic + '\n\n' +
+      (data.message || '');
+    window.location.href = 'mailto:' + FALLBACK_EMAIL +
+      '?subject=' + encodeURIComponent('Henvendelse fra standardize.dk – ' + data.topic) +
+      '&body=' + encodeURIComponent(body);
+  }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    var fd = new FormData(form);
+    var data = {};
+    fd.forEach(function (v, k) { data[k] = String(v).trim(); });
+
+    if (data._gotcha) return;               // automated submission
+    if (!data.firstName || !data.lastName) { showStatus('bad', 'Udfyld venligst navn.'); return; }
+    if (!validEmail(data.email)) {
+      emailEl.setAttribute('aria-invalid', 'true');
+      emailErr.textContent = 'Det ser ikke ud til at være en gyldig mailadresse.';
+      emailEl.focus();
+      return;
+    }
+
+    if (FORM_ENDPOINT.indexOf('PASTE_YOUR_FORM_ID') !== -1) {
+      showStatus('ok', 'Vi åbner dit mailprogram med beskeden klar. Send den, så vender vi tilbage inden for én arbejdsdag.');
+      mailtoFallback(data);
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitText.textContent = 'Sender …';
+    statusEl.hidden = true;
+
+    fetch(FORM_ENDPOINT, {
+      method: 'POST',
+      body: fd,
+      headers: { 'Accept': 'application/json' }
+    }).then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      form.reset();
+      showStatus('ok', '<b>Modtaget.</b> Tak – vi vender tilbage til ' +
+        data.email.replace(/[<>&]/g, '') + ' inden for én arbejdsdag.');
+    }).catch(function () {
+      showStatus('bad',
+        'Beskeden kunne ikke sendes lige nu. Skriv i stedet direkte til ' +
+        '<a href="mailto:' + FALLBACK_EMAIL + '" style="text-decoration:underline">' + FALLBACK_EMAIL + '</a> ' +
+        'eller ring på <a href="tel:+4526477774" style="text-decoration:underline">+45 26 47 77 74</a>.');
+    }).finally(function () {
+      submitBtn.disabled = false;
+      submitText.textContent = 'Start dialogen';
+    });
+  });
+
+})();
+</script>
+
+</body>
+</html>
